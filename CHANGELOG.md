@@ -8,6 +8,26 @@ version is pinned in `dataset/VERSION` and stamped into every export as
 
 ## [Unreleased]
 
+### Kataria 1994 pediatric propofol — a live Kataria-vs-Paedfusor divergence (2026-06-09)
+- **`hypnotics_iv.propofol.kataria_1994`** executable kernel completes the spec's
+  named pediatric pair (Kataria/Paedfusor, spec §1). Weight-proportional
+  volumes/clearances with the distinctive age term on V2
+  (`V2 = 0.78·WGT + 3.1·AGE − 16`); PK-only (the 1994 disposition study published no
+  ke0). Transcribed from the standard published parameter set (same STANPUMP/Shafer
+  lineage as Minto — Shafer is a Kataria co-author) and checked to reproduce the
+  reference child (23 kg, 7 y: V1 9.43 L, V2 23.64 L). Tier C (single cohort,
+  n=53, ages 3–11 y); `review_status` **unverified** pending human PDF confirmation
+  of every covariate equation, especially the V2 age term — the field most prone to
+  transcription error, and so flagged for the verifier.
+- **Pediatric model-divergence is now live:** for a child the view compares Kataria
+  vs Paedfusor vs Eleveld on plasma — Kataria and Paedfusor are both in-envelope yet
+  peak at 4.88 vs 4.36 µg/mL, making the "Kataria vs Paedfusor" question (a standard
+  pediatric-TCI research comparison) measurable. The `pediatric.png` figure
+  regenerates to show all three.
+- 19 models · 17 executable kernels. New citation `kataria-1994-propofol-pediatric`.
+- Alfentanil/fentanyl stay deferred (contested parameterizations); Kataria differs —
+  its parameters are consistent across the quality literature, like Paedfusor's.
+
 ### Accuracy in the divergence view — connect performance to model-selection (2026-06-09)
 - The model-divergence view (`hypnos compare` + dashboard) now reports each
   included model's **published in-envelope MDAPE** next to its curve, so it answers

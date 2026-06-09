@@ -113,6 +113,32 @@ def propofol_paedfusor_2005(patient: dict) -> MicroParams:
 
 
 # --------------------------------------------------------------------------- #
+# Propofol — Kataria (1994): pediatric, weight-proportional with an age term on V2
+# --------------------------------------------------------------------------- #
+def propofol_kataria_1994(patient: dict) -> MicroParams:
+    """Kataria 1994 pediatric propofol PK model (children 3-11 y).
+
+    The canonical pediatric counterpart that the literature compares head-to-head
+    with Paedfusor. Weight-proportional volumes/clearances with the distinctive
+    age term on V2. Transcribed from the standard published parameter set (same
+    STANPUMP/Shafer lineage as Minto); PK-only (no published ke0). The model
+    record's ``review_status`` remains ``unverified`` pending human PDF confirmation
+    of every covariate equation, especially the V2 age term.
+    """
+    wgt = _req(patient, "weight")
+    age = _req(patient, "age")
+    V1 = 0.41 * wgt
+    V2 = 0.78 * wgt + 3.1 * age - 16.0
+    V3 = 6.9 * wgt
+    Cl1 = 0.035 * wgt
+    Cl2 = 0.077 * wgt
+    Cl3 = 0.026 * wgt
+    return MicroParams.from_volumes_clearances(
+        V1=V1, Cl1=Cl1, V2=V2, Cl2=Cl2, V3=V3, Cl3=Cl3, ke0=0.0
+    )
+
+
+# --------------------------------------------------------------------------- #
 # Dexmedetomidine — Hannivoort (2015): allometric three-compartment
 # --------------------------------------------------------------------------- #
 def dexmedetomidine_hannivoort_2015(patient: dict) -> MicroParams:
@@ -296,6 +322,7 @@ KERNELS: Dict[str, KernelFn] = {
     "propofol_marsh_1991": propofol_marsh_1991,
     "propofol_schnider_1998": propofol_schnider_1998,
     "propofol_paedfusor_2005": propofol_paedfusor_2005,
+    "propofol_kataria_1994": propofol_kataria_1994,
     "propofol_eleveld_2018": propofol_eleveld_2018,
     "remifentanil_minto_1997": remifentanil_minto_1997,
     "remifentanil_eleveld_2017": remifentanil_eleveld_2017,

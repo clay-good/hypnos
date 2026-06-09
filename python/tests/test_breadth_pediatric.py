@@ -5,6 +5,7 @@ import hypnos
 
 DEX = "alpha2_agonists.dexmedetomidine.hannivoort_2015"
 PAEDFUSOR = "hypnotics_iv.propofol.paedfusor_2005"
+KATARIA = "hypnotics_iv.propofol.kataria_1994"
 SCHNIDER = "hypnotics_iv.propofol.schnider_1998"
 MARSH = "hypnotics_iv.propofol.marsh_1991"
 ELEVELD = "hypnotics_iv.propofol.eleveld_2018"
@@ -45,6 +46,36 @@ def test_paedfusor_pediatric_bolus(ds):
     assert res.tier == "B"
     assert res.warnings == []
     assert abs(res.cp[0] - 40.0 / (0.4584 * 20)) < 1e-6
+
+
+def test_kataria_reference_child_parameters(ds):
+    # the kernel reproduces the standard published Kataria parameters at a 23 kg, 7 y
+    # reference child: V1 = 0.41*23 = 9.43 L, V2 = 0.78*23 + 3.1*7 - 16 = 23.64 L
+    from hypnos.export.registry import propofol_kataria_1994
+    p = propofol_kataria_1994(dict(age=7, weight=23))
+    assert abs(p.V1 - 9.43) < 1e-9
+    assert abs(p.derived["V2"] - 23.64) < 1e-9
+    assert p.ke0 == 0.0          # PK-only (no published ke0)
+
+
+def test_kataria_paedfusor_diverge_for_a_child(ds):
+    # the named pediatric pair: both in-envelope for a child, but they disagree on
+    # plasma — exactly the "Kataria vs Paedfusor" question the literature asks.
+    child = dict(age=7, weight=23, height=122, sex="M")
+    cmp = hypnos.compare(ds, drug="propofol", patient=child, schedule=PED_SCHED, t=T)
+    included = {r.model_id for r in cmp.included}
+    assert KATARIA in included and PAEDFUSOR in included
+    kat = next(r for r in cmp.included if r.model_id == KATARIA)
+    pae = next(r for r in cmp.included if r.model_id == PAEDFUSOR)
+    assert abs(kat.cp_peak - pae.cp_peak) > 0.1     # a real, measurable divergence
+    assert cmp.divergence["cp"]["max_rel"] > 0      # plasma spread is reported
+
+
+def test_kataria_in_adult_is_extrapolation(ds):
+    res = hypnos.simulate(ds, KATARIA, patient=ADULT, schedule=PED_SCHED, t=T)
+    assert res.tier == "D"
+    assert res.excluded
+    assert any("EXTRAPOLATION" in w for w in res.warnings)
 
 
 def test_adult_model_in_child_is_pediatric_extrapolation(ds):

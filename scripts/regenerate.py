@@ -35,7 +35,7 @@ IMAGES = ROOT / "docs" / "images"
 # Stable per-model colours so a model keeps its colour across figures.
 _COLORS = {
     "eleveld_2018": "#2ca02c", "marsh_1991": "#1f77b4", "schnider_1998": "#d62728",
-    "paedfusor_2005": "#9467bd",
+    "paedfusor_2005": "#9467bd", "kataria_1994": "#ff7f0e",
 }
 _DISCLAIMER = "NOT FOR CLINICAL USE"
 
@@ -160,8 +160,8 @@ def _fig_pediatric(ds, plt) -> None:
         ax.plot(t, e["result"].cp, lw=2, ls="--",
                 label=f"{name}  (tier {e['tier']} — greyed: {tag})")
     ax.set_title("Hypnos Phase C — pediatric propofol (6 y, 20 kg child)\n"
-                 "Paedfusor and the broad-envelope Eleveld cover the child; the adult-only "
-                 "models are explicit Tier-D extrapolations", fontsize=11)
+                 "The pediatric pair Kataria & Paedfusor + the broad-envelope Eleveld cover the "
+                 "child; the adult-only models are explicit Tier-D extrapolations", fontsize=11)
     ax.set_xlabel("time (min)"); ax.set_ylabel("propofol plasma conc. (µg/mL)")
     ax.legend(fontsize=9); ax.grid(alpha=0.25)
     fig.text(0.5, -0.02, f"{_DISCLAIMER} — research / education / simulation only",

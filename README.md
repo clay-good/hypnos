@@ -81,13 +81,14 @@ Phase C widens coverage beyond the propofol/remifentanil core — a new drug cla
 
 ![Pediatric propofol model divergence](docs/images/pediatric.png)
 
-For a 6-year-old, 20 kg child, **two** models are in-envelope and they tell a clean story: the dedicated pediatric **Paedfusor** (Tier B), and the broad-envelope general-purpose **Eleveld** (Tier A), which is built to span neonate→elderly and so correctly *covers the child by design* — the payoff of a wide derivation envelope. The two adult-only models, **Marsh and Schnider**, are greyed out and explicitly labeled *pediatric extrapolations*: an adult model used in a child is not predictive, so it is floored to Tier D. The labeling is symmetric: Paedfusor used in an adult is flagged as a pediatric-model extrapolation, and a 90-year-old outside dexmedetomidine's 18–70 y range is labeled a *geriatric extrapolation*.
+For a 6-year-old, 20 kg child, **three** models are in-envelope: the canonical pediatric pair **Kataria** (Tier C) and **Paedfusor** (Tier B) — the two models the pediatric-TCI literature routinely compares head-to-head ("Kataria vs Paedfusor") — plus the broad-envelope general-purpose **Eleveld** (Tier A), built to span neonate→elderly and so correctly *covering the child by design*. The two adult-only models, **Marsh and Schnider**, are greyed out and explicitly labeled *pediatric extrapolations*: an adult model used in a child is not predictive, so it is floored to Tier D. The labeling is symmetric: any pediatric model (Kataria, Paedfusor) used in an adult is flagged as a pediatric-model extrapolation, and a 90-year-old outside dexmedetomidine's 18–70 y range is labeled a *geriatric extrapolation*. Kataria and Paedfusor are both in-envelope yet disagree on plasma (peaks 4.88 vs 4.36 µg/mL here) — making the pediatric model-selection question measurable, the headline feature applied to children.
 
 ```text
 $ hypnos compare --drug propofol --age 6 --weight 20 --height 115 --sex M
-included (2):
+included (3):
   - hypnotics_iv.propofol.eleveld_2018         tier A  Ce peak 2.474 ug/mL   # broad envelope covers the child
-  - hypnotics_iv.propofol.paedfusor_2005       tier B  Cp peak 4.363 ug/mL   # dedicated pediatric model
+  - hypnotics_iv.propofol.kataria_1994         tier C  Cp peak 4.878 ug/mL   # canonical pediatric model
+  - hypnotics_iv.propofol.paedfusor_2005       tier B  Cp peak 4.363 ug/mL   # the other half of the pair
 excluded for envelope (2):
   - hypnotics_iv.propofol.marsh_1991      tier D  (... PEDIATRIC EXTRAPOLATION: age 6 y is below the
         model's derivation range (>= 16 y); an adult model used in a child is not predictive -> Tier D)
@@ -312,7 +313,7 @@ python scripts/regenerate.py                                  # regenerate every
 
 ## Current coverage (v0.1.0 — A/B complete · C/D/E core)
 
-Honest status. A is the propofol spine; B adds the dominant opioid and the interaction surface; C widens to a new drug class and pediatrics; D brings in the non-IV families; E hardens for release (COMBINE `.omex`, BibTeX, reproducibility, verified MDPE/MDAPE) ([roadmap](docs/specs/v0.1/spec.md#11-phased-roadmap)). **18 models · 9 drugs · 7 subsystems · 16 executable kernels · 9 export formats.**
+Honest status. A is the propofol spine; B adds the dominant opioid and the interaction surface; C widens to a new drug class and pediatrics; D brings in the non-IV families; E hardens for release (COMBINE `.omex`, BibTeX, reproducibility, verified MDPE/MDAPE) ([roadmap](docs/specs/v0.1/spec.md#11-phased-roadmap)). **19 models · 9 drugs · 7 subsystems · 17 executable kernels · 9 export formats.**
 
 | Model | Record | Kernel | Tier | Notes |
 | --- | --- | --- | --- | --- |
@@ -320,6 +321,7 @@ Honest status. A is the propofol spine; B adds the dominant opioid and the inter
 | Propofol PK — **Schnider 1998** | ✅ | ✅ executable | B | Age/weight/height/James-LBM; high-BMI failure mode encoded. |
 | Propofol PK — **Eleveld 2018** | ✅ | ✅ executable | A | General-purpose, broad envelope (neonate→obese elderly). Kernel transcribed from the published equations (cross-checked vs the `tci` R package), validated to reproduce the reference individual exactly; `review_status` stays **`unverified`** pending human PDF confirmation. |
 | Propofol PK — **Paedfusor 2005** | ✅ | ✅ executable | B | Pediatric (1–12 y); the Tier-D extrapolation showcase, in both directions. |
+| Propofol PK — **Kataria 1994** | ✅ | ✅ executable | C | Pediatric (3–11 y, n=53); the canonical "Kataria vs Paedfusor" pair. Weight-proportional with an age term on V2; PK-only. Transcribed from the standard published set (Shafer/STANPUMP lineage); `unverified`. |
 | Propofol PD — **BIS sigmoid** | ✅ | ✅ executable | C | Single-slope effect-site → BIS; composes onto any PK model and floors the tier to C. |
 | Propofol PD — **Eleveld two-slope BIS** | ✅ | ✅ executable | B | Validated PD companion to the Eleveld PK kernel; asymmetric Hill (γ=1.47 below Ce50, 1.89 above), age-corrected Ce50. A fully-Eleveld PK-PD BIS trajectory. |
 | Remifentanil PK — **Minto 1997** | ✅ | ✅ executable | B | Age + James-LBM; shares the high-BMI LBM failure mode; reported in ng/mL (the opioid convention). |
@@ -452,7 +454,7 @@ hypnos.validate_dataset(ds)                                           # -> list 
 | --- | --- | --- |
 | **A — Propofol spine** | Marsh/Schnider/Eleveld PK + `ke0` + propofol→BIS; reference kernels; NONMEM/PharmML/SBML/TCI-JSON; round-trip validation; divergence view | ✅ complete (Marsh + Schnider + Eleveld all executable; 3-way divergence view live) |
 | **B — Opioids + interaction** | remifentanil (Minto, Eleveld, Kim); propofol–remifentanil response surface; nlmixr2/rxode2 + Pumas export | ✅ complete (Minto + Eleveld + Kim all executable; propofol×remifentanil Greco surface; R + Julia export round-tripped) |
-| **C — Breadth** | dexmedetomidine, ketamine, midazolam, fentanyl family; pediatric models with explicit Tier-D labeling | ✅ core shipped (dexmedetomidine + Paedfusor executable with explicit pediatric/geriatric extrapolation labeling; fentanyl curated, kernel pending; ketamine/midazolam roadmap) |
+| **C — Breadth** | dexmedetomidine, ketamine, midazolam, fentanyl family; pediatric models with explicit Tier-D labeling | ✅ core shipped (dexmedetomidine + the pediatric pair Kataria & Paedfusor executable with explicit pediatric/geriatric extrapolation labeling and a live pediatric model-divergence; fentanyl curated, kernel pending; ketamine/midazolam roadmap) |
 | **D — Inhalational + NMB** | volatile MAC/partition/uptake; neuromuscular blockers + train-of-four; sugammadex reversal | ✅ core shipped (4 volatiles with MAC age-correction + additivity + solubility-driven wash-in (FA/FI) all executable; rocuronium seeded with TOF PD; rocuronium PK kernel + sugammadex binding kinetics pending) |
 | **E — Hardening** | external-validation MDPE/MDAPE backfill; COMBINE `.omex`; Zenodo DOI | ✅ core shipped (deterministic `.omex` + BibTeX exporters; `scripts/regenerate.py`; `.zenodo.json` + `CHANGELOG.md`; external-validation MDPE/MDAPE backfilled across both headline drugs + dexmedetomidine, citation-integrity-checked and surfaced via `hypnos performance`; minted DOI on first tagged release) |
 

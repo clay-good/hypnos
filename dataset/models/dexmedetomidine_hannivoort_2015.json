@@ -70,7 +70,11 @@
     "derivation_n": 18
   },
   "known_failure_modes": [],
-  "predictive_performance": [],
+  "predictive_performance": [
+    { "metric": "MDPE", "value": 5.6, "units": "%", "population": "external validation, sedated adults under spinal anesthesia (best of 9 published dexmedetomidine models)", "citation": "obara-2018-dexmed-validation" },
+    { "metric": "MDAPE", "value": 18.1, "units": "%", "population": "external validation, sedated adults under spinal anesthesia (best of 9 published dexmedetomidine models)", "citation": "obara-2018-dexmed-validation" },
+    { "metric": "wobble", "value": 6.2, "units": "%", "population": "external validation, sedated adults under spinal anesthesia", "citation": "obara-2018-dexmed-validation" }
+  ],
   "tier": "B",
   "extraction": {
     "review_status": "unverified",

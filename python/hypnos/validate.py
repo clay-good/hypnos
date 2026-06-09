@@ -72,6 +72,14 @@ def validate_dataset(ds: Optional[Dataset] = None) -> List[str]:
         for fm in m.known_failure_modes:
             if fm.citation and fm.citation not in known_citations:
                 problems.append(f"[cite] {m.id}: failure-mode cites unknown '{fm.citation}'")
+        # predictive-performance citations resolve when present (a performance
+        # number must be traceable to a source, never asserted bare — spec §5/§9)
+        for pp in m.predictive_performance:
+            cid = pp.get("citation")
+            if cid and cid not in known_citations:
+                problems.append(
+                    f"[cite] {m.id}: predictive_performance ({pp.get('metric')}) cites unknown '{cid}'"
+                )
 
         # record tier == worst contributing parameter tier (the "worst input wins" invariant)
         param_tiers = [p.tier for p in m.parameters]

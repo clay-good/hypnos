@@ -88,6 +88,8 @@
     }
   ],
   "predictive_performance": [
+    { "metric": "MDPE", "value": -17.3, "units": "%", "population": "in-envelope: cardiac surgery, pre-bypass (during CPB improves to MDPE -1.8%, MDAPE 14.0%)", "citation": "scherrer-2022-minto-cpb" },
+    { "metric": "MDAPE", "value": 24.6, "units": "%", "population": "in-envelope: cardiac surgery, pre-bypass", "citation": "scherrer-2022-minto-cpb" },
     { "metric": "MDPE", "value": -53.4, "units": "%", "population": "morbidly obese (out of envelope; original James-LBM set, maintenance) — quantifies the documented James-LBM failure mode", "citation": "lacolla-2010-minto-obese" },
     { "metric": "MDAPE", "value": 53.4, "units": "%", "population": "morbidly obese (out of envelope; original James-LBM set, maintenance) — clinically unacceptable, the authors' conclusion", "citation": "lacolla-2010-minto-obese" },
     { "metric": "divergence", "value": 3.3, "units": "%/h", "population": "morbidly obese (out of envelope; original James-LBM set, maintenance)", "citation": "lacolla-2010-minto-obese" },

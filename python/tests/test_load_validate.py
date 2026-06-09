@@ -35,6 +35,21 @@ def test_tier_invariant_detects_violation():
     assert worst_tier([p["tier"] for p in raw["parameters"]]) == "D"
 
 
+def test_validate_catches_dangling_predictive_performance_citation():
+    # A performance number must be traceable to a real citation (spec §5/§9):
+    # validate() flags a predictive_performance entry citing an unknown record.
+    # Deep-copy so we never mutate the process-wide cached dataset.
+    import copy
+
+    ds = copy.deepcopy(hypnos.load())
+    m = ds["opioids.remifentanil.minto_1997"]
+    m.raw.setdefault("predictive_performance", []).append(
+        {"metric": "MDAPE", "value": 99.0, "units": "%", "population": "x", "citation": "no-such-citation"}
+    )
+    problems = validate_dataset(ds)
+    assert any("no-such-citation" in p and "predictive_performance" in p for p in problems)
+
+
 def test_summary_counts():
     s = hypnos.summary(hypnos.load())
     assert s["n_models"] >= 4

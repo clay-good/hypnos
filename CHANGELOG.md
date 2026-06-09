@@ -8,6 +8,20 @@ version is pinned in `dataset/VERSION` and stamped into every export as
 
 ## [Unreleased]
 
+### Predictive-performance: extend coverage + citation guardrail (2026-06-09)
+- **Dexmedetomidine (Hannivoort)** gains its first metrics — best of nine published
+  models in a spinal-anesthesia external validation (Obara 2018, *J Anesth*: MDPE
+  5.6%, MDAPE 18.1%, wobble 6.2%).
+- **Minto remifentanil** now carries an *in-envelope* number alongside its
+  out-of-envelope failure-mode number: MDPE −17.3% / MDAPE 24.6% in cardiac surgery
+  (Scherrer 2022, *BJA*), against MDAPE 53.4% in morbid obesity (La Colla 2010). The
+  record now shows both sides of the envelope at once. Two new citation records.
+- **Integrity guardrail:** `hypnos validate` now checks that every
+  `predictive_performance` citation resolves to a real citation record (it already
+  checked record/parameter/failure-mode citations — performance was the one
+  un-guarded path; a typo'd source would previously have passed). Backfilled the
+  symmetry across both headline drugs and the α₂-agonist class.
+
 ### Predictive-performance backfill + surfacing (2026-06-09)
 - **External-validation MDPE/MDAPE backfill** (the named-incomplete Phase E item;
   spec §5 "tier assignment can be partly numeric"). Two new citation records back

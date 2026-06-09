@@ -337,6 +337,7 @@ $ hypnos verify hypnotics_iv.propofol.schnider_1998 --markdown   # copy-pasteabl
 | **Age extrapolations are named, not just flagged** | "Out of envelope" is generic; "pediatric extrapolation of an adult model" is the actual clinical risk the spec calls out. The label is first-class and tested. |
 | **One internal concentration unit (µg/mL), conventional units for display** | The kernels work in µg/mL (= mg/L) throughout; each drug declares its conventional unit so output reads naturally (ng/mL for opioids and dexmedetomidine). The CLI likewise uses drug-appropriate default doses — a 2 mg/kg propofol regimen applied to remifentanil would be a ~1000× overdose. |
 | **No TCI engine, no dosing output, ever** | The line between "research simulator" and "unregulated medical device" is exactly the inverse-control step. Hypnos stays on the safe side by construction. |
+| **Onset (`tpeak`) is in scope; context-sensitive half-time is not** | Time-to-peak-effect is a pure forward characterization (bolus → peak Ce, where Ce = Cp by definition) — `hypnos tpeak`. Classic context-sensitive half-time needs a target-controlled infusion holding plasma *constant*, i.e. inverse control, so it is deliberately excluded. The boundary even shapes which derived metrics exist. |
 | **Exact matrix-exponential solver** | Closed-form per segment for a linear time-invariant system; faster and more accurate than stepwise integration, and the augmented form handles `ke0 = 0` without a singular inverse. |
 
 ## Repository layout
@@ -354,6 +355,7 @@ hypnos/
 │   ├── reference.py             # pure-NumPy/SciPy PK/PD kernels
 │   ├── simulate.py              # forward simulation + compare + interaction (no inverse control)
 │   ├── inhalational.py          # volatile MAC API (age correction, fraction, N2O additivity)
+│   ├── analysis.py              # derived characterizations (time-to-peak-effect; forward-only)
 │   ├── verification.py          # verification checklists + coverage (guides humans; never promotes)
 │   ├── cli.py
 │   └── export/                  # registry · annotate · nonmem · pharmml · sbml · tci_json · rxode2 · pumas · bibtex · csv_flat · combine(.omex)
@@ -379,6 +381,7 @@ hypnos simulate <model_id> --age .. --weight .. --height .. --sex .. [--pd <pd_i
 hypnos compare  --drug propofol --age .. --weight .. --height .. --sex ..
 hypnos interact --age .. --weight .. --height .. --sex ..             # propofol+remifentanil synergy
 hypnos mac --agent sevoflurane --age 75 [--end-tidal 1.2] [--n2o 50]  # age-corrected MAC + fraction
+hypnos tpeak <model_id> --age .. --weight .. --height .. --sex ..    # time to peak effect (onset)
 hypnos export   --format {nonmem,pharmml,sbml,tci_json,rxode2,pumas,bibtex,csv,omex} --output exports/ [--model <id>]
 python scripts/regenerate.py                                          # regenerate all exports + figures
 streamlit run dashboard/app.py
@@ -392,6 +395,7 @@ hypnos.simulate(ds, model_id, patient=..., schedule=..., t=...)       # forward 
 hypnos.compare(ds, drug=..., patient=..., schedule=..., t=...)        # divergence view
 hypnos.simulate_interaction(ds, surface_id, pk_a=.., pk_b=.., ...)    # two-drug response surface
 hypnos.mac(ds, agent_id, age=.., end_tidal_pct=.., n2o_end_tidal_pct=..)  # volatile MAC + fraction
+hypnos.time_to_peak_effect(ds, model_id, patient=..)                 # onset: tpeak after a bolus
 res.cp_peak_display, res.concentration_unit                          # conventional units (ng/mL for opioids)
 hypnos.verification_summary(ds)                                       # coverage + next-to-verify
 hypnos.model_verification(ds, model_id)                              # field-by-field checklist object

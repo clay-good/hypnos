@@ -23,6 +23,7 @@ from . import CLINICAL_USE, __version__
 from .export import FORMATS, bibtex, combine, csv_flat, export_model
 from .filter import summary
 from .load import load
+from .analysis import time_to_peak_effect
 from .inhalational import mac as mac_eval
 from .simulate import compare as compare_models
 from .simulate import simulate, simulate_interaction
@@ -200,6 +201,22 @@ def cmd_verify(args) -> int:
     return 0
 
 
+def cmd_tpeak(args) -> int:
+    ds = load()
+    patient = _patient_from_args(args)
+    try:
+        pe = time_to_peak_effect(ds, args.model, patient=patient)
+    except (ValueError, NotImplementedError) as e:
+        print(str(e), file=sys.stderr)
+        return 2
+    print(f"model: {pe.model_id}   tier {pe.tier}")
+    print(f"time to peak effect (after a bolus): {pe.tpeak_min:.2f} min   (ke0 {pe.ke0:.3f} /min)")
+    print(f"Ce/Cp at peak: {pe.ce_cp_ratio_at_peak:.3f}  (1.0 by definition: dCe/dt=0 when Ce=Cp)")
+    for w in pe.warnings:
+        print("  - " + w)
+    return 0
+
+
 def cmd_mac(args) -> int:
     ds = load()
     agent = args.agent
@@ -300,6 +317,11 @@ def build_parser() -> argparse.ArgumentParser:
     ip.add_argument("--surface", default="interactions.propofol_remifentanil.greco_bis")
     _add_patient_args(ip)
     ip.set_defaults(func=cmd_interact)
+
+    tp = sub.add_parser("tpeak", help="time to peak effect (onset) for a PK model with a ke0 link")
+    tp.add_argument("model")
+    _add_patient_args(tp)
+    tp.set_defaults(func=cmd_tpeak)
 
     mp = sub.add_parser("mac", help="age-corrected MAC for a volatile agent")
     mp.add_argument("--agent", required=True, help="agent name (sevoflurane) or full model id")

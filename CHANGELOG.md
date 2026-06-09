@@ -8,6 +8,18 @@ version is pinned in `dataset/VERSION` and stamped into every export as
 
 ## [Unreleased]
 
+### Time-to-peak-effect (onset) analysis (2026-06-09)
+- **`hypnos.analysis.time_to_peak_effect`** + `hypnos tpeak` CLI — the spec's
+  `effect_link` "time-to-peak-effect parameterization" (§3). Pure forward
+  simulation of a bolus; the effect-site peak is where dCe/dt=0, i.e. Ce=Cp
+  (used as an internal sanity check). Dose-independent; envelope-enforced;
+  requires a ke0 link (raises for PK-only models like Kim/Paedfusor). Validated:
+  Schnider 1.54 min and Minto 1.61 min match the published ~1.6 min; lower ke0
+  gives a later peak (Marsh 3.92 > Schnider 1.54 min).
+- Documented why **context-sensitive half-time is out of scope**: it requires a
+  target-controlled infusion (constant-plasma), i.e. inverse control, which
+  Hypnos forbids (§10). The safety boundary shapes which derived metrics exist.
+
 ### CSV flat-parameter exporter (2026-06-09)
 - **`csv` exporter** (`hypnos.export.csv_flat`) — completes the spec's export
   matrix (§7 "CSV / BibTeX"). One row per parameter across all models, with the

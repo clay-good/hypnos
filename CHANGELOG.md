@@ -8,6 +8,20 @@ version is pinned in `dataset/VERSION` and stamped into every export as
 
 ## [Unreleased]
 
+### Remifentanil Eleveld 2017 kernel (2026-06-09)
+- **`remifentanil_eleveld_2017` executable kernel** — completes the spec's named
+  remifentanil pair (Minto + Eleveld). Allometric (fat-free-mass) general-purpose
+  model; transcribed from the published equations, cross-checked against the `tci`
+  R package, and validated to reproduce the reference individual exactly: V1=5.81,
+  V2=8.82, V3=5.03, CL=2.58, Q2=1.72, Q3=0.124, ke0=1.09. `review_status` stays
+  `unverified`.
+- **Bug found + fixed:** the `tci` source computes V3 from `V2ref` (8.82), which
+  does not reproduce the published V3 reference (5.03); Hypnos uses `V3ref`,
+  matching the source paper. Documented in the kernel and the record.
+- The model-divergence view now works for remifentanil: Minto and Eleveld
+  cross-validate for adults (~5% effect-site spread), and Eleveld's broad envelope
+  stays valid for the obese/pediatric where Minto is greyed. 16 models, 14 kernels.
+
 ### Eleveld propofol kernel (2026-06-08)
 - **`propofol_eleveld_2018` executable kernel** — the general-purpose model is no
   longer kernel-pending. Transcribed from the published equations and

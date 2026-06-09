@@ -1,0 +1,90 @@
+{
+  "id": "opioids.remifentanil.eleveld_2017",
+  "subsystem": "opioids",
+  "drug": { "name": "remifentanil", "unii": "P10582JYYK", "atc": "N01AH06" },
+  "purpose": "pk",
+  "label": "Remifentanil PK — Eleveld (2017, general-purpose)",
+  "structure": {
+    "compartments": 3,
+    "parameterization": "volumes_clearances",
+    "elimination": "linear",
+    "effect_compartment": true
+  },
+  "kernel": { "implemented": true, "function": "remifentanil_eleveld_2017" },
+  "parameters": [
+    {
+      "symbol": "V1", "label": "central volume (reference individual)",
+      "value": { "central": 5.81, "low": null, "high": null, "units": "L" },
+      "covariate_model": "V1 = 5.81 * (FFM/FFMref) * exp(-0.00554*(AGE-35)); FFM via Al-Sallami 2015",
+      "tier": "A",
+      "extraction": { "review_status": "unverified", "tier_rationale": "Allometric (fat-free-mass) general-purpose model; reference 35 y, 70 kg, 170 cm, male. Kernel validated to reproduce the reference individual; transcription pending human PDF confirmation.", "source_locator": "Eleveld 2017, Table 2" },
+      "primary_citation": "eleveld-2017-remifentanil"
+    },
+    {
+      "symbol": "V2", "label": "rapid peripheral volume (reference)",
+      "value": { "central": 8.82, "low": null, "high": null, "units": "L" },
+      "covariate_model": "V2 = 8.82 * (FFM/FFMref) * exp(-0.00327*(AGE-35)) * KSEX",
+      "tier": "A",
+      "extraction": { "review_status": "unverified", "source_locator": "Eleveld 2017, Table 2" },
+      "primary_citation": "eleveld-2017-remifentanil"
+    },
+    {
+      "symbol": "V3", "label": "slow peripheral volume (reference)",
+      "value": { "central": 5.03, "low": null, "high": null, "units": "L" },
+      "covariate_model": "V3 = 5.03 * (FFM/FFMref) * exp(-0.0315*(AGE-35)) * exp(-0.0260*(WGT-70))",
+      "tier": "A",
+      "extraction": { "review_status": "unverified", "tier_rationale": "Hypnos uses V3ref=5.03 (the published reference); an open R implementation transcribes V3 from V2ref, which does not reproduce the paper's reference value.", "source_locator": "Eleveld 2017, Table 2" },
+      "primary_citation": "eleveld-2017-remifentanil"
+    },
+    {
+      "symbol": "Cl1", "label": "metabolic (esterase) clearance (reference)",
+      "value": { "central": 2.58, "low": null, "high": null, "units": "L/min" },
+      "covariate_model": "CL = 2.58 * (FFM/FFMref)^0.75 * (KMAT/KMATref) * KSEX * exp(-0.00327*(AGE-35)); KMAT=sigmoid(WGT;E50=2.88,lambda=2)",
+      "tier": "A",
+      "extraction": { "review_status": "unverified", "source_locator": "Eleveld 2017, Table 2" },
+      "primary_citation": "eleveld-2017-remifentanil"
+    },
+    {
+      "symbol": "Cl2", "label": "rapid intercompartmental clearance (reference)",
+      "value": { "central": 1.72, "low": null, "high": null, "units": "L/min" },
+      "covariate_model": "Q2 = 1.72 * (V2/8.82)^0.75 * exp(-0.00554*(AGE-35)) * KSEX",
+      "tier": "A",
+      "extraction": { "review_status": "unverified", "source_locator": "Eleveld 2017, Table 2" },
+      "primary_citation": "eleveld-2017-remifentanil"
+    },
+    {
+      "symbol": "Cl3", "label": "slow intercompartmental clearance (reference)",
+      "value": { "central": 0.124, "low": null, "high": null, "units": "L/min" },
+      "covariate_model": "Q3 = 0.124 * (V3/5.03)^0.75 * exp(-0.00554*(AGE-35))",
+      "tier": "A",
+      "extraction": { "review_status": "unverified", "source_locator": "Eleveld 2017, Table 2" },
+      "primary_citation": "eleveld-2017-remifentanil"
+    },
+    {
+      "symbol": "ke0", "label": "effect-site equilibration rate constant (reference)",
+      "value": { "central": 1.09, "low": null, "high": null, "units": "1/min" },
+      "covariate_model": "ke0 = 1.09 * exp(-0.0289*(AGE-35))",
+      "tier": "A",
+      "extraction": { "review_status": "unverified", "tier_rationale": "Fast effect-site equilibration (ke0 ~1.09); markedly faster than Minto (~0.6), a key source of Minto-vs-Eleveld effect-site divergence.", "source_locator": "Eleveld 2017 (PD)" },
+      "primary_citation": "eleveld-2017-remifentanil"
+    }
+  ],
+  "covariates": { "required": ["age", "weight", "height", "sex"], "optional": [], "lbm_equation": "al_sallami_2015" },
+  "applicability_envelope": {
+    "age_years": { "min": 0, "max": 88 },
+    "weight_kg": { "min": 3, "max": 160 },
+    "bmi_kg_m2": { "min": 12, "max": 52 },
+    "populations": ["neonate", "child", "adult", "elderly", "obese"],
+    "derivation_n": 131
+  },
+  "known_failure_modes": [],
+  "predictive_performance": [],
+  "tier": "A",
+  "extraction": {
+    "review_status": "unverified",
+    "tier_rationale": "General-purpose allometric remifentanil model spanning neonates to the obese elderly; the broad-envelope counterpart to Minto. Kernel transcribed from the published equations and cross-checked against the tci R package (with a V3ref correction; see V3 note), validated to reproduce the reference individual exactly. review_status remains UNVERIFIED: an LLM transcription is not a human PDF verification.",
+    "source_locator": "Eleveld 2017, Table 2"
+  },
+  "primary_citation": "eleveld-2017-remifentanil",
+  "notes": "Kernel = remifentanil_eleveld_2017. Concentrations internally in ug/mL (= ng/mL / 1000). FFM via Al-Sallami 2015. Pairs with Minto for a remifentanil model-divergence comparison (Eleveld's faster ke0 vs Minto's age-dependent ke0). Validated reference (35 y, 70 kg, 170 cm, male): V1=5.81, V2=8.82, V3=5.03, CL=2.58, Q2=1.72, Q3=0.124, ke0=1.09."
+}

@@ -199,12 +199,72 @@ def propofol_eleveld_2018(patient: dict) -> MicroParams:
     )
 
 
+# --------------------------------------------------------------------------- #
+# Remifentanil — Eleveld (2017): allometric general-purpose model
+# --------------------------------------------------------------------------- #
+def remifentanil_eleveld_2017(patient: dict) -> MicroParams:
+    """Eleveld 2017 allometric remifentanil PK model.
+
+    Transcribed from the published equations (cross-checked against the ``tci`` R
+    package, ``pkmod_eleveld_remi``) and validated to reproduce the reference
+    individual (35 y, 70 kg, 170 cm, male): V1=5.81, V2=8.82, V3=5.03, CL=2.58,
+    Q2=1.72, Q3=0.124, ke0=1.09.
+
+    NOTE: the ``tci`` source computes V3 from ``V2ref`` (8.82), which does not
+    reproduce the published V3 reference (5.03); that is an apparent transcription
+    typo in ``tci``. Hypnos uses ``V3ref`` (5.03), which matches the source paper's
+    reference individual. ``review_status`` remains ``unverified`` pending human
+    PDF confirmation.
+    """
+    age = _req(patient, "age")
+    wgt = _req(patient, "weight")
+    hgt = _req(patient, "height")
+    male = 1.0 if str(patient.get("sex", "M")).upper().startswith("M") else 0.0
+
+    AGEref, TBWref, HGTref = 35.0, 70.0, 170.0
+    bmi = 10000.0 * wgt / (hgt * hgt)
+    bmiref = 10000.0 * TBWref / (HGTref * HGTref)
+
+    if male:
+        ffm = (0.88 + (1 - 0.88) / (1 + (age / 13.4) ** (-12.7))) * (9270 * wgt) / (6680 + 216 * bmi)
+    else:
+        ffm = (1.11 + (1 - 1.11) / (1 + (age / 7.1) ** (-1.1))) * (9270 * wgt) / (8780 + 244 * bmi)
+    ffm_ref = (0.88 + (1 - 0.88) / (1 + (AGEref / 13.4) ** (-12.7))) * (9270 * TBWref) / (6680 + 216 * bmiref)
+
+    def faging(x: float) -> float:
+        return math.exp(x * (age - AGEref))
+
+    def fsig(x: float, e50: float, lam: float) -> float:
+        return x ** lam / (x ** lam + e50 ** lam)
+
+    th = [None, 2.88, -0.00554, -0.00327, -0.0315, 0.470, -0.0260]
+    V1ref, V2ref, V3ref, CLref, Q2ref, Q3ref = 5.81, 8.82, 5.03, 2.58, 1.72, 0.124
+
+    size = ffm / ffm_ref
+    kmat = fsig(wgt, th[1], 2.0)
+    kmat_ref = fsig(TBWref, th[1], 2.0)
+    ksex = 1.0 if male else (1 + th[5] * fsig(age, 12.0, 6.0) * (1 - fsig(age, 45.0, 6.0)))
+
+    V1 = V1ref * size * faging(th[2])
+    V2 = V2ref * size * faging(th[3]) * ksex
+    V3 = V3ref * size * faging(th[4]) * math.exp(th[6] * (wgt - 70.0))
+    CL = CLref * size ** 0.75 * (kmat / kmat_ref) * ksex * faging(th[3])
+    Q2 = Q2ref * (V2 / V2ref) ** 0.75 * faging(th[2]) * ksex
+    Q3 = Q3ref * (V3 / V3ref) ** 0.75 * faging(th[2])
+    ke0 = 1.09 * faging(-0.0289)
+
+    return MicroParams.from_volumes_clearances(
+        V1=V1, Cl1=CL, V2=V2, Cl2=Q2, V3=V3, Cl3=Q3, ke0=ke0
+    )
+
+
 KERNELS: Dict[str, KernelFn] = {
     "propofol_marsh_1991": propofol_marsh_1991,
     "propofol_schnider_1998": propofol_schnider_1998,
     "propofol_paedfusor_2005": propofol_paedfusor_2005,
     "propofol_eleveld_2018": propofol_eleveld_2018,
     "remifentanil_minto_1997": remifentanil_minto_1997,
+    "remifentanil_eleveld_2017": remifentanil_eleveld_2017,
     "dexmedetomidine_hannivoort_2015": dexmedetomidine_hannivoort_2015,
 }
 

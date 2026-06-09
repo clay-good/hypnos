@@ -47,6 +47,8 @@ excluded for envelope (2):
         -> tiered down to D; FAILURE MODE [James LBM term inverts] -> tiered down to D)
 ```
 
+The same view works for **remifentanil** (`--drug remifentanil`): Minto and Eleveld agree closely for a standard adult (a useful cross-check, ~5% effect-site spread), but Eleveld's broad fat-free-mass envelope stays valid for the obese and pediatric patients where Minto's adult/James-LBM envelope is correctly greyed out. Agreement where both are valid, honest exclusion where one is not: exactly what a model-selection instrument should show.
+
 ## Drug–drug interaction: the propofol–remifentanil synergy surface
 
 The clinically dominant TIVA pairing is propofol + remifentanil, and their hypnotic interaction is **supra-additive** (synergistic): adding remifentanil markedly deepens hypnosis at the same propofol dose. Hypnos models this with a Greco-type response surface and a two-drug forward simulator (`simulate_interaction`), composing two independent PK models into one effect.
@@ -278,7 +280,7 @@ python scripts/regenerate.py                                  # regenerate every
 
 ## Current coverage (v0.1.0 — A/B complete · C/D/E core)
 
-Honest status. A is the propofol spine; B adds the dominant opioid and the interaction surface; C widens to a new drug class and pediatrics; D brings in the non-IV families; E hardens for release (COMBINE `.omex`, BibTeX, reproducibility, verified MDPE/MDAPE) ([roadmap](docs/specs/v0.1/spec.md#11-phased-roadmap)). **15 models · 9 drugs · 7 subsystems · 13 executable kernels · 8 export formats.**
+Honest status. A is the propofol spine; B adds the dominant opioid and the interaction surface; C widens to a new drug class and pediatrics; D brings in the non-IV families; E hardens for release (COMBINE `.omex`, BibTeX, reproducibility, verified MDPE/MDAPE) ([roadmap](docs/specs/v0.1/spec.md#11-phased-roadmap)). **16 models · 9 drugs · 7 subsystems · 14 executable kernels · 8 export formats.**
 
 | Model | Record | Kernel | Tier | Notes |
 | --- | --- | --- | --- | --- |
@@ -288,6 +290,7 @@ Honest status. A is the propofol spine; B adds the dominant opioid and the inter
 | Propofol PK — **Paedfusor 2005** | ✅ | ✅ executable | B | Pediatric (1–12 y); the Tier-D extrapolation showcase, in both directions. |
 | Propofol PD — **BIS sigmoid** | ✅ | ✅ executable | C | Effect-site → BIS; composes onto any PK model and floors the tier to C. |
 | Remifentanil PK — **Minto 1997** | ✅ | ✅ executable | B | Age + James-LBM; shares the high-BMI LBM failure mode; concentrations in µg/mL (= ng/mL ÷ 1000). |
+| Remifentanil PK — **Eleveld 2017** | ✅ | ✅ executable | A | Allometric (FFM) general-purpose; broad envelope (neonate→obese elderly), faster `ke0` than Minto. Validated to reference; `unverified`. Found+fixed a V3 reference typo in the `tci` source. |
 | Dexmedetomidine PK — **Hannivoort 2015** | ✅ | ✅ executable | B | New drug class (α₂-agonist); allometric (vol ^1, CL ^0.75); adult-only, narrow BMI. |
 | Fentanyl PK — **Shafer 1990** | ✅ | ⏳ pending | C | Curated record with verified citation; kernel deferred — secondary sources disagree on the exact micro-rate constants, so `simulate()` refuses it. |
 | Interaction — **propofol×remifentanil** (Greco/BIS) | ✅ | ✅ executable | C | Two-drug response surface; math exact and round-tripped, **coefficients illustrative/unverified** pending Bouillon-2004 transcription. |
@@ -400,7 +403,7 @@ hypnos.validate_dataset(ds)                                           # -> list 
 | Phase | Content | Status |
 | --- | --- | --- |
 | **A — Propofol spine** | Marsh/Schnider/Eleveld PK + `ke0` + propofol→BIS; reference kernels; NONMEM/PharmML/SBML/TCI-JSON; round-trip validation; divergence view | ✅ complete (Marsh + Schnider + Eleveld all executable; 3-way divergence view live) |
-| **B — Opioids + interaction** | remifentanil (Minto); propofol–remifentanil response surface; nlmixr2/rxode2 + Pumas export | ✅ core shipped (Minto executable; Greco surface with illustrative coefficients; R + Julia export round-tripped) |
+| **B — Opioids + interaction** | remifentanil (Minto, Eleveld); propofol–remifentanil response surface; nlmixr2/rxode2 + Pumas export | ✅ complete (Minto + Eleveld both executable; propofol×remifentanil Greco surface; R + Julia export round-tripped) |
 | **C — Breadth** | dexmedetomidine, ketamine, midazolam, fentanyl family; pediatric models with explicit Tier-D labeling | ✅ core shipped (dexmedetomidine + Paedfusor executable with explicit pediatric/geriatric extrapolation labeling; fentanyl curated, kernel pending; ketamine/midazolam roadmap) |
 | **D — Inhalational + NMB** | volatile MAC/partition/uptake; neuromuscular blockers + train-of-four; sugammadex reversal | ✅ core shipped (4 volatiles with MAC age-correction + additivity executable; rocuronium seeded with TOF PD; rocuronium PK kernel + sugammadex binding kinetics pending) |
 | **E — Hardening** | external-validation MDPE/MDAPE backfill; COMBINE `.omex`; Zenodo DOI | ✅ core shipped (deterministic `.omex` + BibTeX exporters; `scripts/regenerate.py`; `.zenodo.json` + `CHANGELOG.md`; Eleveld MDPE/MDAPE backfilled; broader MDPE/MDAPE backfill + minted DOI on first tagged release) |

@@ -40,10 +40,21 @@ def test_out_of_envelope_tiers_down_to_D(ds):
     assert any("FAILURE MODE" in w for w in res.warnings)
 
 
-def test_eleveld_kernel_refuses(ds):
-    patient = dict(age=50, weight=77, height=177, sex="M")
-    with pytest.raises(NotImplementedError):
-        hypnos.simulate(ds, ELEVELD, patient=patient, schedule=SCHED, t=T)
+def test_eleveld_kernel_reproduces_reference(ds):
+    # Eleveld now has an executable kernel; it must reproduce the published
+    # reference individual (35 y, 70 kg, 170 cm, male): V1=6.28, CL=1.79, ke0=0.146.
+    from hypnos.export.registry import instantiate
+
+    p = instantiate(ds[ELEVELD], dict(age=35, weight=70, height=170, sex="M"))
+    vc = p.as_volumes_clearances()
+    assert abs(vc["V1"] - 6.28) < 1e-6
+    assert abs(vc["V2"] - 25.5) < 1e-6
+    assert abs(vc["V3"] - 273.0) < 1e-6
+    assert abs(vc["Cl1"] - 1.79) < 1e-6
+    assert abs(vc["Cl3"] - 1.11) < 1e-6
+    assert abs(vc["ke0"] - 0.146) < 1e-6
+    # the record stays unverified: an LLM transcription is not a human PDF check
+    assert ds[ELEVELD].review_status == "unverified"
 
 
 def test_pd_tier_propagation_worst_wins(ds):
@@ -60,8 +71,8 @@ def test_compare_groups_and_divergence(ds):
     patient = dict(age=72, weight=60, height=162, sex="F")
     cmp = hypnos.compare(ds, drug="propofol", patient=patient, schedule=SCHED, t=T)
     ids = {r.model_id for r in cmp.included}
-    assert MARSH in ids and SCHNIDER in ids
-    assert any(u["model_id"] == ELEVELD for u in cmp.unavailable)
+    # all three adult propofol models now have kernels and are in-envelope here
+    assert {MARSH, SCHNIDER, ELEVELD} <= ids
     assert cmp.divergence["ce"]["max_abs"] > 0.5  # the models genuinely disagree
 
 

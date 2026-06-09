@@ -10,6 +10,7 @@ kernel binding resolves to a function registered in :data:`KERNELS`.
 """
 from __future__ import annotations
 
+import math
 import re
 from typing import Callable, Dict
 
@@ -128,10 +129,81 @@ def dexmedetomidine_hannivoort_2015(patient: dict) -> MicroParams:
     )
 
 
+# --------------------------------------------------------------------------- #
+# Propofol — Eleveld (2018): general-purpose model, broad covariate structure
+# --------------------------------------------------------------------------- #
+def propofol_eleveld_2018(patient: dict) -> MicroParams:
+    """Eleveld 2018 general-purpose propofol PK model (PK arm, arterial sampling).
+
+    Transcribed from the published equations (cross-checked against the ``tci`` R
+    package, ``pkmod_eleveld_ppf``) and validated to reproduce the reference
+    individual (35 y, 70 kg, 170 cm, male, no concomitant anaesthetics):
+    V1=6.28, V2=25.5, V3=273, CL=1.79, Q3=1.11, ke0=0.146. The model record's
+    ``review_status`` remains ``unverified`` pending human PDF confirmation.
+    """
+    age = _req(patient, "age")
+    wgt = _req(patient, "weight")
+    hgt = _req(patient, "height")
+    male = 1.0 if str(patient.get("sex", "M")).upper().startswith("M") else 0.0
+    opiate = bool(patient.get("opiate_coadministration", False))
+    arterial = bool(patient.get("arterial", True))
+    pma = patient.get("postmenstrual_age")
+    if pma is None:
+        pma = age + 40.0 / 52.0
+
+    # fixed effects (theta), 1-indexed to match the source for readability
+    th = [None, 6.28, 25.5, 273.0, 1.79, 1.75, 1.11, 0.191, 42.3, 9.06, -0.0156,
+          -0.00286, 33.6, -0.0138, 68.3, 2.10, 1.30, 1.42, 0.68]
+    ke0_arterial, ke0_venous = 0.146, 1.24
+
+    AGEref, WGTref, HGTref = 35.0, 70.0, 170.0
+    PMAref = AGEref + 40.0 / 52.0
+    bmi = 10000.0 * wgt / (hgt * hgt)
+    bmiref = 10000.0 * WGTref / (HGTref * HGTref)
+
+    def faging(x: float) -> float:
+        return math.exp(x * (age - AGEref))
+
+    def fsig(x: float, e50: float, lam: float) -> float:
+        return x ** lam / (x ** lam + e50 ** lam)
+
+    def fcentral(x: float) -> float:
+        return fsig(x, th[12], 1.0)
+
+    def fopiates(x: float) -> float:
+        return math.exp(x * age) if opiate else 1.0
+
+    fcl_mat = fsig(pma * 52.0, th[8], th[9])
+    fcl_mat_ref = fsig(PMAref * 52.0, th[8], th[9])
+    fq3_mat = fsig(age * 52.0 + 40.0, th[14], 1.0)
+    fq3_mat_ref = fsig(AGEref * 52.0 + 40.0, th[14], 1.0)
+
+    if male:
+        ffm = (0.88 + (1 - 0.88) / (1 + (age / 13.4) ** (-12.7))) * (9270 * wgt) / (6680 + 216 * bmi)
+    else:
+        ffm = (1.11 + (1 - 1.11) / (1 + (age / 7.1) ** (-1.1))) * (9270 * wgt) / (8780 + 244 * bmi)
+    ffm_ref = (0.88 + (1 - 0.88) / (1 + (AGEref / 13.4) ** (-12.7))) * (9270 * WGTref) / (6680 + 216 * bmiref)
+
+    v1_art = th[1] * fcentral(wgt) / fcentral(WGTref)
+    V1 = v1_art if arterial else v1_art * (1 + th[17] * (1 - fcentral(wgt)))
+    V2 = th[2] * wgt / WGTref * faging(th[10])
+    V3 = th[3] * (ffm / ffm_ref) * fopiates(th[13])
+    CL = (male * th[4] + (1 - male) * th[15]) * (wgt / WGTref) ** 0.75 * (fcl_mat / fcl_mat_ref) * fopiates(th[11])
+    q2_art = th[5] * (V2 / th[2]) ** 0.75 * (1 + th[16] * (1 - fq3_mat))
+    Q2 = q2_art if arterial else q2_art * th[18]
+    Q3 = th[6] * (V3 / th[3]) ** 0.75 * (fq3_mat / fq3_mat_ref)
+    ke0 = (ke0_arterial if arterial else ke0_venous) * (wgt / 70.0) ** (-0.25)
+
+    return MicroParams.from_volumes_clearances(
+        V1=V1, Cl1=CL, V2=V2, Cl2=Q2, V3=V3, Cl3=Q3, ke0=ke0
+    )
+
+
 KERNELS: Dict[str, KernelFn] = {
     "propofol_marsh_1991": propofol_marsh_1991,
     "propofol_schnider_1998": propofol_schnider_1998,
     "propofol_paedfusor_2005": propofol_paedfusor_2005,
+    "propofol_eleveld_2018": propofol_eleveld_2018,
     "remifentanil_minto_1997": remifentanil_minto_1997,
     "dexmedetomidine_hannivoort_2015": dexmedetomidine_hannivoort_2015,
 }

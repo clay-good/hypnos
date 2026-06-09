@@ -70,10 +70,12 @@ def test_geriatric_extrapolation_label(ds):
 
 def test_pediatric_compare_greys_adult_models(ds):
     cmp = hypnos.compare(ds, drug="propofol", patient=CHILD, schedule=PED_SCHED, t=T)
-    assert {r.model_id for r in cmp.included} == {PAEDFUSOR}
+    included = {r.model_id for r in cmp.included}
+    # Paedfusor (pediatric) and Eleveld (broad-envelope, covers children) are in-envelope;
+    # the adult-only Marsh and Schnider are greyed out as pediatric extrapolations.
+    assert PAEDFUSOR in included and ELEVELD in included
     excluded = {e["model_id"] for e in cmp.excluded}
     assert SCHNIDER in excluded and MARSH in excluded
-    assert any(u["model_id"] == ELEVELD for u in cmp.unavailable)
 
 
 def test_fentanyl_kernel_pending_refuses(ds):

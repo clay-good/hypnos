@@ -31,20 +31,20 @@ Pick a virtual patient and a dose schedule. Hypnos overlays the predicted plasma
 
 ![Hypnos model-divergence view](docs/images/divergence.png)
 
-Both panels are real output from this repo's `compare()` API (the same one [the dashboard](dashboard/app.py) drives):
+Both panels are real output from this repo's `compare()` API (the same one [the dashboard](dashboard/app.py) drives), now overlaying all three adult propofol models (Marsh, Schnider, Eleveld):
 
-- **Left — elderly patient (72 y, 60 kg, F).** Marsh and Schnider are both in-envelope (Tier B) yet their predicted effect-site peaks differ by **5.6 µg/mL (136%)**, driven largely by their different `ke0` (Marsh 0.26 vs Schnider 0.456 min⁻¹). Same drug, same dose — a clinically enormous disagreement that a single-model simulator hides.
-- **Right — obese patient (40 y, 140 kg, M).** Schnider is **greyed out and auto-tiered to D**: the patient's BMI (47) is outside the derivation envelope *and* triggers the documented James-LBM failure mode, which inflates clearance and produces the non-physical early spike (~12.5 µg/mL). You cannot accidentally get an A-looking number from that extrapolation.
+- **Left — elderly patient (72 y, 60 kg, F).** All three are in-envelope yet their predicted effect-site peaks span **5.6 µg/mL (169%)**: Schnider spikes to ~8 µg/mL while Marsh and Eleveld rise slowly to ~3.7, driven largely by their different `ke0` (Marsh 0.26, Eleveld ~0.15, Schnider 0.456 min⁻¹). Same drug, same dose — a clinically enormous disagreement a single-model simulator hides.
+- **Right — obese patient (40 y, 140 kg, M).** Schnider is **greyed out and auto-tiered to D**: the patient's BMI (47) is outside its derivation envelope *and* triggers the documented James-LBM failure mode (the non-physical early spike). Eleveld — built for broad application including the obese — stays in-envelope at Tier A alongside Marsh. The envelope picks the right tool automatically.
 
 ```text
 $ hypnos compare --drug propofol --age 40 --weight 140 --height 172 --sex M
-included (1):
+included (2):
+  - hypnotics_iv.propofol.eleveld_2018         tier A  Ce peak 3.974
   - hypnotics_iv.propofol.marsh_1991           tier B  Ce peak 3.741
-excluded for envelope (1):
+excluded for envelope (2):
+  - hypnotics_iv.propofol.paedfusor_2005       tier D  (pediatric model used in an adult ...)
   - hypnotics_iv.propofol.schnider_1998        tier D  (ENVELOPE: bmi=47.3 outside [20, 42]
         -> tiered down to D; FAILURE MODE [James LBM term inverts] -> tiered down to D)
-unavailable (1):
-  - hypnotics_iv.propofol.eleveld_2018         (reference kernel pending verified transcription)
 ```
 
 ## Drug–drug interaction: the propofol–remifentanil synergy surface
@@ -278,13 +278,13 @@ python scripts/regenerate.py                                  # regenerate every
 
 ## Current coverage (v0.1.0 — A/B complete · C/D/E core)
 
-Honest status. A is the propofol spine; B adds the dominant opioid and the interaction surface; C widens to a new drug class and pediatrics; D brings in the non-IV families; E hardens for release (COMBINE `.omex`, BibTeX, reproducibility, verified MDPE/MDAPE) ([roadmap](docs/specs/v0.1/spec.md#11-phased-roadmap)). **15 models · 9 drugs · 7 subsystems · 12 executable kernels · 8 export formats.**
+Honest status. A is the propofol spine; B adds the dominant opioid and the interaction surface; C widens to a new drug class and pediatrics; D brings in the non-IV families; E hardens for release (COMBINE `.omex`, BibTeX, reproducibility, verified MDPE/MDAPE) ([roadmap](docs/specs/v0.1/spec.md#11-phased-roadmap)). **15 models · 9 drugs · 7 subsystems · 13 executable kernels · 8 export formats.**
 
 | Model | Record | Kernel | Tier | Notes |
 | --- | --- | --- | --- | --- |
 | Propofol PK — **Marsh 1991** | ✅ | ✅ executable | B | Weight-only; warns in elderly. |
 | Propofol PK — **Schnider 1998** | ✅ | ✅ executable | B | Age/weight/height/James-LBM; high-BMI failure mode encoded. |
-| Propofol PK — **Eleveld 2018** | ✅ | ⏳ pending | A | Curated record; kernel **deliberately deferred** until the intricate maturation/allometry covariate structure is human-verified — `simulate()` refuses it rather than risk a mis-transcribed equation. The honesty stance made operational. |
+| Propofol PK — **Eleveld 2018** | ✅ | ✅ executable | A | General-purpose, broad envelope (neonate→obese elderly). Kernel transcribed from the published equations (cross-checked vs the `tci` R package), validated to reproduce the reference individual exactly; `review_status` stays **`unverified`** pending human PDF confirmation. |
 | Propofol PK — **Paedfusor 2005** | ✅ | ✅ executable | B | Pediatric (1–12 y); the Tier-D extrapolation showcase, in both directions. |
 | Propofol PD — **BIS sigmoid** | ✅ | ✅ executable | C | Effect-site → BIS; composes onto any PK model and floors the tier to C. |
 | Remifentanil PK — **Minto 1997** | ✅ | ✅ executable | B | Age + James-LBM; shares the high-BMI LBM failure mode; concentrations in µg/mL (= ng/mL ÷ 1000). |
@@ -295,7 +295,7 @@ Honest status. A is the propofol spine; B adds the dominant opioid and the inter
 | Rocuronium PK — **Wierda 1991** | ✅ | ⏳ pending | C | Seeds `nmb_agents`; kernel deferred (compartmental params not openly reconcilable). |
 | Rocuronium PD — **train-of-four sigmoid** | ✅ | ✅ executable | C | NMB convention: steep Hill on twitch-height; Ce50 ≈ 0.82 µg/mL (adductor pollicis). Composes onto a rocuronium PK kernel once verified. |
 
-> **Why Eleveld's kernel is pending, not faked.** The project's whole reason for existing is to *not* be another source of quietly mis-typed numbers. Eleveld's covariate equations (post-menstrual-age maturation, allometric scaling, BMI/age sigmoids) are exactly where transcription errors hide (spec §9). Shipping them unverified would contradict the dataset's purpose. Two correct, round-trip-validated models that genuinely disagree already make the divergence view real. Promoting Eleveld to an executable kernel is the highest-leverage next contribution — see [CONTRIBUTING.md](CONTRIBUTING.md).
+> **Implemented but still `unverified` — the distinction that matters.** Eleveld's covariate equations (post-menstrual-age maturation, allometric scaling, BMI/age sigmoids) are exactly where transcription errors hide (spec §9). The kernel was transcribed from the published equations, cross-checked against the open `tci` R implementation, and validated to reproduce the reference individual (V1=6.28, CL=1.79, ke0=0.146) to the decimal. It still reads `unverified`, because **reproducing one reference point is not a human confirming every covariate equation against the PDF.** Promoting it to `verified` is the next highest-leverage contribution — run `hypnos verify hypnotics_iv.propofol.eleveld_2018` for the checklist. Models whose parameters cannot even be reconciled to a primary source (rocuronium PK, Shafer fentanyl) stay kernel-pending and `simulate()` refuses them.
 
 ## Verification: the single highest-leverage contribution
 
@@ -326,7 +326,7 @@ $ hypnos verify hypnotics_iv.propofol.schnider_1998 --markdown   # copy-pasteabl
 | **Dataset is the centerpiece; everything else is a projection** | The durable contribution is the curated, tiered, envelope-annotated models — not any one viewer or solver. |
 | **Envelope + failure modes are first-class and machine-enforced** | Model-selection risk is the core pain; making the envelope enforceable is the load-bearing idea. |
 | **Tier & envelope warnings propagate; worst input wins** | A composed simulation is only as trustworthy as its weakest component or furthest extrapolation. |
-| **Humans verify; LLMs do not promote** | `unverified → verified` requires reading the source PDF and confirming the parameters *and the covariate equations*. Models whose exact parameters cannot be reconciled to the primary source (Eleveld, Shafer fentanyl) ship as curated records with `simulate()` refusing them — never as guessed kernels. |
+| **Humans verify; LLMs do not promote** | `unverified → verified` requires reading the source PDF and confirming the parameters *and the covariate equations*. Even Eleveld — implemented and validated to its reference patient — stays `unverified`; that flag means *a human has checked the PDF*, nothing less. Models whose parameters cannot be reconciled to a primary source (rocuronium PK, Shafer fentanyl) stay kernel-pending and `simulate()` refuses them. |
 | **Age extrapolations are named, not just flagged** | "Out of envelope" is generic; "pediatric extrapolation of an adult model" is the actual clinical risk the spec calls out. The label is first-class and tested. |
 | **No TCI engine, no dosing output, ever** | The line between "research simulator" and "unregulated medical device" is exactly the inverse-control step. Hypnos stays on the safe side by construction. |
 | **Exact matrix-exponential solver** | Closed-form per segment for a linear time-invariant system; faster and more accurate than stepwise integration, and the augmented form handles `ke0 = 0` without a singular inverse. |
@@ -399,7 +399,7 @@ hypnos.validate_dataset(ds)                                           # -> list 
 
 | Phase | Content | Status |
 | --- | --- | --- |
-| **A — Propofol spine** | Marsh/Schnider/Eleveld PK + `ke0` + propofol→BIS; reference kernels; NONMEM/PharmML/SBML/TCI-JSON; round-trip validation; divergence view | ✅ core shipped (Marsh + Schnider executable; Eleveld curated, kernel pending) |
+| **A — Propofol spine** | Marsh/Schnider/Eleveld PK + `ke0` + propofol→BIS; reference kernels; NONMEM/PharmML/SBML/TCI-JSON; round-trip validation; divergence view | ✅ complete (Marsh + Schnider + Eleveld all executable; 3-way divergence view live) |
 | **B — Opioids + interaction** | remifentanil (Minto); propofol–remifentanil response surface; nlmixr2/rxode2 + Pumas export | ✅ core shipped (Minto executable; Greco surface with illustrative coefficients; R + Julia export round-tripped) |
 | **C — Breadth** | dexmedetomidine, ketamine, midazolam, fentanyl family; pediatric models with explicit Tier-D labeling | ✅ core shipped (dexmedetomidine + Paedfusor executable with explicit pediatric/geriatric extrapolation labeling; fentanyl curated, kernel pending; ketamine/midazolam roadmap) |
 | **D — Inhalational + NMB** | volatile MAC/partition/uptake; neuromuscular blockers + train-of-four; sugammadex reversal | ✅ core shipped (4 volatiles with MAC age-correction + additivity executable; rocuronium seeded with TOF PD; rocuronium PK kernel + sugammadex binding kinetics pending) |

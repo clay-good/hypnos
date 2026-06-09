@@ -10,20 +10,20 @@
     "elimination": "linear",
     "effect_compartment": true
   },
-  "kernel": { "implemented": false, "function": null },
+  "kernel": { "implemented": true, "function": "propofol_eleveld_2018" },
   "parameters": [
     {
       "symbol": "V1", "label": "central volume (reference individual)",
       "value": { "central": 6.28, "low": null, "high": null, "units": "L" },
-      "covariate_model": "V1 = V1ref * f(WGT, AGE, ...); see Eleveld 2018 Appendix (transcription pending verification)",
+      "covariate_model": "V1 = 6.28 * fcentral(WGT)/fcentral(70); fcentral(x) = x/(x+33.6) (arterial sampling)",
       "tier": "A",
-      "extraction": { "review_status": "unverified", "tier_rationale": "Reference-individual value (35 y, 70 kg, 170 cm, male). Full covariate structure (allometric weight, post-menstrual-age maturation, BMI/age sigmoids) is intricate and pending verified transcription.", "source_locator": "Eleveld 2018, Table 2 / Appendix" },
+      "extraction": { "review_status": "unverified", "tier_rationale": "Reference-individual value (35 y, 70 kg, 170 cm, male, no concomitant anaesthetics). Kernel implemented and validated to reproduce the reference parameters; covariate transcription pending human PDF confirmation.", "source_locator": "Eleveld 2018, Table 2 / Appendix" },
       "primary_citation": "eleveld-2018-propofol"
     },
     {
       "symbol": "V2", "label": "rapid peripheral volume (reference)",
       "value": { "central": 25.5, "low": null, "high": null, "units": "L" },
-      "covariate_model": "V2 = V2ref * f(WGT) * exp(age effect); see Eleveld 2018 Appendix",
+      "covariate_model": "V2 = 25.5 * (WGT/70) * exp(-0.0156*(AGE-35))",
       "tier": "A",
       "extraction": { "review_status": "unverified", "source_locator": "Eleveld 2018, Table 2" },
       "primary_citation": "eleveld-2018-propofol"
@@ -31,7 +31,7 @@
     {
       "symbol": "V3", "label": "slow peripheral volume (reference)",
       "value": { "central": 273.0, "low": null, "high": null, "units": "L" },
-      "covariate_model": "V3 = V3ref * f(WGT) * f(opiate); see Eleveld 2018 Appendix",
+      "covariate_model": "V3 = 273 * (FFM/FFMref) * fopiate(-0.0138); FFM via Al-Sallami 2015",
       "tier": "A",
       "extraction": { "review_status": "unverified", "source_locator": "Eleveld 2018, Table 2" },
       "primary_citation": "eleveld-2018-propofol"
@@ -39,15 +39,15 @@
     {
       "symbol": "Cl1", "label": "metabolic clearance (reference)",
       "value": { "central": 1.79, "low": null, "high": null, "units": "L/min" },
-      "covariate_model": "Cl = Clref * (WGT/70)^0.75 * maturation(PMA) ...; see Eleveld 2018 Appendix",
+      "covariate_model": "CL = (MALE ? 1.79 : 2.10) * (WGT/70)^0.75 * (CLmat/CLmat_ref) * fopiate(-0.00286); CLmat = sigmoid(PMA_weeks; E50=42.3, lambda=9.06)",
       "tier": "A",
       "extraction": { "review_status": "unverified", "source_locator": "Eleveld 2018, Table 2" },
       "primary_citation": "eleveld-2018-propofol"
     },
     {
-      "symbol": "Cl2", "label": "rapid intercompartmental clearance (reference)",
+      "symbol": "Cl2", "label": "rapid intercompartmental clearance (reference theta)",
       "value": { "central": 1.75, "low": null, "high": null, "units": "L/min" },
-      "covariate_model": "Q2 = Q2ref * f(WGT, opiate); see Eleveld 2018 Appendix",
+      "covariate_model": "Q2 = 1.75 * (V2/25.5)^0.75 * (1 + 1.30*(1-Q3mat)) (arterial); computed reference value ~1.83",
       "tier": "A",
       "extraction": { "review_status": "unverified", "source_locator": "Eleveld 2018, Table 2" },
       "primary_citation": "eleveld-2018-propofol"
@@ -55,7 +55,7 @@
     {
       "symbol": "Cl3", "label": "slow intercompartmental clearance (reference)",
       "value": { "central": 1.11, "low": null, "high": null, "units": "L/min" },
-      "covariate_model": "Q3 = Q3ref * f(WGT); see Eleveld 2018 Appendix",
+      "covariate_model": "Q3 = 1.11 * (V3/273)^0.75 * (Q3mat/Q3mat_ref); Q3mat = sigmoid(AGE_weeks+40; E50=68.3, lambda=1)",
       "tier": "A",
       "extraction": { "review_status": "unverified", "source_locator": "Eleveld 2018, Table 2" },
       "primary_citation": "eleveld-2018-propofol"
@@ -63,13 +63,13 @@
     {
       "symbol": "ke0", "label": "effect-site equilibration rate constant (reference)",
       "value": { "central": 0.146, "low": null, "high": null, "units": "1/min" },
-      "covariate_model": "ke0 = 0.146 * (WGT/70)^(-0.25); see Eleveld 2018 Appendix",
+      "covariate_model": "ke0 = 0.146 * (WGT/70)^(-0.25) (arterial sampling)",
       "tier": "A",
       "extraction": { "review_status": "unverified", "source_locator": "Eleveld 2018 (PD)" },
       "primary_citation": "eleveld-2018-propofol"
     }
   ],
-  "covariates": { "required": ["age", "weight", "height", "sex"], "optional": ["opiate_coadministration", "postmenstrual_age"], "lbm_equation": "al_sallami_2015" },
+  "covariates": { "required": ["age", "weight", "height", "sex"], "optional": ["opiate_coadministration", "arterial", "postmenstrual_age"], "lbm_equation": "al_sallami_2015" },
   "applicability_envelope": {
     "age_years": { "min": 0, "max": 88 },
     "weight_kg": { "min": 5, "max": 160 },
@@ -85,9 +85,9 @@
   "tier": "A",
   "extraction": {
     "review_status": "unverified",
-    "tier_rationale": "Externally validated across multiple independent populations spanning neonates to the obese elderly; the broadest-envelope general-purpose propofol model. Listed at Tier A on data confidence. Reference values only; the executable kernel is DEFERRED until its full covariate structure is transcribed and human-verified (the maturation/allometry terms are exactly where transcription errors hide).",
-    "source_locator": "Eleveld 2018"
+    "tier_rationale": "Externally validated across multiple independent populations spanning neonates to the obese elderly; the broadest-envelope general-purpose propofol model. The executable kernel is now implemented (arterial-sampling PK arm), transcribed from the published equations and cross-checked against the tci R package, and validated to reproduce the reference-individual parameters exactly. review_status remains UNVERIFIED: an LLM transcription is not a human PDF verification, and the maturation/allometry terms are exactly where transcription errors hide. A human must still confirm every covariate equation before this is promoted.",
+    "source_locator": "Eleveld 2018, Table 2 / Appendix"
   },
   "primary_citation": "eleveld-2018-propofol",
-  "notes": "KERNEL PENDING. Parameters shown are reference-individual values (35 y, 70 kg, 170 cm, male). simulate() will refuse this model until kernel.implemented becomes true, rather than risk a mis-transcribed covariate equation. This is the project's honesty stance made operational."
+  "notes": "Kernel = propofol_eleveld_2018 (arterial sampling, no opiate co-administration by default). Optional covariates: opiate_coadministration, arterial, postmenstrual_age. Validated reference individual (35 y, 70 kg, 170 cm, male): V1=6.28, V2=25.5, V3=273, CL=1.79, Q3=1.11, ke0=0.146 (computed Q2~1.83). FFM via Al-Sallami 2015. The Eleveld two-slope BIS PD (gamma split at Ce50) is a separate, future pd_effect record."
 }

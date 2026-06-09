@@ -8,6 +8,21 @@ version is pinned in `dataset/VERSION` and stamped into every export as
 
 ## [Unreleased]
 
+### Eleveld propofol kernel (2026-06-08)
+- **`propofol_eleveld_2018` executable kernel** — the general-purpose model is no
+  longer kernel-pending. Transcribed from the published equations and
+  cross-checked against the open `tci` R package (`pkmod_eleveld_ppf`); validated
+  to reproduce the reference individual (35 y, 70 kg, 170 cm, male) exactly:
+  V1=6.28, V2=25.5, V3=273, CL=1.79, Q3=1.11, ke0=0.146. Arterial-sampling PK
+  arm; optional covariates `opiate_coadministration`, `arterial`,
+  `postmenstrual_age`; FFM via Al-Sallami 2015.
+- `review_status` stays **`unverified`**: an LLM transcription validated to one
+  reference point is not a human PDF verification. Run
+  `hypnos verify hypnotics_iv.propofol.eleveld_2018` for the checklist.
+- The model-divergence view now overlays all three adult propofol models
+  (Marsh/Schnider/Eleveld); for the obese patient Eleveld stays in-envelope at
+  Tier A while Schnider is greyed out. 13 executable kernels now.
+
 ### Verification workflow & docs (2026-06-08)
 - **`hypnos.verification`** module + `hypnos status` / `hypnos verify <id>` CLI:
   per-model field-by-field checklists (parameters, covariate equations, envelope,

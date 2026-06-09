@@ -11,6 +11,7 @@ from hypnos.verification import (
 
 SCHNIDER = "hypnotics_iv.propofol.schnider_1998"
 ELEVELD = "hypnotics_iv.propofol.eleveld_2018"
+FENTANYL = "opioids.fentanyl.shafer_1990"  # still kernel-pending
 
 
 @pytest.fixture(scope="module")
@@ -49,7 +50,7 @@ def test_next_to_verify_prioritizes_implemented_kernels(ds):
 
 
 def test_kernel_pending_model_lists_blocking(ds):
-    mv = model_verification(ds, ELEVELD)  # tier A but kernel pending
+    mv = model_verification(ds, FENTANYL)  # curated record, kernel still pending
     assert mv.review_status == "unverified"
     assert any("kernel" in b.lower() for b in mv.blocking)
 

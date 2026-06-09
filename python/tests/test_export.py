@@ -99,7 +99,8 @@ def test_nonmem_theta_matches_instantiation(ds):
 
 
 def test_tci_json_marks_pending_kernel(ds):
-    _, text = export_model("tci_json", ds[ELEVELD], ds)
+    # fentanyl (Shafer) is still kernel-pending; its TCI-JSON omits instantiated params
+    _, text = export_model("tci_json", ds["opioids.fentanyl.shafer_1990"], ds)
     doc = json.loads(text)
     assert doc["instantiated_parameters"] is None
     assert "pending" in doc["kernel_status"]

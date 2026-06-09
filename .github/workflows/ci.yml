@@ -60,7 +60,7 @@ jobs:
           pip install -e .
       - name: Generate export artifacts
         run: |
-          for fmt in nonmem pharmml sbml tci_json rxode2 pumas bibtex; do
+          for fmt in nonmem pharmml sbml tci_json rxode2 pumas bibtex csv; do
             hypnos export --format "$fmt" --output "exports/$fmt"
           done
       - name: Build and validate COMBINE .omex archive

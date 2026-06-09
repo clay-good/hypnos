@@ -236,6 +236,7 @@ Exports are generated artifacts, never hand-edited (CI regenerates them), each i
 | **Pumas** (Julia) | Modern open pharmacometric simulation | ✅ round-tripped |
 | **COMBINE `.omex`** | Provenance-bundled archive (SBML+PharmML+TCI-JSON+RDF+BibTeX) | ✅ deterministic, manifest-validated |
 | **BibTeX** | Citation export (cite Hypnos *and* the source) | ✅ per-model + dataset |
+| **CSV** | Flat parameter export (one row per parameter, DOI/PMID joined) | ✅ per-model + dataset |
 
 ```nonmem
 ; HYPNOS EXPORT — NOT FOR CLINICAL USE
@@ -281,7 +282,7 @@ python scripts/regenerate.py                                  # regenerate every
 
 ## Current coverage (v0.1.0 — A/B complete · C/D/E core)
 
-Honest status. A is the propofol spine; B adds the dominant opioid and the interaction surface; C widens to a new drug class and pediatrics; D brings in the non-IV families; E hardens for release (COMBINE `.omex`, BibTeX, reproducibility, verified MDPE/MDAPE) ([roadmap](docs/specs/v0.1/spec.md#11-phased-roadmap)). **18 models · 9 drugs · 7 subsystems · 16 executable kernels · 8 export formats.**
+Honest status. A is the propofol spine; B adds the dominant opioid and the interaction surface; C widens to a new drug class and pediatrics; D brings in the non-IV families; E hardens for release (COMBINE `.omex`, BibTeX, reproducibility, verified MDPE/MDAPE) ([roadmap](docs/specs/v0.1/spec.md#11-phased-roadmap)). **18 models · 9 drugs · 7 subsystems · 16 executable kernels · 9 export formats.**
 
 | Model | Record | Kernel | Tier | Notes |
 | --- | --- | --- | --- | --- |
@@ -355,7 +356,7 @@ hypnos/
 │   ├── inhalational.py          # volatile MAC API (age correction, fraction, N2O additivity)
 │   ├── verification.py          # verification checklists + coverage (guides humans; never promotes)
 │   ├── cli.py
-│   └── export/                  # registry · annotate · nonmem · pharmml · sbml · tci_json · rxode2 · pumas · bibtex · combine(.omex)
+│   └── export/                  # registry · annotate · nonmem · pharmml · sbml · tci_json · rxode2 · pumas · bibtex · csv_flat · combine(.omex)
 ├── scripts/regenerate.py        # deterministically regenerate all exports + figures
 ├── notebooks/                   # reference notebooks executed in CI (nbmake)
 ├── CHANGELOG.md · .zenodo.json   # release metadata (Zenodo DOI on first tagged release)
@@ -378,7 +379,7 @@ hypnos simulate <model_id> --age .. --weight .. --height .. --sex .. [--pd <pd_i
 hypnos compare  --drug propofol --age .. --weight .. --height .. --sex ..
 hypnos interact --age .. --weight .. --height .. --sex ..             # propofol+remifentanil synergy
 hypnos mac --agent sevoflurane --age 75 [--end-tidal 1.2] [--n2o 50]  # age-corrected MAC + fraction
-hypnos export   --format {nonmem,pharmml,sbml,tci_json,rxode2,pumas,bibtex,omex} --output exports/ [--model <id>]
+hypnos export   --format {nonmem,pharmml,sbml,tci_json,rxode2,pumas,bibtex,csv,omex} --output exports/ [--model <id>]
 python scripts/regenerate.py                                          # regenerate all exports + figures
 streamlit run dashboard/app.py
 ```

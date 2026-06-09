@@ -24,7 +24,7 @@ def ds():
 
 # Model exports carry the banner; bibtex (citations) and omex (binary archive,
 # tested in test_combine_bibtex) are excluded.
-_BANNER_FORMATS = [f for f in FORMATS if f not in ("bibtex", "omex")]
+_BANNER_FORMATS = [f for f in FORMATS if f not in ("bibtex", "csv", "omex")]
 
 
 @pytest.mark.parametrize("fmt", _BANNER_FORMATS)

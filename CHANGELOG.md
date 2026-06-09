@@ -8,6 +8,17 @@ version is pinned in `dataset/VERSION` and stamped into every export as
 
 ## [Unreleased]
 
+### CSV flat-parameter exporter (2026-06-09)
+- **`csv` exporter** (`hypnos.export.csv_flat`) — completes the spec's export
+  matrix (§7 "CSV / BibTeX"). One row per parameter across all models, with the
+  record tier/review status and the resolved DOI/PMID joined in; proper CSV
+  quoting (covariate equations contain commas). Per-model and whole-dataset
+  (`hypnos export --format csv` → `parameters.csv`). Wired into the regenerate
+  script and CI export matrix.
+- Fixed a latent signature bug: `bibtex.build_for_model` (in BUILDERS) did not
+  accept the `patient` arg that `export_model` passes; both bibtex and csv
+  per-model builders now take an ignored `patient` for a uniform signature.
+
 ### Conventional concentration units + drug-appropriate CLI dosing (2026-06-09)
 - **Conventional concentration units.** Each drug declares a `concentration_unit`
   (opioids and dexmedetomidine: ng/mL; propofol/rocuronium: µg/mL). The kernels

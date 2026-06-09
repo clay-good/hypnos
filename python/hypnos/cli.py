@@ -20,7 +20,7 @@ from typing import List, Optional
 import numpy as np
 
 from . import CLINICAL_USE, __version__
-from .export import FORMATS, bibtex, combine, export_model
+from .export import FORMATS, bibtex, combine, csv_flat, export_model
 from .filter import summary
 from .load import load
 from .inhalational import mac as mac_eval
@@ -245,11 +245,17 @@ def cmd_export(args) -> int:
         print(f"wrote {written} omex archive(s) to {out}/")
         return 0
 
-    # BibTeX: one dataset-level citations.bib (or per-model with --model).
-    if args.format == "bibtex" and not args.model:
-        target = out if str(out).endswith(".bib") else out / "citations.bib"
+    # Dataset-level text exports (whole-dataset by default, per-model with --model):
+    # BibTeX citation library and the flat-parameter CSV.
+    if args.format in ("bibtex", "csv") and not args.model:
+        if args.format == "bibtex":
+            default_name, text = "citations.bib", bibtex.build(ds, models)
+            target = out if str(out).endswith(".bib") else out / default_name
+        else:
+            default_name, text = "parameters.csv", csv_flat.build(ds, models)
+            target = out if str(out).endswith(".csv") else out / default_name
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(bibtex.build(ds, models), encoding="utf-8")
+        target.write_text(text, encoding="utf-8")
         print(f"wrote {target}")
         return 0
 

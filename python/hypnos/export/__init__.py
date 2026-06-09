@@ -7,7 +7,9 @@ annotation (see :mod:`hypnos.export.annotate`).
 """
 from __future__ import annotations
 
-from . import annotate, bibtex, combine, nonmem, pharmml, pumas, rxode2, sbml, tci_json  # noqa: F401
+from . import (  # noqa: F401
+    annotate, bibtex, combine, csv_flat, nonmem, pharmml, pumas, rxode2, sbml, tci_json,
+)
 
 # Per-model text exporters.
 BUILDERS = {
@@ -18,6 +20,7 @@ BUILDERS = {
     "rxode2": (rxode2.build, rxode2.filename),
     "pumas": (pumas.build, pumas.filename),
     "bibtex": (bibtex.build_for_model, bibtex.filename),
+    "csv": (csv_flat.build_for_model, csv_flat.filename),
 }
 
 # Binary / archive exporters handled separately (see hypnos.export.combine).
@@ -33,4 +36,4 @@ def export_model(fmt: str, model, ds=None, patient=None):
 
 
 __all__ = ["BUILDERS", "BINARY_FORMATS", "FORMATS", "export_model", "annotate", "bibtex",
-           "combine", "nonmem", "pharmml", "sbml", "tci_json", "rxode2", "pumas"]
+           "combine", "csv_flat", "nonmem", "pharmml", "sbml", "tci_json", "rxode2", "pumas"]

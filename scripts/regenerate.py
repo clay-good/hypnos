@@ -20,7 +20,7 @@ from pathlib import Path
 import numpy as np
 
 import hypnos
-from hypnos.export import FORMATS, bibtex, combine, export_model
+from hypnos.export import FORMATS, bibtex, combine, csv_flat, export_model
 
 ROOT = Path(__file__).resolve().parent.parent
 EXPORTS = ROOT / "exports"
@@ -34,21 +34,22 @@ def regenerate_exports(ds) -> int:
     EXPORTS.mkdir(parents=True, exist_ok=True)
     pk = [m for m in ds if m.purpose == "pk"]
     count = 0
-    for fmt in [f for f in FORMATS if f not in ("omex", "bibtex")]:
+    for fmt in [f for f in FORMATS if f not in ("omex", "bibtex", "csv")]:
         d = EXPORTS / fmt
         d.mkdir(parents=True, exist_ok=True)
         for m in pk:
             fname, text = export_model(fmt, m, ds)
             (d / fname).write_text(text, encoding="utf-8")
             count += 1
-    # bibtex (dataset-level) + per-model omex + a single dataset omex
+    # dataset-level text exports + per-model omex + a single dataset omex
     (EXPORTS / "citations.bib").write_text(bibtex.build(ds), encoding="utf-8")
+    (EXPORTS / "parameters.csv").write_text(csv_flat.build(ds), encoding="utf-8")
     omex_dir = EXPORTS / "omex"
     omex_dir.mkdir(parents=True, exist_ok=True)
     for m in pk:
         (omex_dir / combine.model_filename(m)).write_bytes(combine.build_model_archive(m, ds))
     (EXPORTS / "hypnos.omex").write_bytes(combine.build_dataset_archive(ds))
-    print(f"exports: {count} text file(s) + {len(pk)} omex + dataset omex + citations.bib -> {EXPORTS}/")
+    print(f"exports: {count} text file(s) + {len(pk)} omex + dataset omex + citations.bib + parameters.csv -> {EXPORTS}/")
     return count
 
 

@@ -34,8 +34,11 @@ def _entry(cit: Dict[str, Any]) -> str:
     return f"@article{{{cit['id']},\n{body}\n}}\n"
 
 
-def build_for_model(model, ds) -> str:
-    """BibTeX for a single model: its primary citation plus any per-parameter citations."""
+def build_for_model(model, ds=None, patient=None) -> str:
+    """BibTeX for a single model: its primary citation plus any per-parameter citations.
+
+    ``patient`` is accepted (and ignored) for a uniform exporter signature.
+    """
     if ds is None:
         return ""
     ids: List[str] = []

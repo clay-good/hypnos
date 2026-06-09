@@ -258,6 +258,40 @@ def remifentanil_eleveld_2017(patient: dict) -> MicroParams:
     )
 
 
+# --------------------------------------------------------------------------- #
+# Remifentanil — Kim (2017): derived in obesity; Janmahasatian FFM (PK-only)
+# --------------------------------------------------------------------------- #
+def remifentanil_kim_2017(patient: dict) -> MicroParams:
+    """Kim 2017 remifentanil PK model ("Disposition of Remifentanil in Obesity").
+
+    Transcribed from the published equations (cross-checked against the ``tci`` R
+    package, ``pkmod_kim``) and validated to reproduce the reference individual
+    (37 y, 74.5 kg, FFM 52.3): V1=4.76, V2=8.4, V3=4, CL=2.77, Q2=1.94, Q3=0.197.
+    PK-only: the Kim disposition study published no effect-site (ke0). Uses the
+    Janmahasatian fat-free mass (not Al-Sallami). ``review_status`` unverified.
+    """
+    age = _req(patient, "age")
+    wgt = _req(patient, "weight")
+    hgt = _req(patient, "height")
+    male = 1.0 if str(patient.get("sex", "M")).upper().startswith("M") else 0.0
+    bmi = 10000.0 * wgt / (hgt * hgt)
+    # Janmahasatian fat-free mass
+    if male:
+        ffm = 9.27e3 * wgt / (6.68e3 + 216 * bmi)
+    else:
+        ffm = 9.27e3 * wgt / (8.78e3 + 244 * bmi)
+
+    V1 = 4.76 * (wgt / 74.5) ** 0.658
+    V2 = 8.4 * (ffm / 52.3) ** 0.573 - 0.0936 * (age - 37.0)
+    V3 = 4.0 - 0.0477 * (age - 37.0)
+    CL = 2.77 * (wgt / 74.5) ** 0.336 - 0.0149 * (age - 37.0)
+    Q2 = 1.94 - 0.0280 * (age - 37.0)
+    Q3 = 0.197
+    return MicroParams.from_volumes_clearances(
+        V1=V1, Cl1=CL, V2=V2, Cl2=Q2, V3=V3, Cl3=Q3, ke0=0.0
+    )
+
+
 KERNELS: Dict[str, KernelFn] = {
     "propofol_marsh_1991": propofol_marsh_1991,
     "propofol_schnider_1998": propofol_schnider_1998,
@@ -265,6 +299,7 @@ KERNELS: Dict[str, KernelFn] = {
     "propofol_eleveld_2018": propofol_eleveld_2018,
     "remifentanil_minto_1997": remifentanil_minto_1997,
     "remifentanil_eleveld_2017": remifentanil_eleveld_2017,
+    "remifentanil_kim_2017": remifentanil_kim_2017,
     "dexmedetomidine_hannivoort_2015": dexmedetomidine_hannivoort_2015,
 }
 

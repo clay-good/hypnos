@@ -326,9 +326,14 @@ def compare(
         else:
             cmp.included.append(res)
 
+    # Plasma divergence spans every included PK model; effect-site divergence is
+    # only meaningful among models that actually carry an effect compartment
+    # (a ke0 link). PK-only models (e.g. Kim remifentanil, Paedfusor) have ce==0
+    # and must not pollute the ce spread.
+    ce_results = [r for r in cmp.included if r.params is not None and r.params.ke0 > 0]
     cmp.divergence = {
         "cp": _divergence(cmp.included, "cp"),
-        "ce": _divergence(cmp.included, "ce"),
+        "ce": _divergence(ce_results, "ce"),
     }
     return cmp
 

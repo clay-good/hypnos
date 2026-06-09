@@ -8,6 +8,21 @@ version is pinned in `dataset/VERSION` and stamped into every export as
 
 ## [Unreleased]
 
+### Kim remifentanil + effect-site divergence fix (2026-06-09)
+- **`remifentanil_kim_2017` executable kernel** — completes the spec's named
+  remifentanil trio (Minto, Eleveld, Kim). Derived in obesity; Janmahasatian FFM;
+  PK-only (the Kim disposition study published no ke0). Transcribed from the
+  published equations, cross-checked against the `tci` `pkmod_kim`, validated to
+  reproduce the reference individual (37 y, 74.5 kg, FFM 52.3): V1=4.76, V2=8.4,
+  V3=4, CL=2.77, Q2=1.94, Q3=0.197. `review_status` unverified. Kim's BMI-to-~70
+  envelope covers morbidly-obese patients where Eleveld (BMI 52) and Minto (James
+  LBM > 40) are greyed.
+- **Bug fix:** `compare()` effect-site (`ce`) divergence now excludes models
+  without an effect compartment (`ke0 = 0`). PK-only models (Kim, Paedfusor) have
+  `ce = 0` and were spuriously inflating the effect-site spread (e.g. the
+  pediatric Paedfusor-vs-Eleveld comparison). Plasma (`cp`) divergence still spans
+  every PK model. 18 models, 16 kernels.
+
 ### Eleveld two-slope BIS PD model (2026-06-09)
 - **`pd_effect.propofol.eleveld_bis`** + `sigmoid_emax_twoslope` kernel — the
   validated PD companion to the Eleveld PK kernel, giving a fully-Eleveld PK-PD

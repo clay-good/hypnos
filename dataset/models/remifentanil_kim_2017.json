@@ -1,0 +1,82 @@
+{
+  "id": "opioids.remifentanil.kim_2017",
+  "subsystem": "opioids",
+  "drug": { "name": "remifentanil", "unii": "P10582JYYK", "atc": "N01AH06" },
+  "purpose": "pk",
+  "label": "Remifentanil PK — Kim (2017, obesity)",
+  "structure": {
+    "compartments": 3,
+    "parameterization": "volumes_clearances",
+    "elimination": "linear",
+    "effect_compartment": false
+  },
+  "kernel": { "implemented": true, "function": "remifentanil_kim_2017" },
+  "parameters": [
+    {
+      "symbol": "V1", "label": "central volume (reference individual)",
+      "value": { "central": 4.76, "low": null, "high": null, "units": "L" },
+      "covariate_model": "V1 = 4.76 * (WGT/74.5)^0.658",
+      "tier": "A",
+      "extraction": { "review_status": "unverified", "tier_rationale": "Total-body-weight and fat-free-mass (Janmahasatian) covariate model developed specifically to capture obesity; reference 37 y, 74.5 kg, FFM 52.3. Kernel validated to reproduce the reference individual; transcription pending human PDF confirmation.", "source_locator": "Kim 2017, Table" },
+      "primary_citation": "kim-2017-remifentanil"
+    },
+    {
+      "symbol": "V2", "label": "rapid peripheral volume (reference)",
+      "value": { "central": 8.4, "low": null, "high": null, "units": "L" },
+      "covariate_model": "V2 = 8.4 * (FFM/52.3)^0.573 - 0.0936*(AGE-37); FFM via Janmahasatian",
+      "tier": "A",
+      "extraction": { "review_status": "unverified", "source_locator": "Kim 2017, Table" },
+      "primary_citation": "kim-2017-remifentanil"
+    },
+    {
+      "symbol": "V3", "label": "slow peripheral volume (reference)",
+      "value": { "central": 4.0, "low": null, "high": null, "units": "L" },
+      "covariate_model": "V3 = 4.0 - 0.0477*(AGE-37)",
+      "tier": "A",
+      "extraction": { "review_status": "unverified", "source_locator": "Kim 2017, Table" },
+      "primary_citation": "kim-2017-remifentanil"
+    },
+    {
+      "symbol": "Cl1", "label": "metabolic (esterase) clearance (reference)",
+      "value": { "central": 2.77, "low": null, "high": null, "units": "L/min" },
+      "covariate_model": "CL = 2.77 * (WGT/74.5)^0.336 - 0.0149*(AGE-37)",
+      "tier": "A",
+      "extraction": { "review_status": "unverified", "source_locator": "Kim 2017, Table" },
+      "primary_citation": "kim-2017-remifentanil"
+    },
+    {
+      "symbol": "Cl2", "label": "rapid intercompartmental clearance (reference)",
+      "value": { "central": 1.94, "low": null, "high": null, "units": "L/min" },
+      "covariate_model": "Q2 = 1.94 - 0.0280*(AGE-37)",
+      "tier": "A",
+      "extraction": { "review_status": "unverified", "source_locator": "Kim 2017, Table" },
+      "primary_citation": "kim-2017-remifentanil"
+    },
+    {
+      "symbol": "Cl3", "label": "slow intercompartmental clearance (reference)",
+      "value": { "central": 0.197, "low": null, "high": null, "units": "L/min" },
+      "covariate_model": "Q3 = 0.197",
+      "tier": "A",
+      "extraction": { "review_status": "unverified", "source_locator": "Kim 2017, Table" },
+      "primary_citation": "kim-2017-remifentanil"
+    }
+  ],
+  "covariates": { "required": ["age", "weight", "height", "sex"], "optional": ["ffm"], "lbm_equation": "janmahasatian_2005" },
+  "applicability_envelope": {
+    "age_years": { "min": 20, "max": 85 },
+    "weight_kg": { "min": 45, "max": 200 },
+    "bmi_kg_m2": { "min": 18, "max": 70 },
+    "populations": ["adult", "obese", "morbidly_obese"],
+    "derivation_n": 80
+  },
+  "known_failure_modes": [],
+  "predictive_performance": [],
+  "tier": "A",
+  "extraction": {
+    "review_status": "unverified",
+    "tier_rationale": "Remifentanil model derived to capture body-mass effects across normal-weight to morbidly-obese adults (the widest BMI envelope of the three remifentanil models). PK-only: the Kim disposition study published no effect-site link, so this model contributes to plasma comparison but not effect-site. Kernel validated to reproduce the reference individual. review_status unverified.",
+    "source_locator": "Kim 2017, Table"
+  },
+  "primary_citation": "kim-2017-remifentanil",
+  "notes": "Kernel = remifentanil_kim_2017 (PK-only, no ke0). FFM via Janmahasatian 2005 (distinct from the Al-Sallami FFM used by Eleveld). Completes the spec's named remifentanil trio (Minto, Eleveld, Kim); its high-BMI envelope stays valid for morbidly obese patients where Minto is greyed out. Validated reference (37 y, 74.5 kg, FFM 52.3): V1=4.76, V2=8.4, V3=4, CL=2.77, Q2=1.94, Q3=0.197."
+}

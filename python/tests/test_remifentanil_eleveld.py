@@ -37,12 +37,20 @@ def test_faster_ke0_than_minto(ds):
 
 
 def test_broad_envelope_covers_obese_and_child(ds):
-    # Eleveld (FFM, broad envelope) stays in-envelope where Minto (James LBM, adult) is greyed
-    for patient in (dict(age=40, weight=140, height=172, sex="M"),
-                    dict(age=6, weight=20, height=115, sex="M")):
-        cmp = hypnos.compare(ds, drug="remifentanil", patient=patient, schedule=REMI, t=T)
-        assert {r.model_id for r in cmp.included} == {ELEVELD}
-        assert any(e["model_id"] == MINTO for e in cmp.excluded)
+    # Eleveld (FFM, broad envelope) stays in-envelope where Minto (James LBM, adult) is greyed.
+    KIM = "opioids.remifentanil.kim_2017"
+    # obese adult: Eleveld + Kim (obesity model) both cover; Minto greyed
+    obese = hypnos.compare(ds, drug="remifentanil",
+                           patient=dict(age=40, weight=140, height=172, sex="M"), schedule=REMI, t=T)
+    obese_inc = {r.model_id for r in obese.included}
+    assert ELEVELD in obese_inc and KIM in obese_inc
+    assert any(e["model_id"] == MINTO for e in obese.excluded)
+    # child: only Eleveld covers (Minto and Kim are adult-only)
+    child = hypnos.compare(ds, drug="remifentanil",
+                           patient=dict(age=6, weight=20, height=115, sex="M"), schedule=REMI, t=T)
+    assert {r.model_id for r in child.included} == {ELEVELD}
+    greyed = {e["model_id"] for e in child.excluded}
+    assert MINTO in greyed and KIM in greyed
 
 
 def test_adults_cross_validate(ds):

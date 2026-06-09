@@ -79,12 +79,13 @@ Phase C widens coverage beyond the propofol/remifentanil core — a new drug cla
 
 ![Pediatric propofol model divergence](docs/images/pediatric.png)
 
-For a 6-year-old, 20 kg child, only Paedfusor is in-envelope. Marsh and Schnider are greyed out and explicitly labeled *pediatric extrapolations* — and the figure shows why that matters: the adult models, if you ignored the label, would predict roughly half (Schnider) to 1.5× (Marsh) the plasma concentration of the validated pediatric model. The labeling is symmetric: Paedfusor used in an adult is flagged as a pediatric-model extrapolation, and a 90-year-old outside dexmedetomidine's 18–70 y range is labeled a *geriatric extrapolation*.
+For a 6-year-old, 20 kg child, **two** models are in-envelope and they tell a clean story: the dedicated pediatric **Paedfusor** (Tier B), and the broad-envelope general-purpose **Eleveld** (Tier A), which is built to span neonate→elderly and so correctly *covers the child by design* — the payoff of a wide derivation envelope. The two adult-only models, **Marsh and Schnider**, are greyed out and explicitly labeled *pediatric extrapolations*: an adult model used in a child is not predictive, so it is floored to Tier D. The labeling is symmetric: Paedfusor used in an adult is flagged as a pediatric-model extrapolation, and a 90-year-old outside dexmedetomidine's 18–70 y range is labeled a *geriatric extrapolation*.
 
 ```text
 $ hypnos compare --drug propofol --age 6 --weight 20 --height 115 --sex M
-included (1):
-  - hypnotics_iv.propofol.paedfusor_2005       tier B  ...
+included (2):
+  - hypnotics_iv.propofol.eleveld_2018         tier A  Ce peak 2.474 ug/mL   # broad envelope covers the child
+  - hypnotics_iv.propofol.paedfusor_2005       tier B  Cp peak 4.363 ug/mL   # dedicated pediatric model
 excluded for envelope (2):
   - hypnotics_iv.propofol.marsh_1991      tier D  (... PEDIATRIC EXTRAPOLATION: age 6 y is below the
         model's derivation range (>= 16 y); an adult model used in a child is not predictive -> Tier D)
@@ -115,6 +116,10 @@ hypnos.mac(ds, "volatiles.sevoflurane.mac", age=75, end_tidal_pct=1.2, n2o_end_t
 ```text
 FA/FI(t) = plateau · (1 − e^(−t/τ)),   plateau = V̇_A/(V̇_A + λ·Q̇),   τ = FRC/(V̇_A + λ·Q̇)
 ```
+
+![Inhalational wash-in (FA/FI)](docs/images/washin.png)
+
+The left panel is the FA/FI wash-in; the right makes the mechanism explicit — early plateau falls monotonically as blood:gas `λ` rises. Both are computed from the curated coefficients alone.
 
 ```text
 $ hypnos washin

@@ -8,6 +8,26 @@ version is pinned in `dataset/VERSION` and stamped into every export as
 
 ## [Unreleased]
 
+### Reproducible figures (fix a stale one) + wash-in visualization (2026-06-09)
+- **`scripts/regenerate.py` now regenerates every README figure** from the live
+  dataset/kernels, in place into `docs/images/`. Previously only `divergence.png`
+  was reproducible (and even that was stale — two models, not the committed three);
+  `synergy.png`, `pediatric.png`, and `mac_age.png` were orphaned artifacts the
+  script could not reproduce, contradicting the spec's "everything is a
+  deterministic projection of the dataset" claim.
+- **Fixed a factually stale figure + README claim:** `pediatric.png` labelled
+  `eleveld_2018 (kernel pending)` and the README said "only Paedfusor is
+  in-envelope" — both predate the Eleveld kernel. The broad-envelope Eleveld (Tier
+  A) in fact *covers a 6-year-old by design*; the figure and text now show both
+  Eleveld and Paedfusor in-envelope, with the adult-only Marsh/Schnider as Tier-D
+  pediatric extrapolations. A figure can no longer silently rot out of sync: it is
+  redrawn from `compare()`/`simulate()`, so implementing a kernel updates every
+  figure that depends on it.
+- **New `washin.png`** — the FA/FI wash-in curves + the λ→plateau mechanism, the
+  visual for the wash-in feature.
+- Smoke test (`test_figures.py`, skips without matplotlib) regenerates all five
+  figures to a temp dir and asserts each renders, enforcing the no-rot guarantee.
+
 ### Inhalational wash-in (FA/FI uptake) (2026-06-09)
 - **`hypnos.washin` / `washin_comparison` + `hypnos washin` CLI** — the volatile
   *uptake* relation the spec names (§3/§6, Phase D) but that was the one Phase-D item

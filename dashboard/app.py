@@ -8,6 +8,12 @@ model, grey out the ones whose envelope the patient violates, and report the
 quantitative divergence. It answers "how much do published models disagree?" — a
 research question — never "what should I give this patient?"
 
+With "prediction bands" enabled (v0.2 §7), each band-eligible model also draws a
+seeded 5–95% ribbon, and the view answers the sharper question — *are the models
+distinguishable beyond their own stated variability?* (separation index) and
+*what dominates the uncertainty here?* (variance decomposition). Models with no
+published BSV stay bare lines and are named, never given a fabricated band.
+
 All compute is the tested package logic (compare, time_to_peak_effect,
 simulate_interaction) over `hypnos.presets` doses, so the dashboard never drifts
 from the CLI. NOT FOR CLINICAL USE. Research / education / simulation only.
@@ -17,6 +23,7 @@ from __future__ import annotations
 import numpy as np
 
 try:
+    import altair as alt
     import pandas as pd
     import streamlit as st
 except ImportError:  # pragma: no cover
@@ -26,6 +33,51 @@ import hypnos
 from hypnos.filter import pk_drugs
 from hypnos.presets import default_schedule_for
 from hypnos.reference import alveolar_washin, alveolar_washout, mac_age_corrected
+
+
+def band_chart(t, results, key, f, unit, percentile=(5, 95)):
+    """Layered Altair chart of per-model curves with seeded prediction ribbons (v0.2 §7).
+
+    Band-eligible models (those that publish between-subject variability) get a
+    shaded percentile ribbon + a solid median line; models with no curated Ω are
+    drawn as a dashed point-estimate line and named — never given a fabricated
+    band (the never-synthesize rule, carried into the view). Returns ``None`` when
+    no model has a curve for ``key`` (e.g. effect-site for a PK-only comparison).
+    """
+    lo, hi = percentile
+    band_rows, line_rows = [], []
+    for r in results:
+        name = r.model_id.split(".")[-1] + f" (tier {r.tier})"
+        q = getattr(r, f"{key}_quantiles")
+        point = getattr(r, key)
+        if q is not None:  # band-eligible: ribbon + median
+            for i, tt in enumerate(t):
+                band_rows.append({"t (min)": float(tt), "model": name,
+                                  "lo": float(q[lo][i] * f), "hi": float(q[hi][i] * f)})
+                line_rows.append({"t (min)": float(tt), "model": name,
+                                  unit: float(q[50][i] * f), "kind": "median"})
+        elif float(point.max()) > 0:  # point-estimate line only
+            for i, tt in enumerate(t):
+                line_rows.append({"t (min)": float(tt), "model": name,
+                                  unit: float(point[i] * f), "kind": "point (no published BSV)"})
+    if not line_rows:
+        return None
+    layers = []
+    if band_rows:
+        layers.append(
+            alt.Chart(pd.DataFrame(band_rows)).mark_area(opacity=0.18).encode(
+                x=alt.X("t (min):Q"),
+                y=alt.Y("lo:Q", title=unit), y2="hi:Q",
+                color=alt.Color("model:N", legend=alt.Legend(title=f"model (band = {lo}–{hi}%)")),
+            )
+        )
+    layers.append(
+        alt.Chart(pd.DataFrame(line_rows)).mark_line().encode(
+            x=alt.X("t (min):Q"), y=alt.Y(f"{unit}:Q", title=unit), color="model:N",
+            strokeDash=alt.StrokeDash("kind:N", legend=alt.Legend(title="line")),
+        )
+    )
+    return alt.layer(*layers).resolve_scale(color="shared").properties(height=340)
 
 st.set_page_config(page_title="Hypnos — model-divergence view", layout="wide")
 ds = hypnos.load()
@@ -56,6 +108,17 @@ with st.sidebar:
     bolus = st.text_input("Bolus (blank = none)", bolus)
     infusion = st.text_input("Infusion (blank = none)", infusion)
     tmax = st.slider("Horizon (min)", 10, 180, 60)
+    st.header("Prediction bands (v0.2)")
+    show_bands = st.checkbox(
+        "Seeded 5–95% prediction bands", value=False,
+        help="Monte-Carlo over each model's curated between-subject variability (Ω) "
+             "and residual error (Σ). Only models that publish random effects earn a "
+             "band; the rest stay bare lines (never a fabricated ribbon). Seeded, so "
+             "the quantiles are byte-reproducible. A band is a statement about the "
+             "model's stated uncertainty — NOT a claim about a real patient.")
+    seed = st.number_input("Seed", 0, 99999, 7, disabled=not show_bands)
+    samples = st.select_slider("Monte-Carlo samples", [500, 1000, 2000, 4000], 2000,
+                               disabled=not show_bands)
 
 patient = dict(age=age, weight=weight, height=height, sex=sex)
 schedule = []
@@ -65,7 +128,9 @@ if infusion.strip():
     schedule.append(("infusion", 0.0, infusion.strip()))
 t = np.linspace(0, tmax, 6 * tmax + 1)
 
-cmp = hypnos.compare(ds, drug=drug, patient=patient, schedule=schedule, t=t)
+cmp = hypnos.compare(ds, drug=drug, patient=patient, schedule=schedule, t=t,
+                     bands=bool(show_bands), percentile=(5, 95),
+                     samples=int(samples), seed=int(seed) if show_bands else None)
 unit = cmp.concentration_unit
 f = cmp.conc_factor
 
@@ -73,19 +138,30 @@ col1, col2 = st.columns([3, 2])
 
 with col1:
     st.subheader(f"Effect-site concentration ({unit})")
-    df = pd.DataFrame({"t (min)": t})
-    any_ce = False
-    for r in cmp.included:
-        if float(np.max(r.ce)) > 0:  # only models with a ke0 link have an effect-site curve
-            df[r.model_id.split(".")[-1] + f" (tier {r.tier})"] = r.ce * f
-            any_ce = True
-    if any_ce:
-        st.line_chart(df, x="t (min)")
+    if show_bands:
+        # shaded 5–95% ribbons (band-eligible models) + bare lines (the rest)
+        ce_chart = band_chart(t, cmp.included, "ce", f, unit, percentile=(5, 95))
+        if ce_chart is not None:
+            st.altair_chart(ce_chart, use_container_width=True)
+    else:
+        df = pd.DataFrame({"t (min)": t})
+        any_ce = False
+        for r in cmp.included:
+            if float(np.max(r.ce)) > 0:  # only models with a ke0 link have an effect-site curve
+                df[r.model_id.split(".")[-1] + f" (tier {r.tier})"] = r.ce * f
+                any_ce = True
+        if any_ce:
+            st.line_chart(df, x="t (min)")
     st.subheader(f"Plasma concentration ({unit})")
-    dfp = pd.DataFrame({"t (min)": t})
-    for r in cmp.included:
-        dfp[r.model_id.split(".")[-1]] = r.cp * f
-    st.line_chart(dfp, x="t (min)")
+    if show_bands:
+        cp_chart = band_chart(t, cmp.included, "cp", f, unit, percentile=(5, 95))
+        if cp_chart is not None:
+            st.altair_chart(cp_chart, use_container_width=True)
+    else:
+        dfp = pd.DataFrame({"t (min)": t})
+        for r in cmp.included:
+            dfp[r.model_id.split(".")[-1]] = r.cp * f
+        st.line_chart(dfp, x="t (min)")
 
 with col2:
     st.subheader("Model status")
@@ -108,6 +184,35 @@ with col2:
         if drv:
             st.caption(f"Driver of the disagreement: **{drv['high'].split('.')[-1]}** vs "
                        f"**{drv['low'].split('.')[-1]}** (furthest apart at the peak instant).")
+
+    # v0.2 uncertainty-aware divergence: does the gap survive the models' own BSV?
+    if cmp.bands:
+        st.subheader("Are the models distinguishable? (v0.2)")
+        sep = d.get("separation")
+        if sep and sep.get("value") is not None:
+            verdict = "bands DISJOINT" if sep["bands_disjoint_at_tstar"] else "bands overlap"
+            st.metric(f"Separation index @ t*  ({verdict})", f"{sep['value']:+.2f}",
+                      f"{100 * sep['fraction_trajectory_disjoint']:.0f}% of trajectory disjoint")
+            st.caption(
+                f"Driver pair **{sep['driver_high'].split('.')[-1]}** vs "
+                f"**{sep['driver_low'].split('.')[-1]}**, band-tier {sep['band_tier']}. "
+                "separation > 0 ⇒ a structural disagreement neither model's stated "
+                "variability explains away — *model-selection risk you cannot variability-away.*")
+        vs = d.get("variance_share")
+        if vs:
+            st.caption(f"**Variance decomposition @ t* = {vs['t_star_min']:.1f} min** — "
+                       "what dominates the predictive uncertainty here?")
+            st.bar_chart(
+                pd.DataFrame({"share": [vs["structural"], vs["bsv"], vs["residual"]]},
+                             index=["structural (which model)", "BSV (which patient)",
+                                    "residual (Σ)"]),
+                horizontal=True)
+        for e in cmp.excluded_from_bands:
+            st.warning(f"⬚ {e['model_id'].split('.')[-1]} — excluded from band math: {e['reason']}")
+        if not any(getattr(r, "ce_quantiles", None) is not None
+                   or getattr(r, "cp_quantiles", None) is not None for r in cmp.included):
+            st.info("No band-eligible model for this drug yet — only models that publish "
+                    "between-subject variability (Ω) earn a band. Today that is Eleveld propofol.")
 
     # Onset (time-to-peak-effect) for models with a ke0 link
     onset = []

@@ -51,6 +51,15 @@ v0.1 record stays valid; the variability block is optional).
   share of the total predictive variance). Models with no BSV are **named** in
   `excluded_from_bands`, never silently dropped. Surfaced in `hypnos compare --bands
   --percentile 5,95 --samples … --seed …`. New `variability.png` figure.
+- **Dashboard ribbons (V2).** The Streamlit dashboard now renders the prediction
+  bands as shaded **Altair ribbons** — a *Seeded 5–95% prediction bands* toggle (with
+  seed + Monte-Carlo-samples controls) overlays each band-eligible model's percentile
+  ribbon on its median line; no-BSV models stay bare dashed lines and are named, never
+  given a fabricated band. Beside the chart: the **separation index** (are the bands
+  distinguishable?), the **structural/BSV/residual variance decomposition**, and the
+  `excluded_from_bands` models. All from the same seeded `compare(..., bands=True)`
+  call, so the view never drifts from the CLI. Smoke-tested end to end via Streamlit
+  `AppTest` (skipped where the dashboard extra is absent, e.g. the CI `test` job).
 - **Exports (V3 — the random-effects layer now round-trips through *every* population
   format).** A shared `export/_variability.py` projects the curated Ω/Σ once; each
   exporter renders it in its own idiom:
@@ -75,7 +84,9 @@ v0.1 record stays valid; the variability block is optional).
 - **Safety.** Unchanged and tightened in proportion: bands describe a *given* forward
   dose history and never invert one (no quantile-targeting), and every band is labeled
   a statement about the *model's stated uncertainty*, not a claim about a real patient.
-  `clinicalUse = "PROHIBITED"` remains universal. 40 variability tests; suite 229 green.
+  `clinicalUse = "PROHIBITED"` remains universal. 40 variability tests; CI suite 229
+  green (+2 dashboard `AppTest` smoke tests that run wherever the dashboard extra is
+  installed, skipped in the dev-only CI `test` job).
 
 ### Inhalational wash-out (FA/FA₀ emergence) — the offset mirror of wash-in (2026-06-09)
 - **`hypnos.washout` / `washout_comparison` + `hypnos washout` CLI** — the

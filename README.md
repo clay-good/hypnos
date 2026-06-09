@@ -67,6 +67,8 @@ Two machine-readable readouts fall out, both added to `divergence["cp"]`/`["ce"]
 - **Separation index** — at the instant of peak median spread, are the two driver models' bands **disjoint**? `separation > 0` means a genuine, irreducible structural disagreement that neither model's own stated variability explains; the reported `fraction_trajectory_disjoint` is the share of the curve where the bands separate — *model-selection risk you cannot variability-away.* (It computes once ≥ 2 models carry curated BSV; today Eleveld is the only propofol model that does, so it is reported for drugs/comparisons where two band-eligible models overlap.)
 - **Variance decomposition** — the structural / BSV / residual share of the total predictive variance, time-resolved. It tells a researcher *when curating more models helps* (structural-dominated regimes) versus *when the patient is the irreducible uncertainty* (BSV-dominated).
 
+The static figure above is exactly what the **[Streamlit dashboard](dashboard/app.py)** renders live: toggle *Seeded 5–95% prediction bands* and each band-eligible model gets a shaded Altair ribbon over its median line (no-BSV models stay bare lines and are named), with the separation index and the structural/BSV/residual decomposition beside it. Same seeded `compare(..., bands=True)` call, so the view never drifts from the CLI.
+
 ```text
 $ hypnos compare --drug propofol --age 72 --weight 60 --height 162 --sex F \
                  --bands --percentile 5,95 --samples 2000 --seed 7
@@ -248,7 +250,7 @@ flowchart TD
     DS["<b>dataset/</b> — source of truth<br/>JSON model records + JSON Schema + JSON-LD context<br/>drugs · models · covariate eqs · envelopes · tiers · citations"]
     DS --> PKG["<b>hypnos</b> Python package<br/>load · filter · validate<br/>simulate · compare (PK/PD + divergence + bands)<br/>sample_individual (seeded BSV draws)<br/>simulate_interaction (synergy surface)<br/>analysis (tpeak · decrement)<br/>inhalational (MAC · wash-in/out)<br/>verification (checklists, never promotes)"]
     PKG --> CLI["<b>hypnos</b> CLI<br/>validate · info · models · status · verify<br/>simulate · compare · interact<br/>tpeak · decrement · mac · washin · washout<br/>performance · export"]
-    PKG --> DASH["Streamlit dashboard<br/>drug-aware divergence + accuracy + driver<br/>onset table · synergy · volatiles (MAC + wash-in/out)"]
+    PKG --> DASH["Streamlit dashboard<br/>drug-aware divergence + accuracy + driver<br/>seeded prediction-band ribbons + separation/variance readout<br/>onset table · synergy · volatiles (MAC + wash-in/out)"]
     PKG --> EXP["<b>hypnos.export</b><br/>format builders"]
     EXP --> NM["NONMEM control stream"]
     EXP --> PHARMML["PharmML projection"]
@@ -490,7 +492,7 @@ hypnos/
 ├── notebooks/                   # reference notebooks executed in CI (nbmake)
 ├── CHANGELOG.md · .zenodo.json   # release metadata (Zenodo DOI on first tagged release)
 ├── python/tests/                # analytic-vs-numeric, round-trip, envelope, tier, CLI, verification
-├── dashboard/app.py             # Streamlit: drug-aware divergence + onset + synergy + volatiles (MAC/wash-in/out)
+├── dashboard/app.py             # Streamlit: divergence + seeded band ribbons (v0.2) + onset + synergy + volatiles
 ├── docs/about/essay.md          # why model-selection risk is the load-bearing idea
 ├── docs/specs/v0.1/spec.md      # the design spec (typical-value layer)
 ├── docs/specs/v0.2/variability.md  # the population-variability layer (Ω/Σ, bands)
@@ -558,7 +560,7 @@ hypnos.validate_dataset(ds)                                           # -> list 
 | **C — Breadth** | dexmedetomidine, ketamine, midazolam, fentanyl family; pediatric models with explicit Tier-D labeling | ✅ core shipped (dexmedetomidine + the pediatric pair Kataria & Paedfusor executable with explicit pediatric/geriatric extrapolation labeling and a live pediatric model-divergence; fentanyl curated, kernel pending; ketamine/midazolam roadmap) |
 | **D — Inhalational + NMB** | volatile MAC/partition/uptake; neuromuscular blockers + train-of-four; sugammadex reversal | ✅ core shipped (4 volatiles with MAC age-correction + additivity + solubility-driven wash-in (FA/FI uptake) and wash-out (FA/FA₀ emergence) all executable; rocuronium seeded with TOF PD; rocuronium PK kernel + sugammadex binding kinetics pending) |
 | **E — Hardening** | external-validation MDPE/MDAPE backfill; COMBINE `.omex`; Zenodo DOI | ✅ core shipped (deterministic `.omex` + BibTeX exporters; `scripts/regenerate.py`; `.zenodo.json` + `CHANGELOG.md`; external-validation MDPE/MDAPE backfilled across both headline drugs + dexmedetomidine, citation-integrity-checked and surfaced via `hypnos performance`; minted DOI on first tagged release) |
-| **v0.2 — Population-variability layer** | curate Ω/Σ random effects; seeded prediction bands; uncertainty-aware divergence (separation index + variance decomposition); export the NLME object ([spec](docs/specs/v0.2/variability.md)) | 🟢 V0–V3 export code shipped (Eleveld propofol Ω-diagonal + Σ curated `unverified` with the §4-trap validate checks; `simulate`/`compare --bands` draw seeded, reproducible bands with the never-synthesize rule; **all five population exports carry the random-effects layer** — NONMEM `$OMEGA`/`$OMEGA BLOCK`/`$SIGMA`, PharmML `VariabilityModel`, nlmixr2/rxode2 + Pumas NLME companions, TCI-JSON). **Remaining (data, not code):** BSV backfill for Schnider/opioids/dexmedetomidine (awaits source-table confirmation, per never-invent); PD random effects; dashboard ribbons |
+| **v0.2 — Population-variability layer** | curate Ω/Σ random effects; seeded prediction bands; uncertainty-aware divergence (separation index + variance decomposition); export the NLME object ([spec](docs/specs/v0.2/variability.md)) | 🟢 V0–V3 export code shipped (Eleveld propofol Ω-diagonal + Σ curated `unverified` with the §4-trap validate checks; `simulate`/`compare --bands` draw seeded, reproducible bands with the never-synthesize rule; **all five population exports carry the random-effects layer** — NONMEM `$OMEGA`/`$OMEGA BLOCK`/`$SIGMA`, PharmML `VariabilityModel`, nlmixr2/rxode2 + Pumas NLME companions, TCI-JSON; the **dashboard renders the bands as shaded ribbons** with the separation-index + variance-decomposition readout). **Remaining (data, not code):** BSV backfill for Schnider/opioids/dexmedetomidine (awaits source-table confirmation, per never-invent); PD random effects |
 
 ---
 

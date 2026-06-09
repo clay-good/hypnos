@@ -8,6 +8,20 @@ version is pinned in `dataset/VERSION` and stamped into every export as
 
 ## [Unreleased]
 
+### Accuracy in the divergence view — connect performance to model-selection (2026-06-09)
+- The model-divergence view (`hypnos compare` + dashboard) now reports each
+  included model's **published in-envelope MDAPE** next to its curve, so it answers
+  both halves of model-selection risk: *how much do the models disagree?* **and**
+  *how accurate is each where it's valid?* Previously the curated performance data
+  was reachable only via `hypnos performance`, disconnected from the headline view.
+- New `Model.predictive_mdape` returns only the in-envelope MDAPE entries: a model's
+  out-of-envelope/failure-mode number (e.g. Minto's 53.4% in morbid obesity) applies
+  exactly where that model would itself be greyed out, so it is never attached to an
+  *included* (in-envelope) model. Multiple in-envelope studies render as a range
+  (e.g. Eleveld propofol MDAPE 22–30%); a model with no published MDAPE reads `n/a`.
+- Tests assert the in-vs-out-of-envelope split (Minto shows 24.6%, never 53.4%) and
+  that both CLI views render the badge.
+
 ### Reproducible figures (fix a stale one) + wash-in visualization (2026-06-09)
 - **`scripts/regenerate.py` now regenerates every README figure** from the live
   dataset/kernels, in place into `docs/images/`. Previously only `divergence.png`

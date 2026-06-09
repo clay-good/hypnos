@@ -99,6 +99,16 @@ def cmd_simulate(args) -> int:
     return 0
 
 
+def _mdape_str(model) -> str:
+    """Compact in-envelope MDAPE (inaccuracy) badge for the divergence view."""
+    vals = sorted({e["value"] for e in model.predictive_mdape})
+    if not vals:
+        return "MDAPE n/a"
+    if len(vals) == 1:
+        return f"MDAPE {vals[0]:g}%"
+    return f"MDAPE {vals[0]:g}-{vals[-1]:g}%"
+
+
 def cmd_compare(args) -> int:
     ds = load()
     patient = _patient_from_args(args)
@@ -111,7 +121,8 @@ def cmd_compare(args) -> int:
     for r in cmp.included:
         peak = r.ce_peak_display if r.ce_peak > 0 else r.cp_peak_display
         kind = "Ce" if r.ce_peak > 0 else "Cp"
-        print(f"  - {r.model_id:42s} tier {r.tier}  {kind} peak {peak:.3f} {cu}")
+        acc = _mdape_str(ds[r.model_id])
+        print(f"  - {r.model_id:42s} tier {r.tier}  {kind} peak {peak:.3f} {cu}   {acc}")
     if cmp.excluded:
         print(f"excluded for envelope ({len(cmp.excluded)}):")
         for e in cmp.excluded:

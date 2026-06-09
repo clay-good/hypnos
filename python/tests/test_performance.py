@@ -81,3 +81,28 @@ def test_cli_performance_by_drug(capsys):
 def test_cli_performance_no_metrics_for_drug():
     # rocuronium has no published performance metrics in the dataset
     assert main(["performance", "--drug", "rocuronium"]) == 2
+
+
+def test_predictive_mdape_excludes_out_of_envelope(ds):
+    # Minto carries an in-envelope MDAPE (24.6%) AND an out-of-envelope one (53.4%,
+    # morbid obesity). For an *included* (in-envelope) model only the former applies.
+    vals = [e["value"] for e in ds["opioids.remifentanil.minto_1997"].predictive_mdape]
+    assert 24.6 in vals and 53.4 not in vals
+    # a model with no MDAPE returns an empty list
+    assert ds["opioids.remifentanil.kim_2017"].predictive_mdape == []
+    # Marsh has exactly one (external head-to-head)
+    assert [e["value"] for e in ds["hypnotics_iv.propofol.marsh_1991"].predictive_mdape] == [25.0]
+
+
+def test_compare_cli_shows_accuracy(capsys):
+    # the divergence view now reports each included model's published inaccuracy
+    assert main(["compare", "--drug", "propofol", "--age", "50", "--weight", "80",
+                 "--height", "178", "--sex", "M"]) == 0
+    out = capsys.readouterr().out
+    assert "MDAPE" in out
+    # Minto's in-envelope number is shown for an in-envelope remifentanil patient,
+    # never the morbid-obesity failure-mode value
+    assert main(["compare", "--drug", "remifentanil", "--age", "50", "--weight", "80",
+                 "--height", "178", "--sex", "M"]) == 0
+    out = capsys.readouterr().out
+    assert "24.6" in out and "53.4" not in out

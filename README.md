@@ -39,13 +39,15 @@ Both panels are real output from this repo's `compare()` API (the same one [the 
 ```text
 $ hypnos compare --drug propofol --age 40 --weight 140 --height 172 --sex M
 included (2):
-  - hypnotics_iv.propofol.eleveld_2018         tier A  Ce peak 3.974
-  - hypnotics_iv.propofol.marsh_1991           tier B  Ce peak 3.741
+  - hypnotics_iv.propofol.eleveld_2018         tier A  Ce peak 3.974 ug/mL   MDAPE 22-30%
+  - hypnotics_iv.propofol.marsh_1991           tier B  Ce peak 3.741 ug/mL   MDAPE 25%
 excluded for envelope (2):
   - hypnotics_iv.propofol.paedfusor_2005       tier D  (pediatric model used in an adult ...)
   - hypnotics_iv.propofol.schnider_1998        tier D  (ENVELOPE: bmi=47.3 outside [20, 42]
         -> tiered down to D; FAILURE MODE [James LBM term inverts] -> tiered down to D)
 ```
+
+Each included model also reports its **published in-envelope inaccuracy** (MDAPE) next to its curve, so the view answers not just *how much do the models disagree?* but *and how accurate is each one where it's valid?* — the two halves of model-selection risk. The badge deliberately shows only the **in-envelope** MDAPE: a model's out-of-envelope/failure-mode number (e.g. Minto's 53.4% in morbid obesity) applies precisely where that model would itself be greyed out, so it is never attached to an included model.
 
 The same view works for **remifentanil** (`--drug remifentanil`), now with all three models the spec names (Minto, Eleveld, Kim): they agree closely for a standard adult (a useful cross-check), but their envelopes differ sharply at the extremes. For a morbidly-obese patient, only **Kim** (derived in obesity, BMI to ~70) stays in-envelope while Eleveld (BMI to 52) and Minto (James-LBM failure > 40) are greyed; for a child, only **Eleveld** (neonate→adult) covers, with Minto and Kim greyed as adult-only. Agreement where models are jointly valid, honest exclusion where one is not: exactly what a model-selection instrument should show.
 
@@ -424,6 +426,7 @@ ds = hypnos.load()
 hypnos.select(ds, drug="propofol", purpose="pk", kernel_only=True)   # filter
 hypnos.summary(ds)                                                    # dataset stats
 hypnos.performance_table(ds, drug="propofol")                        # published MDPE/MDAPE rows (cited)
+ds[model_id].predictive_mdape                                        # in-envelope MDAPE shown in the divergence view
 hypnos.simulate(ds, model_id, patient=..., schedule=..., t=...)       # forward sim
 hypnos.compare(ds, drug=..., patient=..., schedule=..., t=...)        # divergence view
 hypnos.simulate_interaction(ds, surface_id, pk_a=.., pk_b=.., ...)    # two-drug response surface

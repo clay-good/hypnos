@@ -89,7 +89,10 @@ with col1:
 with col2:
     st.subheader("Model status")
     for r in cmp.included:
-        st.success(f"✓ {r.model_id} — tier {r.tier}, Cp peak {r.cp_peak_display:.2f} {unit}")
+        mdape = sorted({e["value"] for e in ds[r.model_id].predictive_mdape})
+        acc = (f", published MDAPE {mdape[0]:g}%" if len(mdape) == 1
+               else f", published MDAPE {mdape[0]:g}–{mdape[-1]:g}%" if mdape else "")
+        st.success(f"✓ {r.model_id} — tier {r.tier}, Cp peak {r.cp_peak_display:.2f} {unit}{acc}")
     for e in cmp.excluded:
         st.warning(f"⬚ {e['model_id']} — greyed out (tier {e['tier']}): "
                    + "; ".join(e["reasons"])[:300])

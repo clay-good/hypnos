@@ -248,5 +248,24 @@ class Model:
     def predictive_performance(self) -> List[Dict[str, Any]]:
         return self.raw.get("predictive_performance", [])
 
+    @property
+    def predictive_mdape(self) -> List[Dict[str, Any]]:
+        """Published MDAPE (inaccuracy) entries that apply *in envelope*.
+
+        Returned as ``[{"value", "citation"}, ...]``. Out-of-envelope / failure-mode
+        entries (e.g. the Minto James-LBM number measured in morbid obesity) are
+        excluded: they characterize the model only where it would itself be greyed
+        out, so they are not the accuracy a reader should attach to an *included*
+        (in-envelope) model in the divergence view.
+        """
+        out: List[Dict[str, Any]] = []
+        for pp in self.predictive_performance:
+            if pp.get("metric") != "MDAPE":
+                continue
+            if "out of envelope" in (pp.get("population") or "").lower():
+                continue
+            out.append({"value": pp["value"], "citation": pp.get("citation")})
+        return out
+
     def __repr__(self) -> str:  # pragma: no cover - cosmetic
         return f"<Model {self.id} tier={self.tier} review={self.review_status}>"

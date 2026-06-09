@@ -83,6 +83,23 @@ effect-site divergence … peak rel 169%  (driver: schnider_1998 vs marsh_1991)
 
 **Curated for Eleveld 2018 propofol** (the model with the most completely published random-effects structure): the full **Ω diagonal** (ω² on V1/V2/V3/CL/Q2/Q3/ke0, η-scale log-variances — exactly a NONMEM `$OMEGA` diagonal) plus the **log-additive Σ** (σ = 0.191). Cross-checked against the `tci` R package (the same source Hypnos already cross-checks its kernels against) and curated **`unverified`**: the random effects are *more* error-prone to transcribe than the fixed effects (variance vs SD vs CV%, log vs natural scale), so `hypnos validate` recomputes each `cv_percent` from `omega2` and the human checklist confirms the [five §4 traps](docs/specs/v0.2/variability.md#4-the-canonical-representation-and-the-transcription-traps) against the source table. The band carries its **own tier** (B), one rung below the Tier-A median line it surrounds — honest, and visible in the output.
 
+### The effect band — PK variability propagated into BIS space
+
+Compose a band-eligible PK model with a PD model and the same curated Ω that scatters the concentration scatters the **predicted effect**: each virtual individual's true effect-site curve is pushed through the (deterministic) Hill model to a BIS band. Quantiles are taken on the *effect* draws directly, so they stay correct under the monotone, non-linear transform — and the population-median BIS sits *below* the typical-individual line, exactly as a non-linear average should.
+
+![Hypnos PD effect band — PK BSV propagated through the Hill link](docs/images/effect_band.png)
+
+Because **PD-parameter BSV (Ce50, γ) is not curated**, the effect ribbon reports only the propagated PK variability and is labeled an honest **lower bound** on true effect spread — the never-invent rule, carried into effect space: report what is curated, name what is not. A no-BSV PK model draws no effect band at all (never-synthesize), even with a PD model attached.
+
+```text
+$ hypnos simulate hypnotics_iv.propofol.eleveld_2018 --pd pd_effect.propofol.eleveld_bis \
+                  --bands --age 72 --weight 60 --height 162 --sex F --seed 7
+Cp peak: 20.141 ug/mL   Ce peak: 3.569 ug/mL
+  band-tier B  Ce peak 2.980 [0.872, 6.898] ug/mL  (5-95%, seeded)
+effect (Propofol PD — Eleveld two-slope BIS sigmoid): min 30.4
+  effect band @ peak: 37.7 [11.4, 76.2]  (5-95%, PK-BSV propagated — lower bound on true effect spread)
+```
+
 > **Safety, tightened in proportion.** A band makes the output *look* more like a clinical tool, so the guardrails tighten: **no quantile-targeting** ("the dose that keeps the 95th percentile below X" is inverse control wearing a statistical hat — still forbidden), and every band is labeled a statement about *the model's stated uncertainty*, not a claim about a real individual. `clinicalUse = "PROHIBITED"` remains universal.
 
 ## Drug–drug interaction: the propofol–remifentanil synergy surface
@@ -229,9 +246,10 @@ cmp.excluded                    # models greyed out for envelope violation, with
 
 # v0.2 — seeded prediction bands + uncertainty-aware divergence
 res = hypnos.simulate(ds, "hypnotics_iv.propofol.eleveld_2018", patient=patient,
-                      schedule=schedule, t=t, bands=True, percentile=(5, 95),
-                      samples=2000, seed=7)
+                      schedule=schedule, t=t, pd_model="pd_effect.propofol.eleveld_bis",
+                      bands=True, percentile=(5, 95), samples=2000, seed=7)
 res.ce_quantiles                # {5: array, 50: array, 95: array}; None if no published BSV
+res.effect_quantiles            # PD effect (BIS) band — PK BSV through the Hill link (lower bound)
 res.band_tier                   # "B" — the band's own tier, ≤ the median-line tier
 
 cmp = hypnos.compare(ds, drug="propofol", patient=patient, schedule=schedule, t=t,
@@ -510,6 +528,7 @@ hypnos performance [--drug propofol]              # published MDPE/MDAPE/wobble/
 hypnos status                                     # verification coverage + what to verify next
 hypnos verify <model_id> [--markdown]             # field-by-field verification checklist
 hypnos simulate <model_id> --age .. --weight .. --height .. --sex .. [--pd <pd_id>]
+hypnos simulate <model_id> --pd <pd_id> --bands --seed 7   # v0.2: Cp/Ce band + PD effect (BIS) band
 hypnos compare  --drug propofol --age .. --weight .. --height .. --sex ..
 hypnos compare  --drug propofol --age .. ... --bands --percentile 5,95 --samples 2000 --seed 7  # v0.2 prediction bands + uncertainty-aware divergence
 hypnos interact --age .. --weight .. --height .. --sex ..             # propofol+remifentanil synergy
@@ -560,7 +579,7 @@ hypnos.validate_dataset(ds)                                           # -> list 
 | **C — Breadth** | dexmedetomidine, ketamine, midazolam, fentanyl family; pediatric models with explicit Tier-D labeling | ✅ core shipped (dexmedetomidine + the pediatric pair Kataria & Paedfusor executable with explicit pediatric/geriatric extrapolation labeling and a live pediatric model-divergence; fentanyl curated, kernel pending; ketamine/midazolam roadmap) |
 | **D — Inhalational + NMB** | volatile MAC/partition/uptake; neuromuscular blockers + train-of-four; sugammadex reversal | ✅ core shipped (4 volatiles with MAC age-correction + additivity + solubility-driven wash-in (FA/FI uptake) and wash-out (FA/FA₀ emergence) all executable; rocuronium seeded with TOF PD; rocuronium PK kernel + sugammadex binding kinetics pending) |
 | **E — Hardening** | external-validation MDPE/MDAPE backfill; COMBINE `.omex`; Zenodo DOI | ✅ core shipped (deterministic `.omex` + BibTeX exporters; `scripts/regenerate.py`; `.zenodo.json` + `CHANGELOG.md`; external-validation MDPE/MDAPE backfilled across both headline drugs + dexmedetomidine, citation-integrity-checked and surfaced via `hypnos performance`; minted DOI on first tagged release) |
-| **v0.2 — Population-variability layer** | curate Ω/Σ random effects; seeded prediction bands; uncertainty-aware divergence (separation index + variance decomposition); export the NLME object ([spec](docs/specs/v0.2/variability.md)) | 🟢 V0–V3 export code shipped (Eleveld propofol Ω-diagonal + Σ curated `unverified` with the §4-trap validate checks; `simulate`/`compare --bands` draw seeded, reproducible bands with the never-synthesize rule; **all five population exports carry the random-effects layer** — NONMEM `$OMEGA`/`$OMEGA BLOCK`/`$SIGMA`, PharmML `VariabilityModel`, nlmixr2/rxode2 + Pumas NLME companions, TCI-JSON; the **dashboard renders the bands as shaded ribbons** with the separation-index + variance-decomposition readout). **Remaining (data, not code):** BSV backfill for Schnider/opioids/dexmedetomidine (awaits source-table confirmation, per never-invent); PD random effects |
+| **v0.2 — Population-variability layer** | curate Ω/Σ random effects; seeded prediction bands; uncertainty-aware divergence (separation index + variance decomposition); export the NLME object ([spec](docs/specs/v0.2/variability.md)) | 🟢 V0–V3 export code shipped (Eleveld propofol Ω-diagonal + Σ curated `unverified` with the §4-trap validate checks; `simulate`/`compare --bands` draw seeded, reproducible bands with the never-synthesize rule; **all five population exports carry the random-effects layer** — NONMEM `$OMEGA`/`$OMEGA BLOCK`/`$SIGMA`, PharmML `VariabilityModel`, nlmixr2/rxode2 + Pumas NLME companions, TCI-JSON; the **dashboard renders the bands as shaded ribbons** with the separation-index + variance-decomposition readout; the **PD effect (BIS) band** propagates PK BSV through the Hill link as an honest lower bound). **Remaining (data, not code):** BSV backfill for Schnider/opioids/dexmedetomidine and the PD-parameter (Ce50, γ) Ω — both await source-table confirmation, per never-invent |
 
 ---
 

@@ -348,8 +348,10 @@ patient = dict(age=72, weight=60, height=162, sex="F")
 schedule = [("bolus", 0.0, "2 mg/kg"), ("infusion", 0.0, "6 mg/kg/h")]
 traj = hypnos.simulate(ds, "hypnotics_iv.propofol.eleveld_2018",
                        patient=patient, schedule=schedule, t=np.linspace(0, 60, 600),
+                       pd_model="pd_effect.propofol.eleveld_bis",   # optional: compose a PD model
                        bands=True, percentile=(5, 95), samples=2000, seed=7)
 traj.ce_quantiles      # {5: array, 50: array, 95: array}; None if variability_status == "none"
+traj.effect_quantiles  # PD effect band — PK BSV propagated through the link (lower bound; None w/o pd_model)
 traj.band_tier, traj.warnings
 
 # Uncertainty-aware divergence — the v0.2 headline
@@ -375,4 +377,4 @@ hypnos validate                                            # adds the omega2<->c
 - **Correlated residual error / autocorrelation.** Most sources report independent ε; serially-correlated residual models are out of v0.2 scope.
 - **Covariate uncertainty.** Bands here propagate Ω/Σ at a *fixed* covariate vector; uncertainty in the covariates themselves (e.g. an estimated weight) is deferred.
 - **Bayesian model averaging.** Tempting — combine the eligible models weighted by their performance — but it edges toward producing a single "best" curve, which softens the very model-selection-risk signal v0.1 exists to make visible, and flirts with the dosing-tool line. Deferred, with that reservation recorded.
-- **PD variability.** This spec is written around PK BSV; the same structure applies to PD parameters (Ce50, γ), and the schema additions are purpose-agnostic. Backfilling PD random effects (e.g. the Eleveld BIS model) is a natural V3+ extension.
+- **PD variability.** This spec is written around PK BSV; the same structure applies to PD parameters (Ce50, γ), and the schema additions are purpose-agnostic. **Implemented (partial):** when a band-eligible PK model is composed with a PD model, `simulate(..., bands=True, pd_model=…)` now propagates the curated **PK** between-subject variability through the (deterministic) PD link to an **effect band** — each virtual individual's true effect-site curve pushed through the Hill model, quantiles taken on the effect draws directly (correct under the monotone, non-linear transform). It is surfaced in the CLI (`hypnos simulate … --pd … --bands`), carries `result.effect_quantiles`, and is drawn in `docs/images/effect_band.png`. Because PD-parameter BSV (Ce50, γ) is **not** curated, the effect band is labeled an honest **lower bound** on true effect spread — the never-invent rule again: it reports the variability that *is* curated and names what is not. **Remaining:** backfilling the PD random effects themselves (e.g. the Eleveld BIS Ω) awaits source-table confirmation, exactly as the PK BSV backfill does.

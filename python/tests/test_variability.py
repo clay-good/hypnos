@@ -213,6 +213,52 @@ def test_residual_band_is_wider(ds):
 
 
 # --------------------------------------------------------------------------- #
+# V1 / §14 — PD effect band: PK BSV propagated through the (fixed) PD link
+# --------------------------------------------------------------------------- #
+ELEVELD_BIS = "pd_effect.propofol.eleveld_bis"
+
+
+def test_effect_band_present_ordered_and_reproducible(ds):
+    t = np.linspace(0, 30, 80)
+    r1 = hypnos.simulate(ds, ELEVELD, patient=PATIENT, schedule=SCHED, t=t,
+                         pd_model=ELEVELD_BIS, bands=True, seed=9, samples=400)
+    r2 = hypnos.simulate(ds, ELEVELD, patient=PATIENT, schedule=SCHED, t=t,
+                         pd_model=ELEVELD_BIS, bands=True, seed=9, samples=400)
+    assert r1.effect_quantiles is not None and set(r1.effect_quantiles) == {5, 50, 95}
+    lo, hi = r1.band_percentile
+    assert np.array_equal(r1.effect_quantiles[lo], r2.effect_quantiles[lo])  # seeded
+    assert np.all(r1.effect_quantiles[lo] <= r1.effect_quantiles[50] + 1e-9)
+    assert np.all(r1.effect_quantiles[50] <= r1.effect_quantiles[hi] + 1e-9)
+    # BIS stays within a sane scale and the band has real width somewhere
+    assert float(r1.effect_quantiles[lo].min()) >= 0.0
+    assert float(r1.effect_quantiles[hi].max()) <= 100.0
+    assert float((r1.effect_quantiles[hi] - r1.effect_quantiles[lo]).max()) > 1.0
+
+
+def test_effect_band_labeled_lower_bound(ds):
+    t = np.linspace(0, 30, 60)
+    r = hypnos.simulate(ds, ELEVELD, patient=PATIENT, schedule=SCHED, t=t,
+                        pd_model=ELEVELD_BIS, bands=True, seed=3, samples=200)
+    # PD-parameter BSV is uncurated → the effect band must declare itself a lower bound
+    assert any("LOWER BOUND on true effect" in w for w in r.warnings)
+
+
+def test_no_effect_band_without_pd_model(ds):
+    t = np.linspace(0, 30, 40)
+    r = hypnos.simulate(ds, ELEVELD, patient=PATIENT, schedule=SCHED, t=t, bands=True, seed=3, samples=100)
+    assert r.effect_quantiles is None  # no PD link composed → no effect band
+
+
+def test_no_effect_band_for_no_bsv_pk(ds):
+    # Marsh publishes no BSV → never-synthesize: no PK band, hence no effect band either
+    t = np.linspace(0, 30, 40)
+    r = hypnos.simulate(ds, MARSH, patient=PATIENT, schedule=SCHED, t=t,
+                        pd_model="pd_effect.propofol.bis_sigmoid", bands=True, seed=3, samples=50)
+    assert r.effect_quantiles is None
+    assert r.effect is not None  # the deterministic effect line is still drawn
+
+
+# --------------------------------------------------------------------------- #
 # V2 — separation index + variance decomposition
 # --------------------------------------------------------------------------- #
 def _fake_result(model_id, median, lo_val, hi_val, *, bsv_var=1.0, resid_var=0.1, tier="B"):

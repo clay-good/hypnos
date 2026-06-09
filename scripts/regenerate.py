@@ -313,6 +313,48 @@ def _fig_variability(ds, plt) -> None:
     plt.close(fig)
 
 
+def _fig_effect_band(ds, plt) -> None:
+    """The PD effect band: PK between-subject variability propagated through the link.
+
+    The same curated Eleveld Ω that scatters the effect-site concentration also
+    scatters the predicted BIS — each virtual individual's true Ce, pushed through
+    the (deterministic) two-slope Hill model. Because PD-parameter BSV (Ce50, γ) is
+    not curated, the effect ribbon is an honest LOWER BOUND on true effect spread.
+    """
+    t = np.linspace(0, 30, 301)
+    sched = [("bolus", 0.0, "2 mg/kg"), ("infusion", 0.0, "6 mg/kg/h")]
+    patient = dict(age=72, weight=60, height=162, sex="F")
+    r = hypnos.simulate(ds, "hypnotics_iv.propofol.eleveld_2018", patient=patient,
+                        schedule=sched, t=t, pd_model="pd_effect.propofol.eleveld_bis",
+                        bands=True, percentile=(5, 95), samples=2000, seed=7)
+    lo, hi = r.band_percentile
+    color = _COLORS.get("eleveld_2018", "#1f77b4")
+
+    fig, (axL, axR) = plt.subplots(1, 2, figsize=(13, 4.8))
+    axL.fill_between(t, r.ce_quantiles[lo], r.ce_quantiles[hi], color=color, alpha=0.18,
+                     label=f"{lo}–{hi}% band (band-tier {r.band_tier})")
+    axL.plot(t, r.ce_quantiles[50], color=color, lw=2.4, label="population median")
+    axL.plot(t, r.ce, color="#333", lw=1.2, ls="--", label="typical individual")
+    axL.set_title("Propofol effect-site concentration (Eleveld, with BSV)", fontsize=11)
+    axL.set_xlabel("time (min)"); axL.set_ylabel("propofol Ce (µg/mL)")
+    axL.legend(fontsize=8.5); axL.grid(alpha=0.25)
+
+    axR.fill_between(t, r.effect_quantiles[lo], r.effect_quantiles[hi], color="#9467bd", alpha=0.20,
+                     label=f"{lo}–{hi}% effect band (lower bound)")
+    axR.plot(t, r.effect_quantiles[50], color="#6a3d9a", lw=2.4, label="population median BIS")
+    axR.plot(t, r.effect, color="#333", lw=1.2, ls="--", label="typical individual")
+    axR.set_ylim(0, 100); axR.invert_yaxis()  # lower BIS (deeper hypnosis) plotted downward
+    axR.set_title("Predicted BIS — the SAME PK variability, pushed through the\n"
+                  "PD link; PD-parameter BSV uncurated ⇒ a lower bound", fontsize=11)
+    axR.set_xlabel("time (min)"); axR.set_ylabel("BIS  (lower = deeper hypnosis)")
+    axR.legend(fontsize=8.5, loc="lower right"); axR.grid(alpha=0.25)
+
+    fig.suptitle("Hypnos v0.2 — PD effect band (PK BSV propagated through the Hill link)"
+                 f"  ·  {_DISCLAIMER}", y=1.02)
+    fig.tight_layout(); fig.savefig(IMAGES / "effect_band.png", dpi=130, bbox_inches="tight")
+    plt.close(fig)
+
+
 def regenerate_figures(ds) -> bool:
     try:
         import matplotlib
@@ -329,8 +371,9 @@ def regenerate_figures(ds) -> bool:
     _fig_washin(ds, plt)
     _fig_washout(ds, plt)
     _fig_variability(ds, plt)
+    _fig_effect_band(ds, plt)
     print(f"figures: regenerated divergence, synergy, pediatric, mac_age, washin, washout, "
-          f"variability -> {IMAGES}/")
+          f"variability, effect_band -> {IMAGES}/")
     return True
 
 

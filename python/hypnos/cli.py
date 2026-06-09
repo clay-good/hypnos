@@ -78,7 +78,11 @@ def _run_sim(args):
     patient = _patient_from_args(args)
     t = np.linspace(0.0, args.tmax, args.n)
     schedule = _default_schedule_for(ds[args.model].drug_name)
-    res = simulate(ds, args.model, patient=patient, schedule=schedule, t=t, pd_model=args.pd)
+    bands = bool(getattr(args, "bands", False))
+    res = simulate(ds, args.model, patient=patient, schedule=schedule, t=t, pd_model=args.pd,
+                   bands=bands, percentile=_parse_percentile(getattr(args, "percentile", "5,95")),
+                   samples=getattr(args, "samples", 2000),
+                   seed=getattr(args, "seed", 7) if bands else None)
     return res
 
 
@@ -87,9 +91,22 @@ def cmd_simulate(args) -> int:
     print(f"model: {res.model_id}")
     print(f"tier (propagated): {res.tier}")
     u = res.concentration_unit
+    cf = res.conc_factor
     print(f"Cp peak: {res.cp_peak_display:.3f} {u}   Ce peak: {res.ce_peak_display:.3f} {u}")
+    if res.ce_quantiles is not None:
+        lo, hi = res.band_percentile
+        q = res.ce_quantiles if res.ce_peak > 0 else res.cp_quantiles
+        i = int(np.argmax(q[50]))
+        print(f"  band-tier {res.band_tier}  Ce peak {q[50][i] * cf:.3f} "
+              f"[{q[lo][i] * cf:.3f}, {q[hi][i] * cf:.3f}] {u}  ({lo}-{hi}%, seeded)")
     if res.effect is not None:
         print(f"effect ({res.effect_label}): min {float(np.min(res.effect)):.1f}")
+        if res.effect_quantiles is not None:
+            lo, hi = res.band_percentile
+            j = int(np.argmin(res.effect_quantiles[50]))  # peak effect (min median BIS)
+            print(f"  effect band @ peak: {res.effect_quantiles[50][j]:.1f} "
+                  f"[{res.effect_quantiles[lo][j]:.1f}, {res.effect_quantiles[hi][j]:.1f}]  "
+                  f"({lo}-{hi}%, PK-BSV propagated — lower bound on true effect spread)")
     if res.warnings:
         print("warnings:")
         for w in res.warnings:
@@ -471,6 +488,11 @@ def build_parser() -> argparse.ArgumentParser:
     sp = sub.add_parser("simulate", help="forward-simulate one model")
     sp.add_argument("model")
     sp.add_argument("--pd", default=None, help="optional PD model id (e.g. pd_effect.propofol.bis_sigmoid)")
+    sp.add_argument("--bands", action="store_true",
+                    help="draw a seeded prediction band (Cp/Ce, and the effect band when --pd is set)")
+    sp.add_argument("--percentile", default="5,95", help="band percentile pair, e.g. '5,95'")
+    sp.add_argument("--samples", type=int, default=2000, help="Monte-Carlo draws")
+    sp.add_argument("--seed", type=int, default=7, help="RNG seed (bands are byte-reproducible)")
     _add_patient_args(sp)
     sp.set_defaults(func=cmd_simulate)
 

@@ -51,6 +51,17 @@ v0.1 record stays valid; the variability block is optional).
   share of the total predictive variance). Models with no BSV are **named** in
   `excluded_from_bands`, never silently dropped. Surfaced in `hypnos compare --bands
   --percentile 5,95 --samples … --seed …`. New `variability.png` figure.
+- **PD effect bands (§14).** `simulate(..., bands=True, pd_model=…)` now propagates the
+  curated **PK** between-subject variability through the (deterministic) PD link to an
+  **effect band**: each virtual individual's true effect-site curve is pushed through
+  the Hill model and quantiles are taken on the effect draws directly (correct under the
+  monotone, non-linear transform — the population-median BIS differs from the typical-
+  individual line, as it should). New `result.effect_quantiles`; surfaced in the CLI
+  (`hypnos simulate … --pd … --bands`, which also gains `--seed/--percentile/--samples`)
+  and drawn in `docs/images/effect_band.png`. PD-parameter BSV (Ce50, γ) is **not**
+  curated, so the effect band is labeled an honest **lower bound** on true effect spread
+  — the never-invent rule, carried into effect space. No band is drawn for a no-BSV PK
+  model (never-synthesize) even with a PD model attached.
 - **Dashboard ribbons (V2).** The Streamlit dashboard now renders the prediction
   bands as shaded **Altair ribbons** — a *Seeded 5–95% prediction bands* toggle (with
   seed + Monte-Carlo-samples controls) overlays each band-eligible model's percentile
@@ -84,7 +95,7 @@ v0.1 record stays valid; the variability block is optional).
 - **Safety.** Unchanged and tightened in proportion: bands describe a *given* forward
   dose history and never invert one (no quantile-targeting), and every band is labeled
   a statement about the *model's stated uncertainty*, not a claim about a real patient.
-  `clinicalUse = "PROHIBITED"` remains universal. 40 variability tests; CI suite 229
+  `clinicalUse = "PROHIBITED"` remains universal. 44 variability tests; CI suite 233
   green (+2 dashboard `AppTest` smoke tests that run wherever the dashboard extra is
   installed, skipped in the dev-only CI `test` job).
 

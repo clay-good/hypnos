@@ -115,6 +115,11 @@ class SimulationResult:
     # published between-subject variability — the never-synthesize rule) --------
     cp_quantiles: Optional[Dict[int, np.ndarray]] = None
     ce_quantiles: Optional[Dict[int, np.ndarray]] = None
+    # PD effect band: the PK between-subject variability propagated through the
+    # (deterministic) PD link. Present only when bands AND a pd_model are composed.
+    # PD-parameter BSV (Ce50, gamma) is not curated, so this is a LOWER BOUND on the
+    # true effect spread — labeled as such in the warnings (spec §14).
+    effect_quantiles: Optional[Dict[int, np.ndarray]] = None
     band_tier: Optional[str] = None
     band_percentile: Optional[Tuple[int, int]] = None
     band_includes_residual: bool = False
@@ -278,6 +283,8 @@ def _attach_bands(
     samples: int,
     seed: int,
     residual: bool,
+    pd_model: Optional[Model] = None,
+    patient: Optional[Dict[str, Any]] = None,
 ) -> None:
     """Populate the prediction-band fields on ``result`` in place.
 
@@ -285,6 +292,11 @@ def _attach_bands(
     draws no band and instead records why. Bands are BSV-only by default (where is
     the individual's *true* curve?); ``residual`` adds Σ for observation-level bands
     (where will a *measured sample* land?).
+
+    When ``pd_model`` is supplied, each virtual individual's *true* effect-site curve
+    is pushed through the PD link to build an effect band (e.g. a BIS band). PD-parameter
+    BSV (Ce50, γ) is not curated, so the effect band reflects only the PK between-subject
+    variability and is a LOWER BOUND on true effect spread (spec §14).
     """
     lo, hi = int(percentile[0]), int(percentile[1])
 
@@ -321,6 +333,16 @@ def _attach_bands(
     result.cp_bsv_var = cp_draws.var(axis=0)
     result.ce_bsv_var = ce_draws.var(axis=0)
 
+    # PD effect band — push each individual's TRUE (BSV-only, pre-residual) effect-site
+    # curve through the deterministic PD link. The Hill transform is non-linear and
+    # monotone, so quantiles are taken on the effect draws directly (not mapped from
+    # ce quantiles) and stay correct regardless of the effect's direction (BIS falls
+    # as ce rises). _apply_pd is numpy-vectorized, so the whole (samples, n) array
+    # transforms at once.
+    effect_draws = None
+    if pd_model is not None and patient is not None:
+        effect_draws = _apply_pd(pd_model, ce_draws, patient)
+
     # residual variance from Σ evaluated at the deterministic (median) curve
     if model.residual_error is not None:
         rmodel, rkw = _residual_primitives(model.residual_error)
@@ -338,6 +360,14 @@ def _attach_bands(
     ce_q = np.percentile(ce_draws, qs, axis=0)
     result.cp_quantiles = {q: cp_q[k] for k, q in enumerate(qs)}
     result.ce_quantiles = {q: ce_q[k] for k, q in enumerate(qs)}
+    if effect_draws is not None:
+        eff_q = np.percentile(effect_draws, qs, axis=0)
+        result.effect_quantiles = {q: eff_q[k] for k, q in enumerate(qs)}
+        result.warnings.append(
+            "BAND: effect band propagates PK between-subject variability through the "
+            "(fixed) PD link; PD-parameter BSV (Ce50, gamma) is not curated, so it is a "
+            "LOWER BOUND on true effect spread (spec §14)"
+        )
     result.band_percentile = (lo, hi)
     result.band_includes_residual = bool(residual)
 
@@ -416,6 +446,7 @@ def simulate(
         concentration_unit=drug_meta.get("concentration_unit", "ug/mL"),
     )
 
+    pdm: Optional[Model] = None
     if pd_model is not None:
         pdm = ds[pd_model]
         if not pdm.kernel_implemented:
@@ -437,7 +468,8 @@ def simulate(
                 "band-producing call is seeded so quantiles are byte-reproducible (spec §6)."
             )
         _attach_bands(result, model, params, dosing, t, percentile=percentile,
-                      samples=samples, seed=seed, residual=residual)
+                      samples=samples, seed=seed, residual=residual,
+                      pd_model=pdm, patient=patient)
 
     return result
 

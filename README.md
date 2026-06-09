@@ -71,6 +71,24 @@ ir = hypnos.simulate_interaction(
 ir.effect_min, ir.tier        # 14.1, "C"
 ```
 
+## Breadth & pediatrics: explicit Tier-D extrapolation labeling
+
+Phase C widens coverage beyond the propofol/remifentanil core — a new drug class (the α₂-agonist **dexmedetomidine**, Hannivoort 2015) and the pediatric propofol model **Paedfusor** — and makes the spec's headline pediatric idea operational: when an adult model is used in a child (or a pediatric model in an adult), Hypnos does not merely flag "out of envelope," it **names the extrapolation and tiers it to D**.
+
+![Pediatric propofol model divergence](docs/images/pediatric.png)
+
+For a 6-year-old, 20 kg child, only Paedfusor is in-envelope. Marsh and Schnider are greyed out and explicitly labeled *pediatric extrapolations* — and the figure shows why that matters: the adult models, if you ignored the label, would predict roughly half (Schnider) to 1.5× (Marsh) the plasma concentration of the validated pediatric model. The labeling is symmetric: Paedfusor used in an adult is flagged as a pediatric-model extrapolation, and a 90-year-old outside dexmedetomidine's 18–70 y range is labeled a *geriatric extrapolation*.
+
+```text
+$ hypnos compare --drug propofol --age 6 --weight 20 --height 115 --sex M
+included (1):
+  - hypnotics_iv.propofol.paedfusor_2005       tier B  ...
+excluded for envelope (2):
+  - hypnotics_iv.propofol.marsh_1991      tier D  (... PEDIATRIC EXTRAPOLATION: age 6 y is below the
+        model's derivation range (>= 16 y); an adult model used in a child is not predictive -> Tier D)
+  - hypnotics_iv.propofol.schnider_1998   tier D  (... PEDIATRIC EXTRAPOLATION ...)
+```
+
 ## Install & quickstart
 
 ```bash
@@ -156,7 +174,7 @@ One JSON file = one model of one drug for one purpose (e.g. *propofol PK — Sch
 Two rules, enforced in code and by `hypnos validate`:
 
 1. **Worst input wins.** A record's tier equals the worst tier among its parameters. A composed simulation (PK + `ke0` + PD) inherits the worst tier among its components. *Example: Schnider PK (B) + BIS sigmoid (C) ⇒ the BIS trajectory is reported as Tier **C**.*
-2. **Envelope violations force a Tier-D floor.** Any request outside the envelope, or that trips a failure-mode predicate, is auto-tiered to **D** with an attached warning. You cannot launder an extrapolation into an A.
+2. **Envelope violations force a Tier-D floor.** Any request outside the envelope, or that trips a failure-mode predicate, is auto-tiered to **D** with an attached warning. You cannot launder an extrapolation into an A. Age extrapolations are **named**: a sub-range patient in an adult model is a *pediatric extrapolation*, an over-range patient in a pediatric model is flagged as such, and a ≥65 y patient above an adult model's range is a *geriatric extrapolation*.
 
 ### Reference kernels & validation
 
@@ -200,17 +218,20 @@ $THETA
 ; bqmodel:isDerivedFrom = https://doi.org/10.1097/00000542-199805000-00006
 ```
 
-## Current coverage (v0.1.0 — Phase A complete + Phase B core)
+## Current coverage (v0.1.0 — Phases A + B complete, C core)
 
-Honest status. Phase A is the propofol spine; Phase B adds the clinically dominant opioid and the interaction surface ([roadmap](docs/specs/v0.1/spec.md#11-phased-roadmap)).
+Honest status. A is the propofol spine; B adds the dominant opioid and the interaction surface; C widens to a new drug class and pediatrics ([roadmap](docs/specs/v0.1/spec.md#11-phased-roadmap)). **9 models · 4 drugs · 5 subsystems · 7 executable kernels.**
 
 | Model | Record | Kernel | Tier | Notes |
 | --- | --- | --- | --- | --- |
 | Propofol PK — **Marsh 1991** | ✅ | ✅ executable | B | Weight-only; warns in elderly. |
 | Propofol PK — **Schnider 1998** | ✅ | ✅ executable | B | Age/weight/height/James-LBM; high-BMI failure mode encoded. |
-| Propofol PK — **Eleveld 2018** | ✅ | ⏳ pending | A | Curated record; kernel **deliberately deferred** until the intricate maturation/allometry covariate structure is human-verified — `simulate()` refuses it rather than risk a mis-transcribed equation. This is the honesty stance made operational. |
+| Propofol PK — **Eleveld 2018** | ✅ | ⏳ pending | A | Curated record; kernel **deliberately deferred** until the intricate maturation/allometry covariate structure is human-verified — `simulate()` refuses it rather than risk a mis-transcribed equation. The honesty stance made operational. |
+| Propofol PK — **Paedfusor 2005** | ✅ | ✅ executable | B | Pediatric (1–12 y); the Tier-D extrapolation showcase, in both directions. |
 | Propofol PD — **BIS sigmoid** | ✅ | ✅ executable | C | Effect-site → BIS; composes onto any PK model and floors the tier to C. |
 | Remifentanil PK — **Minto 1997** | ✅ | ✅ executable | B | Age + James-LBM; shares the high-BMI LBM failure mode; concentrations in µg/mL (= ng/mL ÷ 1000). |
+| Dexmedetomidine PK — **Hannivoort 2015** | ✅ | ✅ executable | B | New drug class (α₂-agonist); allometric (vol ^1, CL ^0.75); adult-only, narrow BMI. |
+| Fentanyl PK — **Shafer 1990** | ✅ | ⏳ pending | C | Curated record with verified citation; kernel deferred — secondary sources disagree on the exact micro-rate constants, so `simulate()` refuses it. |
 | Interaction — **propofol×remifentanil** (Greco/BIS) | ✅ | ✅ executable | C | Two-drug response surface; math exact and round-tripped, **coefficients illustrative/unverified** pending Bouillon-2004 transcription. |
 
 > **Why Eleveld's kernel is pending, not faked.** The project's whole reason for existing is to *not* be another source of quietly mis-typed numbers. Eleveld's covariate equations (post-menstrual-age maturation, allometric scaling, BMI/age sigmoids) are exactly where transcription errors hide (spec §9). Shipping them unverified would contradict the dataset's purpose. Two correct, round-trip-validated models that genuinely disagree already make the divergence view real. Promoting Eleveld to an executable kernel is the highest-leverage next contribution — see [CONTRIBUTING.md](CONTRIBUTING.md).
@@ -223,7 +244,8 @@ Honest status. Phase A is the propofol spine; Phase B adds the clinically domina
 | **Dataset is the centerpiece; everything else is a projection** | The durable contribution is the curated, tiered, envelope-annotated models — not any one viewer or solver. |
 | **Envelope + failure modes are first-class and machine-enforced** | Model-selection risk is the core pain; making the envelope enforceable is the load-bearing idea. |
 | **Tier & envelope warnings propagate; worst input wins** | A composed simulation is only as trustworthy as its weakest component or furthest extrapolation. |
-| **Humans verify; LLMs do not promote** | `unverified → verified` requires reading the source PDF and confirming the parameters *and the covariate equations*. |
+| **Humans verify; LLMs do not promote** | `unverified → verified` requires reading the source PDF and confirming the parameters *and the covariate equations*. Models whose exact parameters cannot be reconciled to the primary source (Eleveld, Shafer fentanyl) ship as curated records with `simulate()` refusing them — never as guessed kernels. |
+| **Age extrapolations are named, not just flagged** | "Out of envelope" is generic; "pediatric extrapolation of an adult model" is the actual clinical risk the spec calls out. The label is first-class and tested. |
 | **No TCI engine, no dosing output, ever** | The line between "research simulator" and "unregulated medical device" is exactly the inverse-control step. Hypnos stays on the safe side by construction. |
 | **Exact matrix-exponential solver** | Closed-form per segment for a linear time-invariant system; faster and more accurate than stepwise integration, and the augmented form handles `ke0 = 0` without a singular inverse. |
 
@@ -284,7 +306,7 @@ hypnos.validate_dataset(ds)                                           # -> list 
 | --- | --- | --- |
 | **A — Propofol spine** | Marsh/Schnider/Eleveld PK + `ke0` + propofol→BIS; reference kernels; NONMEM/PharmML/SBML/TCI-JSON; round-trip validation; divergence view | ✅ core shipped (Marsh + Schnider executable; Eleveld curated, kernel pending) |
 | **B — Opioids + interaction** | remifentanil (Minto); propofol–remifentanil response surface; nlmixr2/rxode2 + Pumas export | ✅ core shipped (Minto executable; Greco surface with illustrative coefficients; R + Julia export round-tripped) |
-| **C — Breadth** | dexmedetomidine, ketamine, midazolam, fentanyl family; pediatric models with explicit Tier-D labeling | 🔜 |
+| **C — Breadth** | dexmedetomidine, ketamine, midazolam, fentanyl family; pediatric models with explicit Tier-D labeling | ✅ core shipped (dexmedetomidine + Paedfusor executable with explicit pediatric/geriatric extrapolation labeling; fentanyl curated, kernel pending; ketamine/midazolam roadmap) |
 | **D — Inhalational + NMB** | volatile MAC/partition/uptake; neuromuscular blockers + train-of-four; sugammadex reversal | 🔜 |
 | **E — Hardening** | external-validation MDPE/MDAPE backfill; COMBINE `.omex`; Zenodo DOI | 🔜 |
 

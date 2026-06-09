@@ -1,0 +1,49 @@
+{
+  "id": "opioids.fentanyl.shafer_1990",
+  "subsystem": "opioids",
+  "drug": { "name": "fentanyl", "unii": "UF599785JZ", "atc": "N01AH01" },
+  "purpose": "pk",
+  "label": "Fentanyl PK — Shafer (1990)",
+  "structure": {
+    "compartments": 3,
+    "parameterization": "volumes_clearances",
+    "elimination": "linear",
+    "effect_compartment": true
+  },
+  "kernel": { "implemented": false, "function": null },
+  "parameters": [
+    {
+      "symbol": "V1", "label": "central volume",
+      "value": { "central": null, "low": null, "high": null, "units": "L" },
+      "covariate_model": "see Shafer 1990 (transcription pending verification)",
+      "tier": "C",
+      "extraction": { "review_status": "unverified", "tier_rationale": "Widely used in TCI (STANPUMP), but published parameterizations of the Shafer fentanyl model differ across secondary sources; exact micro-rate constants are pending field-by-field transcription from the primary PDF.", "source_locator": "Shafer 1990" },
+      "primary_citation": "shafer-1990-fentanyl"
+    },
+    {
+      "symbol": "ke0", "label": "effect-site equilibration rate constant",
+      "value": { "central": 0.147, "low": null, "high": null, "units": "1/min" },
+      "covariate_model": "ke0 = 0.147 (commonly cited; pending verification)",
+      "tier": "C",
+      "extraction": { "review_status": "unverified", "source_locator": "Shafer 1990 (PD)" },
+      "primary_citation": "shafer-1990-fentanyl"
+    }
+  ],
+  "covariates": { "required": ["weight"], "optional": [], "lbm_equation": null },
+  "applicability_envelope": {
+    "age_years": { "min": 18, "max": 80 },
+    "weight_kg": { "min": 40, "max": 90 },
+    "populations": ["adult"],
+    "derivation_n": null
+  },
+  "known_failure_modes": [],
+  "predictive_performance": [],
+  "tier": "C",
+  "extraction": {
+    "review_status": "unverified",
+    "tier_rationale": "Curated record with verified citation; KERNEL PENDING. Secondary sources disagree on the exact Shafer fentanyl micro-rate constants, so simulate() refuses this model rather than ship numbers that cannot be reconciled to the primary PDF. The honesty stance applied to the opioid breadth.",
+    "source_locator": "Shafer 1990"
+  },
+  "primary_citation": "shafer-1990-fentanyl",
+  "notes": "KERNEL PENDING. Fentanyl-family breadth placeholder with full provenance; promoting to an executable kernel requires verified transcription of V1/V2/V3/Cl1/Cl2/Cl3 from Anesthesiology 1990;73:1091-1102. sufentanil (Gepts) and alfentanil (Maitre) are future siblings."
+}

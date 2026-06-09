@@ -91,10 +91,49 @@ def remifentanil_minto_1997(patient: dict) -> MicroParams:
     )
 
 
+# --------------------------------------------------------------------------- #
+# Propofol — Paedfusor (2005): pediatric, weight-proportional V1, scaled k10
+# --------------------------------------------------------------------------- #
+def propofol_paedfusor_2005(patient: dict) -> MicroParams:
+    wgt = _req(patient, "weight")
+    V1 = 0.4584 * wgt
+    k10 = 0.1527 * wgt ** (-0.3)
+    return MicroParams(
+        V1=V1,
+        k10=k10,
+        k12=0.114,
+        k21=0.055,
+        k13=0.0419,
+        k31=0.0033,
+        ke0=0.0,
+        n_compartments=3,
+        derived={"V2": V1 * 0.114 / 0.055, "V3": V1 * 0.0419 / 0.0033},
+    )
+
+
+# --------------------------------------------------------------------------- #
+# Dexmedetomidine — Hannivoort (2015): allometric three-compartment
+# --------------------------------------------------------------------------- #
+def dexmedetomidine_hannivoort_2015(patient: dict) -> MicroParams:
+    wgt = _req(patient, "weight")
+    wr = wgt / 70.0
+    V1 = 1.78 * wr
+    V2 = 30.3 * wr
+    V3 = 52.0 * wr
+    Cl1 = 0.686 * wr ** 0.75
+    Cl2 = 2.98 * wr ** 0.75
+    Cl3 = 0.602 * wr ** 0.75
+    return MicroParams.from_volumes_clearances(
+        V1=V1, Cl1=Cl1, V2=V2, Cl2=Cl2, V3=V3, Cl3=Cl3, ke0=0.0
+    )
+
+
 KERNELS: Dict[str, KernelFn] = {
     "propofol_marsh_1991": propofol_marsh_1991,
     "propofol_schnider_1998": propofol_schnider_1998,
+    "propofol_paedfusor_2005": propofol_paedfusor_2005,
     "remifentanil_minto_1997": remifentanil_minto_1997,
+    "dexmedetomidine_hannivoort_2015": dexmedetomidine_hannivoort_2015,
 }
 
 

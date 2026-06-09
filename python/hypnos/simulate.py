@@ -134,6 +134,28 @@ def build_dosing(schedule: Schedule, weight: float) -> Dosing:
 # --------------------------------------------------------------------------- #
 # Envelope + failure-mode evaluation -> (tier_floor, warnings)
 # --------------------------------------------------------------------------- #
+def _classify_age_extrapolation(model: Model, patient: Dict[str, Any]) -> Optional[str]:
+    """Name an age extrapolation (pediatric/geriatric) when a patient falls outside
+    the model's derivation age range. Returns a labeled Tier-D message or None."""
+    age = patient.get("age")
+    if age is None:
+        return None
+    rng = model.applicability_envelope.age_years
+    pops = [p.lower() for p in model.applicability_envelope.populations]
+    is_pediatric_model = any(p in ("child", "pediatric", "neonate", "infant") for p in pops)
+    if rng.min is not None and age < rng.min and age < 18:
+        return (f"PEDIATRIC EXTRAPOLATION: age {age:g} y is below the model's "
+                f"derivation range (>= {rng.min:g} y); an adult model used in a child "
+                "is not predictive -> Tier D")
+    if rng.max is not None and age > rng.max and is_pediatric_model:
+        return (f"EXTRAPOLATION: age {age:g} y exceeds this pediatric model's range "
+                f"(<= {rng.max:g} y); a pediatric model used in an adult is not predictive -> Tier D")
+    if rng.max is not None and age > rng.max and age >= 65:
+        return (f"GERIATRIC EXTRAPOLATION: age {age:g} y exceeds the model's derivation "
+                f"range (<= {rng.max:g} y) -> Tier D")
+    return None
+
+
 def evaluate_safety(model: Model, patient: Dict[str, Any]) -> Tuple[str, List[str], bool]:
     """Return (tier_floor, warnings, envelope_violated)."""
     warnings: List[str] = []
@@ -146,6 +168,12 @@ def evaluate_safety(model: Model, patient: Dict[str, Any]) -> Tuple[str, List[st
         tier_floor = "D"
         for v in viols:
             warnings.append(f"ENVELOPE: {v} -> tiered down to D")
+        # Explicit, categorized extrapolation labeling (spec §11, Phase C):
+        # an adult model used in a child, or a pediatric model used in an adult,
+        # is not merely "out of envelope" — name the extrapolation.
+        extrap = _classify_age_extrapolation(model, patient)
+        if extrap:
+            warnings.append(extrap)
 
     env = _covariate_env(patient)
     for fm in model.known_failure_modes:

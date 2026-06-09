@@ -1,0 +1,10 @@
+{
+  "name": "dexmedetomidine",
+  "synonyms": ["Precedex", "Dexdor"],
+  "unii": "67VB76HONO",
+  "atc": "N05CM18",
+  "cas": "113775-47-6",
+  "drug_class": "selective alpha-2 adrenergic agonist (sedative)",
+  "subsystem": "alpha2_agonists",
+  "notes": "Sedation without significant respiratory depression; concentrations conventionally in ng/mL (Hypnos works in ug/mL = ng/mL / 1000)."
+}

@@ -29,11 +29,19 @@ def find_dataset_dir(explicit: Optional[os.PathLike] = None) -> Path:
     env = os.environ.get("HYPNOS_DATASET")
     if env:
         candidates.append(Path(env))
-    # packaged copy
-    candidates.append(_THIS.parent / "dataset")
-    # repo-root dataset/ — walk up looking for a sibling 'dataset' dir
+
+    # The in-package copy (hypnos/dataset) is written by sync_dataset_into_package.py
+    # for wheel builds. In a *source* checkout it can go stale, so it must NOT
+    # shadow the repo-root dataset/ (the single source of truth). Prefer any
+    # dataset/ found by walking up that is OUTSIDE the package; fall back to the
+    # in-package copy only as a last resort (the normal case for installed wheels).
+    packaged = _THIS.parent / "dataset"
     for parent in _THIS.parents:
-        candidates.append(parent / "dataset")
+        cand = parent / "dataset"
+        if cand == packaged:
+            continue
+        candidates.append(cand)
+    candidates.append(packaged)
 
     for c in candidates:
         if (c / "models").is_dir():

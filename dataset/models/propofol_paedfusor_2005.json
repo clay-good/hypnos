@@ -1,0 +1,89 @@
+{
+  "id": "hypnotics_iv.propofol.paedfusor_2005",
+  "subsystem": "hypnotics_iv",
+  "drug": { "name": "propofol", "unii": "YI7VU623SF", "atc": "N01AX10" },
+  "purpose": "pk",
+  "label": "Propofol PK — Paedfusor (pediatric, 2005)",
+  "structure": {
+    "compartments": 3,
+    "parameterization": "micro_rate_constants",
+    "elimination": "linear",
+    "effect_compartment": false
+  },
+  "kernel": { "implemented": true, "function": "propofol_paedfusor_2005" },
+  "parameters": [
+    {
+      "symbol": "V1", "label": "central volume (weight-proportional)",
+      "value": { "central": 9.168, "low": null, "high": null, "units": "L" },
+      "covariate_model": "V1 = 0.4584 * WGT",
+      "tier": "B",
+      "extraction": { "review_status": "unverified", "tier_rationale": "Paedfusor pediatric TCI dataset (children 1-12 y). Central value shown at a 20 kg reference child.", "source_locator": "Absalom & Kenny 2005" },
+      "primary_citation": "absalom-2005-paedfusor"
+    },
+    {
+      "symbol": "k10", "label": "elimination rate constant (weight-scaled)",
+      "value": { "central": 0.0622, "low": null, "high": null, "units": "1/min" },
+      "covariate_model": "k10 = 0.1527 * WGT^(-0.3)",
+      "tier": "B",
+      "extraction": { "review_status": "unverified", "source_locator": "Absalom & Kenny 2005" },
+      "primary_citation": "absalom-2005-paedfusor"
+    },
+    {
+      "symbol": "k12",
+      "value": { "central": 0.114, "low": null, "high": null, "units": "1/min" },
+      "covariate_model": "k12 = 0.114",
+      "tier": "B",
+      "extraction": { "review_status": "unverified" },
+      "primary_citation": "absalom-2005-paedfusor"
+    },
+    {
+      "symbol": "k13",
+      "value": { "central": 0.0419, "low": null, "high": null, "units": "1/min" },
+      "covariate_model": "k13 = 0.0419",
+      "tier": "B",
+      "extraction": { "review_status": "unverified" },
+      "primary_citation": "absalom-2005-paedfusor"
+    },
+    {
+      "symbol": "k21",
+      "value": { "central": 0.055, "low": null, "high": null, "units": "1/min" },
+      "covariate_model": "k21 = 0.055",
+      "tier": "B",
+      "extraction": { "review_status": "unverified" },
+      "primary_citation": "absalom-2005-paedfusor"
+    },
+    {
+      "symbol": "k31",
+      "value": { "central": 0.0033, "low": null, "high": null, "units": "1/min" },
+      "covariate_model": "k31 = 0.0033",
+      "tier": "B",
+      "extraction": { "review_status": "unverified" },
+      "primary_citation": "absalom-2005-paedfusor"
+    }
+  ],
+  "covariates": { "required": ["weight"], "optional": ["age"], "lbm_equation": null },
+  "applicability_envelope": {
+    "age_years": { "min": 1, "max": 12 },
+    "weight_kg": { "min": 5, "max": 37 },
+    "populations": ["child", "pediatric"],
+    "derivation_n": null
+  },
+  "known_failure_modes": [
+    {
+      "condition": "use in adults (a pediatric model extrapolated upward)",
+      "predicate": "age > 12",
+      "behavior": "Paedfusor is a pediatric dataset; applying it to adults extrapolates a model derived only in children 1-12 y.",
+      "action": "tier_down_to_D",
+      "citation": "absalom-2005-paedfusor"
+    }
+  ],
+  "predictive_performance": [],
+  "tier": "B",
+  "extraction": {
+    "review_status": "unverified",
+    "tier_rationale": "Pediatric TCI dataset (children 1-12 y); the standard pediatric counterpart to the adult Marsh/Schnider/Eleveld models. PK-only (the Paedfusor dataset does not include a ke0). The headline case for explicit Tier-D extrapolation labeling: adult models used in children, and this model used in adults, are both flagged.",
+    "source_locator": "Absalom & Kenny 2005"
+  },
+  "primary_citation": "absalom-2005-paedfusor",
+  "notes": "Micro-rate constants; V1 weight-proportional and k10 weight-scaled (^-0.3). V2 = V1*k12/k21, V3 = V1*k13/k31. The Paedfusor dataset is the pediatric branch of the Marsh-family structure (same fixed k12/k13/k21/k31)."
+}

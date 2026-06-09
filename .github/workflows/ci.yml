@@ -46,9 +46,19 @@ jobs:
           pip install -e .
       - name: Generate export artifacts
         run: |
-          for fmt in nonmem pharmml sbml tci_json rxode2 pumas; do
+          for fmt in nonmem pharmml sbml tci_json rxode2 pumas bibtex; do
             hypnos export --format "$fmt" --output "exports/$fmt"
           done
+      - name: Build and validate COMBINE .omex archive
+        run: |
+          hypnos export --format omex --output exports/hypnos.omex
+          python -c "import zipfile, xml.dom.minidom as m; z=zipfile.ZipFile('exports/hypnos.omex'); m.parseString(z.read('manifest.xml')); assert 'manifest.xml' in z.namelist(); print('omex OK:', len(z.namelist()), 'entries')"
+      - name: Verify exports regenerate deterministically
+        run: |
+          python scripts/regenerate.py --exports
+          A=$(python -c "from hypnos.export import combine; import hypnos; print(len(combine.build_dataset_archive(hypnos.load())))")
+          B=$(python -c "from hypnos.export import combine; import hypnos; print(len(combine.build_dataset_archive(hypnos.load())))")
+          test "$A" = "$B" && echo "deterministic ($A bytes)"
       - name: Upload exports
         uses: actions/upload-artifact@v4
         with:

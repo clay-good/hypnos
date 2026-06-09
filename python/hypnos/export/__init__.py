@@ -7,8 +7,9 @@ annotation (see :mod:`hypnos.export.annotate`).
 """
 from __future__ import annotations
 
-from . import annotate, nonmem, pharmml, pumas, rxode2, sbml, tci_json  # noqa: F401
+from . import annotate, bibtex, combine, nonmem, pharmml, pumas, rxode2, sbml, tci_json  # noqa: F401
 
+# Per-model text exporters.
 BUILDERS = {
     "nonmem": (nonmem.build, nonmem.filename),
     "pharmml": (pharmml.build, pharmml.filename),
@@ -16,16 +17,20 @@ BUILDERS = {
     "tci_json": (tci_json.build, tci_json.filename),
     "rxode2": (rxode2.build, rxode2.filename),
     "pumas": (pumas.build, pumas.filename),
+    "bibtex": (bibtex.build_for_model, bibtex.filename),
 }
 
-FORMATS = list(BUILDERS)
+# Binary / archive exporters handled separately (see hypnos.export.combine).
+BINARY_FORMATS = {"omex"}
+
+FORMATS = list(BUILDERS) + sorted(BINARY_FORMATS)
 
 
 def export_model(fmt: str, model, ds=None, patient=None):
-    """Return (filename, text) for one model in one format."""
+    """Return (filename, text) for one model in one text format."""
     build, fname = BUILDERS[fmt]
     return fname(model), build(model, ds, patient)
 
 
-__all__ = ["BUILDERS", "FORMATS", "export_model", "annotate", "nonmem", "pharmml",
-           "sbml", "tci_json", "rxode2", "pumas"]
+__all__ = ["BUILDERS", "BINARY_FORMATS", "FORMATS", "export_model", "annotate", "bibtex",
+           "combine", "nonmem", "pharmml", "sbml", "tci_json", "rxode2", "pumas"]

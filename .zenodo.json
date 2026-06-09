@@ -1,0 +1,30 @@
+{
+  "title": "Hypnos: a curated, tier-annotated dataset of anesthetic PK/PD models",
+  "description": "Hypnos is a curated, citation-backed, machine-readable dataset of the population pharmacokinetic-pharmacodynamic models that anesthetic simulation, TCI research, and depth-of-anesthesia modeling depend on. Every model carries an explicit confidence tier, its derivation population, its applicability envelope, its documented failure modes, and its published predictive-performance metrics, and exports into PharmML, NONMEM, nlmixr2/rxode2, Pumas, SBML, and COMBINE .omex. NOT a dosing tool and NOT a pump driver; research/education/simulation only.",
+  "upload_type": "dataset",
+  "access_right": "open",
+  "license": "MIT",
+  "creators": [
+    { "name": "Good, Clay" }
+  ],
+  "keywords": [
+    "pharmacokinetics",
+    "pharmacodynamics",
+    "anesthesia",
+    "propofol",
+    "remifentanil",
+    "dexmedetomidine",
+    "target-controlled infusion",
+    "pharmacometrics",
+    "MAC",
+    "PK/PD"
+  ],
+  "related_identifiers": [
+    {
+      "relation": "isSupplementTo",
+      "identifier": "https://github.com/clay-good/hypnos",
+      "scheme": "url"
+    }
+  ],
+  "notes": "Code is MIT-licensed; the dataset (dataset/) is CC-BY-4.0. When you use a model record, cite Hypnos AND the model's original primary source (model.primary_citation)."
+}

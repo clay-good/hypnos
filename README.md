@@ -165,6 +165,11 @@ flowchart TD
     EXP --> TCIJSON["TCI-sim JSON"]
     EXP --> RX["nlmixr2/rxode2 (R)"]
     EXP --> PUMAS["Pumas (Julia)"]
+    EXP --> BIB["BibTeX citations"]
+    SBML --> OMEX["COMBINE .omex<br/>(deterministic archive)"]
+    PHARMML --> OMEX
+    TCIJSON --> OMEX
+    BIB --> OMEX
 ```
 
 ```mermaid
@@ -212,6 +217,7 @@ Validation, run in CI ([test suite](python/tests)):
 - **Analytic vs. independent numeric** — the matrix-exponential solver is checked against a separate `scipy.solve_ivp` integration (≤ 1e-4 relative) and against the closed-form one-compartment bolus solution (≤ 1e-7).
 - **Export round-trip** — each SBML / TCI-JSON / rxode2 / Pumas export is parsed back, re-simulated, and compared to the kernel (≤ 1e-6 algebraic). An export bug cannot ship silently.
 - **NONMEM `$THETA` fidelity** — emitted thetas are asserted equal to the instantiated parameters.
+- **`.omex` determinism** — the COMBINE archive is byte-identical across runs (fixed timestamps); CI rebuilds it and validates the manifest, so an archive bug cannot ship silently.
 
 ### Export formats
 
@@ -225,7 +231,8 @@ Exports are generated artifacts, never hand-edited (CI regenerates them), each i
 | **PharmML** (projection) | The "SBML of PK/PD"; durable interop anchor | ✅ structural + params + provenance |
 | **nlmixr2 / rxode2** (R) | Open-source pharmacometric estimation & simulation | ✅ round-tripped |
 | **Pumas** (Julia) | Modern open pharmacometric simulation | ✅ round-tripped |
-| COMBINE `.omex` | Provenance-bundled archive | 🔜 Phase E |
+| **COMBINE `.omex`** | Provenance-bundled archive (SBML+PharmML+TCI-JSON+RDF+BibTeX) | ✅ deterministic, manifest-validated |
+| **BibTeX** | Citation export (cite Hypnos *and* the source) | ✅ per-model + dataset |
 
 ```nonmem
 ; HYPNOS EXPORT — NOT FOR CLINICAL USE
@@ -241,9 +248,37 @@ $THETA
 ; bqmodel:isDerivedFrom = https://doi.org/10.1097/00000542-199805000-00006
 ```
 
-## Current coverage (v0.1.0 — Phases A + B complete, C + D core)
+### The COMBINE `.omex` archive — the distribution unit
 
-Honest status. A is the propofol spine; B adds the dominant opioid and the interaction surface; C widens to a new drug class and pediatrics; D brings in the non-IV families with their own conventions ([roadmap](docs/specs/v0.1/spec.md#11-phased-roadmap)). **15 models · 9 drugs · 7 subsystems · 12 executable kernels.**
+One `.omex` (a ZIP with a COMBINE `omex-manifest`) bundles a model's SBML (master) + PharmML + TCI-JSON + a provenance `metadata.rdf` + a `citations.bib`, so the model travels with its interop projections, its confidence tier, its DOI/PMID provenance, and the `clinicalUse` flag in one self-describing file.
+
+```mermaid
+flowchart LR
+    M["model record<br/>(dataset/models/*.json)"] --> SBML["model.sbml.xml<br/><i>master</i>"]
+    M --> PH["model.pharmml.xml"]
+    M --> TCI["model.tci.json"]
+    M --> RDF["metadata.rdf<br/>tier · clinicalUse · DOI/PMID"]
+    M --> BIB["citations.bib"]
+    SBML --> MAN["manifest.xml<br/>(omex-manifest)"]
+    PH --> MAN
+    TCI --> MAN
+    RDF --> MAN
+    BIB --> MAN
+    MAN --> OMEX["<b>&lt;model&gt;.omex</b><br/>deterministic ZIP"]
+```
+
+Archives are written with **fixed entry timestamps**, so a given dataset version always yields **byte-identical** bytes — a reproducibility guarantee CI enforces.
+
+```bash
+hypnos export --format omex   --output exports/hypnos.omex   # one archive, all PK models
+hypnos export --format omex   --output exports/omex/          # one .omex per model
+hypnos export --format bibtex --output exports/               # citations.bib
+python scripts/regenerate.py                                  # regenerate every export + figures
+```
+
+## Current coverage (v0.1.0 — A/B complete · C/D/E core)
+
+Honest status. A is the propofol spine; B adds the dominant opioid and the interaction surface; C widens to a new drug class and pediatrics; D brings in the non-IV families; E hardens for release (COMBINE `.omex`, BibTeX, reproducibility, verified MDPE/MDAPE) ([roadmap](docs/specs/v0.1/spec.md#11-phased-roadmap)). **15 models · 9 drugs · 7 subsystems · 12 executable kernels · 8 export formats.**
 
 | Model | Record | Kernel | Tier | Notes |
 | --- | --- | --- | --- | --- |
@@ -291,7 +326,9 @@ hypnos/
 │   ├── simulate.py              # forward simulation + compare + interaction (no inverse control)
 │   ├── inhalational.py          # volatile MAC API (age correction, fraction, N2O additivity)
 │   ├── cli.py
-│   └── export/                  # registry · annotate · nonmem · pharmml · sbml · tci_json · rxode2 · pumas
+│   └── export/                  # registry · annotate · nonmem · pharmml · sbml · tci_json · rxode2 · pumas · bibtex · combine(.omex)
+├── scripts/regenerate.py        # deterministically regenerate all exports + figures
+├── CHANGELOG.md · .zenodo.json   # release metadata (Zenodo DOI on first tagged release)
 ├── python/tests/                # analytic-vs-numeric, round-trip, envelope, tier, CLI
 ├── dashboard/app.py             # Streamlit: browse + model-divergence view
 ├── docs/specs/v0.1/spec.md      # the design spec
@@ -308,7 +345,8 @@ hypnos simulate <model_id> --age .. --weight .. --height .. --sex .. [--pd <pd_i
 hypnos compare  --drug propofol --age .. --weight .. --height .. --sex ..
 hypnos interact --age .. --weight .. --height .. --sex ..             # propofol+remifentanil synergy
 hypnos mac --agent sevoflurane --age 75 [--end-tidal 1.2] [--n2o 50]  # age-corrected MAC + fraction
-hypnos export   --format {nonmem,pharmml,sbml,tci_json,rxode2,pumas} --output exports/ [--model <id>]
+hypnos export   --format {nonmem,pharmml,sbml,tci_json,rxode2,pumas,bibtex,omex} --output exports/ [--model <id>]
+python scripts/regenerate.py                                          # regenerate all exports + figures
 streamlit run dashboard/app.py
 ```
 
@@ -337,7 +375,7 @@ hypnos.validate_dataset(ds)                                           # -> list 
 | **B — Opioids + interaction** | remifentanil (Minto); propofol–remifentanil response surface; nlmixr2/rxode2 + Pumas export | ✅ core shipped (Minto executable; Greco surface with illustrative coefficients; R + Julia export round-tripped) |
 | **C — Breadth** | dexmedetomidine, ketamine, midazolam, fentanyl family; pediatric models with explicit Tier-D labeling | ✅ core shipped (dexmedetomidine + Paedfusor executable with explicit pediatric/geriatric extrapolation labeling; fentanyl curated, kernel pending; ketamine/midazolam roadmap) |
 | **D — Inhalational + NMB** | volatile MAC/partition/uptake; neuromuscular blockers + train-of-four; sugammadex reversal | ✅ core shipped (4 volatiles with MAC age-correction + additivity executable; rocuronium seeded with TOF PD; rocuronium PK kernel + sugammadex binding kinetics pending) |
-| **E — Hardening** | external-validation MDPE/MDAPE backfill; COMBINE `.omex`; Zenodo DOI | 🔜 |
+| **E — Hardening** | external-validation MDPE/MDAPE backfill; COMBINE `.omex`; Zenodo DOI | ✅ core shipped (deterministic `.omex` + BibTeX exporters; `scripts/regenerate.py`; `.zenodo.json` + `CHANGELOG.md`; Eleveld MDPE/MDAPE backfilled; broader MDPE/MDAPE backfill + minted DOI on first tagged release) |
 
 ---
 

@@ -78,7 +78,10 @@
     "derivation_n": 1033
   },
   "known_failure_modes": [],
-  "predictive_performance": [],
+  "predictive_performance": [
+    { "metric": "MDPE", "value": -27.0, "units": "%", "population": "older adults (plasma propofol; greater bias than younger groups)", "citation": "eleveld-2018-propofol" },
+    { "metric": "MDAPE", "value": 30.0, "units": "%", "population": "pooled (reported ceiling: MDAPE < 30% across neonate/child/adult/obese/older groups)", "citation": "eleveld-2018-propofol" }
+  ],
   "tier": "A",
   "extraction": {
     "review_status": "unverified",

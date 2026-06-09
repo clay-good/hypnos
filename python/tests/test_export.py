@@ -22,7 +22,12 @@ def ds():
     return hypnos.load()
 
 
-@pytest.mark.parametrize("fmt", FORMATS)
+# Model exports carry the banner; bibtex (citations) and omex (binary archive,
+# tested in test_combine_bibtex) are excluded.
+_BANNER_FORMATS = [f for f in FORMATS if f not in ("bibtex", "omex")]
+
+
+@pytest.mark.parametrize("fmt", _BANNER_FORMATS)
 @pytest.mark.parametrize("mid", [SCHNIDER, MARSH])
 def test_every_export_carries_clinical_use(ds, fmt, mid):
     _, text = export_model(fmt, ds[mid], ds)

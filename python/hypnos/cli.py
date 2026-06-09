@@ -20,7 +20,7 @@ from typing import List, Optional
 import numpy as np
 
 from . import CLINICAL_USE, __version__
-from .export import FORMATS, export_model
+from .export import FORMATS, bibtex, combine, export_model
 from .filter import summary
 from .load import load
 from .inhalational import mac as mac_eval
@@ -166,13 +166,37 @@ def cmd_export(args) -> int:
     if args.format not in FORMATS:
         print(f"unknown format {args.format!r}; choose from {FORMATS}", file=sys.stderr)
         return 2
-    models = [ds[args.model]] if args.model else list(ds)
     out = Path(args.output)
+    models = [ds[args.model]] if args.model else list(ds)
+    pk_models = [m for m in models if m.purpose == "pk"]
+
+    # COMBINE .omex archive (binary): single archive if --output ends in .omex, else per-model.
+    if args.format == "omex":
+        if str(out).endswith(".omex"):
+            out.parent.mkdir(parents=True, exist_ok=True)
+            sel = [m for m in pk_models if m.kernel_implemented] if not args.model else pk_models
+            out.write_bytes(combine.build_dataset_archive(ds, sel))
+            print(f"wrote dataset archive {out} ({len(sel)} model(s))")
+            return 0
+        out.mkdir(parents=True, exist_ok=True)
+        written = 0
+        for m in pk_models:
+            (out / combine.model_filename(m)).write_bytes(combine.build_model_archive(m, ds))
+            written += 1
+        print(f"wrote {written} omex archive(s) to {out}/")
+        return 0
+
+    # BibTeX: one dataset-level citations.bib (or per-model with --model).
+    if args.format == "bibtex" and not args.model:
+        target = out if str(out).endswith(".bib") else out / "citations.bib"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(bibtex.build(ds, models), encoding="utf-8")
+        print(f"wrote {target}")
+        return 0
+
     out.mkdir(parents=True, exist_ok=True)
     written = 0
-    for m in models:
-        if m.purpose != "pk":
-            continue
+    for m in pk_models:
         fname, text = export_model(args.format, m, ds)
         (out / fname).write_text(text, encoding="utf-8")
         written += 1

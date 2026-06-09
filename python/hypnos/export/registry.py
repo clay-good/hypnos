@@ -285,7 +285,7 @@ def _sigmoid_params(model) -> dict:
 
 # Single-drug effect-site sigmoid kernels (purpose == "pd"); all use sigmoid_emax
 # with parameters {E0, Emax, Ce50, gamma} read from the record.
-PD_KERNELS = {"propofol_bis_sigmoid", "nmb_tof_sigmoid"}
+PD_KERNELS = {"propofol_bis_sigmoid", "nmb_tof_sigmoid", "eleveld_bis_twoslope"}
 
 # Two-drug response-surface kernels (purpose == "interaction").
 INTERACTION_KERNELS = {"greco_response_surface"}

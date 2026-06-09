@@ -1,0 +1,85 @@
+{
+  "id": "pd_effect.propofol.eleveld_bis",
+  "subsystem": "pd_effect",
+  "drug": { "name": "propofol", "unii": "YI7VU623SF", "atc": "N01AX10" },
+  "purpose": "pd",
+  "label": "Propofol PD — Eleveld two-slope BIS sigmoid",
+  "structure": { "compartments": 0, "parameterization": "volumes_clearances", "effect_compartment": false },
+  "kernel": { "implemented": true, "function": "eleveld_bis_twoslope" },
+  "parameters": [
+    {
+      "symbol": "E0", "label": "baseline BIS (awake)",
+      "value": { "central": 93.0, "low": null, "high": null, "units": "BIS index" },
+      "covariate_model": "E0 = 93",
+      "tier": "B",
+      "extraction": { "review_status": "unverified", "source_locator": "Eleveld 2018 (PD)" },
+      "primary_citation": "eleveld-2018-propofol"
+    },
+    {
+      "symbol": "Emax", "label": "maximum BIS depression",
+      "value": { "central": 93.0, "low": null, "high": null, "units": "BIS index" },
+      "covariate_model": "Emax = 93 (drives asymptotic BIS toward ~0)",
+      "tier": "B",
+      "extraction": { "review_status": "unverified", "source_locator": "Eleveld 2018 (PD)" },
+      "primary_citation": "eleveld-2018-propofol"
+    },
+    {
+      "symbol": "Ce50", "label": "effect-site concentration at half-maximal BIS effect (reference, age 35)",
+      "value": { "central": 3.08, "low": null, "high": null, "units": "ug/mL" },
+      "covariate_model": "Ce50 = 3.08 * exp(-0.00635*(AGE-35))",
+      "tier": "B",
+      "extraction": { "review_status": "unverified", "tier_rationale": "Age-corrected half-effect concentration from the Eleveld pooled PK-PD analysis (1033 patients).", "source_locator": "Eleveld 2018, Table 2 (PD)" },
+      "primary_citation": "eleveld-2018-propofol"
+    },
+    {
+      "symbol": "Ce50_age_coeff", "label": "age coefficient for Ce50",
+      "value": { "central": -0.00635, "low": null, "high": null, "units": "1/year" },
+      "covariate_model": "exponential aging coefficient on Ce50",
+      "tier": "B",
+      "extraction": { "review_status": "unverified", "source_locator": "Eleveld 2018, Table 2 (PD)" },
+      "primary_citation": "eleveld-2018-propofol"
+    },
+    {
+      "symbol": "gamma_low", "label": "Hill slope for Ce <= Ce50",
+      "value": { "central": 1.47, "low": null, "high": null, "units": "dimensionless" },
+      "covariate_model": "gamma = 1.47 when Ce <= Ce50",
+      "tier": "B",
+      "extraction": { "review_status": "unverified", "source_locator": "Eleveld 2018, Table 2 (PD)" },
+      "primary_citation": "eleveld-2018-propofol"
+    },
+    {
+      "symbol": "gamma_high", "label": "Hill slope for Ce > Ce50",
+      "value": { "central": 1.89, "low": null, "high": null, "units": "dimensionless" },
+      "covariate_model": "gamma2 = 1.89 when Ce > Ce50 (steeper above the half-effect point)",
+      "tier": "B",
+      "extraction": { "review_status": "unverified", "source_locator": "Eleveld 2018, Table 2 (PD)" },
+      "primary_citation": "eleveld-2018-propofol"
+    }
+  ],
+  "covariates": { "required": [], "optional": ["age"], "lbm_equation": null },
+  "applicability_envelope": {
+    "age_years": { "min": 0, "max": 88 },
+    "populations": ["neonate", "child", "adult", "elderly"],
+    "derivation_n": 1033
+  },
+  "known_failure_modes": [
+    {
+      "condition": "BIS is an EEG-derived index with device-specific behaviour and known artefacts",
+      "predicate": null,
+      "behavior": "Population BIS predictions carry large between-subject variability (reported MDAPE ~10 BIS units) and depend on the processed-EEG monitor; not an individual prediction.",
+      "action": "warn",
+      "citation": "eleveld-2018-propofol"
+    }
+  ],
+  "predictive_performance": [
+    { "metric": "MDAPE", "value": 10.0, "units": "BIS units", "population": "pooled (reported ~10 BIS units across groups)", "citation": "eleveld-2018-propofol" }
+  ],
+  "tier": "B",
+  "extraction": {
+    "review_status": "unverified",
+    "tier_rationale": "Two-slope sigmoid BIS model from the Eleveld pooled PK-PD analysis (1033 patients), the validated PD companion to the Eleveld PK kernel. Steeper above Ce50 than below. Composes onto the Eleveld (or any) propofol PK model; the BIS endpoint's device dependence and between-subject variability are flagged as a failure mode. review_status remains unverified pending human PDF confirmation.",
+    "source_locator": "Eleveld 2018, Table 2 (PD)"
+  },
+  "primary_citation": "eleveld-2018-propofol",
+  "notes": "BIS = E0 - Emax * Ce^gamma/(Ce50^gamma + Ce^gamma), gamma = gamma_low (1.47) if Ce <= Ce50 else gamma_high (1.89). Ce50 age-corrected: 3.08*exp(-0.00635*(age-35)). Continuous at Ce=Ce50 (half-maximal effect). Pair with the Eleveld PK model for a fully-Eleveld PK-PD BIS trajectory; the composed tier is the worst of PK (A) and this PD (B) = B."
+}

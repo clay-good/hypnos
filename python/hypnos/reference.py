@@ -286,6 +286,26 @@ def mac_fraction(end_tidal_pct: float, mac40: float, age: float) -> float:
     return end_tidal_pct / mac_age_corrected(mac40, age)
 
 
+def sigmoid_emax_twoslope(
+    ce: np.ndarray, E0: float, Emax: float, Ce50: float, gamma_low: float, gamma_high: float
+) -> np.ndarray:
+    """Two-slope sigmoid E_max (the Eleveld BIS form): a Hill curve whose steepness
+    differs below vs above Ce50.
+
+        γ = γ_low  if Ce ≤ Ce50  else  γ_high
+        E = E0 − Emax · Ce^γ / (Ce50^γ + Ce^γ)
+
+    Continuous at Ce = Ce50 (both branches give the half-maximal effect there),
+    but asymmetric: propofol's concentration–BIS relationship is shallower below
+    the half-effect point and steeper above it.
+    """
+    ce = np.clip(np.asarray(ce, dtype=float), 0.0, None)
+    gam = np.where(ce <= Ce50, gamma_low, gamma_high)
+    num = np.power(ce, gam)
+    den = np.power(Ce50, gam) + num
+    return E0 - Emax * np.divide(num, den, out=np.zeros_like(num), where=den > 0)
+
+
 def greco_response_surface(
     ce_a: np.ndarray,
     ce_b: np.ndarray,

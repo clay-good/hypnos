@@ -8,6 +8,17 @@ version is pinned in `dataset/VERSION` and stamped into every export as
 
 ## [Unreleased]
 
+### Eleveld two-slope BIS PD model (2026-06-09)
+- **`pd_effect.propofol.eleveld_bis`** + `sigmoid_emax_twoslope` kernel — the
+  validated PD companion to the Eleveld PK kernel, giving a fully-Eleveld PK-PD
+  BIS trajectory. Asymmetric Hill: γ=1.47 below Ce50, γ=1.89 above (steeper);
+  Ce50 age-corrected (3.08·exp(-0.00635·(age-35))). Transcribed/validated against
+  the `tci` `emax_eleveld`; continuous at Ce50; `review_status` unverified.
+- `simulate()` now dispatches the PD kernel by `kernel.function` (single-slope vs
+  two-slope with age-adjusted Ce50). Composed Eleveld PK (A) + BIS (B) → Tier B;
+  older patients reach deeper BIS at the same dose (lower Ce50). 17 models, 15
+  kernels.
+
 ### Remifentanil Eleveld 2017 kernel (2026-06-09)
 - **`remifentanil_eleveld_2017` executable kernel** — completes the spec's named
   remifentanil pair (Minto + Eleveld). Allometric (fat-free-mass) general-purpose

@@ -30,6 +30,7 @@ from .reference import (
     bmi as _bmi,
     greco_response_surface,
     sigmoid_emax,
+    sigmoid_emax_twoslope,
     simulate as _simulate_ref,
 )
 from .export.registry import INTERACTION_KERNELS, KERNELS, parse_amount, parse_rate
@@ -156,6 +157,21 @@ def _classify_age_extrapolation(model: Model, patient: Dict[str, Any]) -> Option
     return None
 
 
+def _apply_pd(pdm: Model, ce: np.ndarray, patient: Dict[str, Any]) -> np.ndarray:
+    """Map effect-site concentration to effect via the PD model's kernel.
+
+    Dispatches on the PD record's ``kernel.function``: the Eleveld BIS model uses
+    a two-slope sigmoid with an age-corrected Ce50; the others use a single-slope
+    sigmoid E_max with parameters {E0, Emax, Ce50, gamma} read from the record.
+    """
+    pp = {p.symbol: p.central for p in pdm.parameters}
+    if pdm.kernel_function == "eleveld_bis_twoslope":
+        age = float(patient.get("age", 35.0))
+        ce50 = pp["Ce50"] * float(np.exp(pp.get("Ce50_age_coeff", 0.0) * (age - 35.0)))
+        return sigmoid_emax_twoslope(ce, pp["E0"], pp["Emax"], ce50, pp["gamma_low"], pp["gamma_high"])
+    return sigmoid_emax(ce, pp["E0"], pp["Emax"], pp["Ce50"], pp["gamma"])
+
+
 def evaluate_safety(model: Model, patient: Dict[str, Any]) -> Tuple[str, List[str], bool]:
     """Return (tier_floor, warnings, envelope_violated)."""
     warnings: List[str] = []
@@ -241,8 +257,7 @@ def simulate(
         pdm = ds[pd_model]
         if not pdm.kernel_implemented:
             raise NotImplementedError(f"{pd_model}: PD kernel not implemented")
-        pp = {p.symbol: p.central for p in pdm.parameters}
-        effect = sigmoid_emax(traj.ce, pp["E0"], pp["Emax"], pp["Ce50"], pp["gamma"])
+        effect = _apply_pd(pdm, traj.ce, patient)
         result.effect = effect
         result.effect_label = pdm.label
         result.pd_model_id = pd_model

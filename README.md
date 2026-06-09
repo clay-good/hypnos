@@ -210,7 +210,7 @@ Every model with `kernel.implemented = true` binds to a **pure-NumPy/SciPy refer
 
 - an n-compartment mammillary linear-ODE PK solver, integrated **exactly** via the augmented matrix exponential (machine precision, robust even when `ke0 = 0`);
 - the effect-compartment first-order `ke0` link;
-- the sigmoid E_max / Hill PD transform (propofol→BIS, rocuronium→train-of-four);
+- the sigmoid E_max / Hill PD transform (propofol→BIS, rocuronium→train-of-four), single-slope and the Eleveld two-slope variant (asymmetric Hill about Ce50);
 - the two-drug Greco response surface;
 - the volatile MAC age-correction (Mapleson/Nickalls) — a non-compartmental, physicochemical kernel.
 
@@ -280,7 +280,7 @@ python scripts/regenerate.py                                  # regenerate every
 
 ## Current coverage (v0.1.0 — A/B complete · C/D/E core)
 
-Honest status. A is the propofol spine; B adds the dominant opioid and the interaction surface; C widens to a new drug class and pediatrics; D brings in the non-IV families; E hardens for release (COMBINE `.omex`, BibTeX, reproducibility, verified MDPE/MDAPE) ([roadmap](docs/specs/v0.1/spec.md#11-phased-roadmap)). **16 models · 9 drugs · 7 subsystems · 14 executable kernels · 8 export formats.**
+Honest status. A is the propofol spine; B adds the dominant opioid and the interaction surface; C widens to a new drug class and pediatrics; D brings in the non-IV families; E hardens for release (COMBINE `.omex`, BibTeX, reproducibility, verified MDPE/MDAPE) ([roadmap](docs/specs/v0.1/spec.md#11-phased-roadmap)). **17 models · 9 drugs · 7 subsystems · 15 executable kernels · 8 export formats.**
 
 | Model | Record | Kernel | Tier | Notes |
 | --- | --- | --- | --- | --- |
@@ -288,7 +288,8 @@ Honest status. A is the propofol spine; B adds the dominant opioid and the inter
 | Propofol PK — **Schnider 1998** | ✅ | ✅ executable | B | Age/weight/height/James-LBM; high-BMI failure mode encoded. |
 | Propofol PK — **Eleveld 2018** | ✅ | ✅ executable | A | General-purpose, broad envelope (neonate→obese elderly). Kernel transcribed from the published equations (cross-checked vs the `tci` R package), validated to reproduce the reference individual exactly; `review_status` stays **`unverified`** pending human PDF confirmation. |
 | Propofol PK — **Paedfusor 2005** | ✅ | ✅ executable | B | Pediatric (1–12 y); the Tier-D extrapolation showcase, in both directions. |
-| Propofol PD — **BIS sigmoid** | ✅ | ✅ executable | C | Effect-site → BIS; composes onto any PK model and floors the tier to C. |
+| Propofol PD — **BIS sigmoid** | ✅ | ✅ executable | C | Single-slope effect-site → BIS; composes onto any PK model and floors the tier to C. |
+| Propofol PD — **Eleveld two-slope BIS** | ✅ | ✅ executable | B | Validated PD companion to the Eleveld PK kernel; asymmetric Hill (γ=1.47 below Ce50, 1.89 above), age-corrected Ce50. A fully-Eleveld PK-PD BIS trajectory. |
 | Remifentanil PK — **Minto 1997** | ✅ | ✅ executable | B | Age + James-LBM; shares the high-BMI LBM failure mode; concentrations in µg/mL (= ng/mL ÷ 1000). |
 | Remifentanil PK — **Eleveld 2017** | ✅ | ✅ executable | A | Allometric (FFM) general-purpose; broad envelope (neonate→obese elderly), faster `ke0` than Minto. Validated to reference; `unverified`. Found+fixed a V3 reference typo in the `tci` source. |
 | Dexmedetomidine PK — **Hannivoort 2015** | ✅ | ✅ executable | B | New drug class (α₂-agonist); allometric (vol ^1, CL ^0.75); adult-only, narrow BMI. |

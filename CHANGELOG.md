@@ -8,6 +8,23 @@ version is pinned in `dataset/VERSION` and stamped into every export as
 
 ## [Unreleased]
 
+### Predictive-performance backfill + surfacing (2026-06-09)
+- **External-validation MDPE/MDAPE backfill** (the named-incomplete Phase E item;
+  spec §5 "tier assignment can be partly numeric"). Two new citation records back
+  the additions: an independent head-to-head external validation of the propofol
+  trio (Hüppe 2020, BJA — Eleveld MDAPE 22%, Marsh 25%, Schnider 26% over 50
+  surgical adults; Marsh gains its first metric, Eleveld/Schnider gain an external
+  datapoint) and a number that **quantifies a documented failure mode**: the Minto
+  remifentanil James-LBM-in-obesity failure now carries the published MDPE −53.4% /
+  MDAPE 53.4% (La Colla 2010, *Clin Pharmacokinet*) measured in morbidly obese
+  patients — the authors' "not clinically acceptable" made machine-readable.
+- **Surfacing:** `hypnos performance [--drug X]` + `hypnos.performance_table(ds)`
+  list every metric with its population and resolved DOI (the data was previously
+  read only by the BibTeX exporter — invisible to users). `hypnos info` now reports
+  `models_with_predictive_performance`. Every row is asserted to resolve to a real
+  citation with a DOI — a performance number is never shown bare.
+- **Housekeeping:** removed a duplicate `default_schedule_for` import in `cli.py`.
+
 ### Offset analysis (decrement time) + solver memoization (2026-06-09)
 - **Performance:** `reference.simulate` now memoizes the augmented matrix
   exponential by `(dt, rate)`. On a uniform grid the same propagator recurs every

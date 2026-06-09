@@ -85,7 +85,9 @@
       "citation": "absalom-2009-schnider-obese"
     }
   ],
-  "predictive_performance": [],
+  "predictive_performance": [
+    { "metric": "MDAPE", "value": 25.0, "units": "%", "population": "external validation, 50 elective surgical adults (head-to-head: Marsh 25%, Schnider 26%, Eleveld 22%)", "citation": "huppe-2020-propofol-comparison" }
+  ],
   "tier": "B",
   "extraction": {
     "review_status": "unverified",

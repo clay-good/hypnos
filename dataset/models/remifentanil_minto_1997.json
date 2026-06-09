@@ -87,7 +87,12 @@
       "citation": "minto-1997-remifentanil"
     }
   ],
-  "predictive_performance": [],
+  "predictive_performance": [
+    { "metric": "MDPE", "value": -53.4, "units": "%", "population": "morbidly obese (out of envelope; original James-LBM set, maintenance) — quantifies the documented James-LBM failure mode", "citation": "lacolla-2010-minto-obese" },
+    { "metric": "MDAPE", "value": 53.4, "units": "%", "population": "morbidly obese (out of envelope; original James-LBM set, maintenance) — clinically unacceptable, the authors' conclusion", "citation": "lacolla-2010-minto-obese" },
+    { "metric": "divergence", "value": 3.3, "units": "%/h", "population": "morbidly obese (out of envelope; original James-LBM set, maintenance)", "citation": "lacolla-2010-minto-obese" },
+    { "metric": "wobble", "value": 1.4, "units": "%/h", "population": "morbidly obese (out of envelope; original James-LBM set, maintenance)", "citation": "lacolla-2010-minto-obese" }
+  ],
   "tier": "B",
   "extraction": {
     "review_status": "unverified",

@@ -89,7 +89,8 @@
   ],
   "predictive_performance": [
     { "metric": "MDPE", "value": -7.0, "units": "%", "population": "elective surgical adults (representative literature range)", "citation": "absalom-2009-schnider-obese" },
-    { "metric": "MDAPE", "value": 18.0, "units": "%", "population": "elective surgical adults (representative literature range)", "citation": "absalom-2009-schnider-obese" }
+    { "metric": "MDAPE", "value": 18.0, "units": "%", "population": "elective surgical adults (representative literature range)", "citation": "absalom-2009-schnider-obese" },
+    { "metric": "MDAPE", "value": 26.0, "units": "%", "population": "external validation, 50 elective surgical adults (head-to-head: Marsh 25%, Schnider 26%, Eleveld 22%)", "citation": "huppe-2020-propofol-comparison" }
   ],
   "tier": "B",
   "extraction": {

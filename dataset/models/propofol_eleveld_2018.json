@@ -80,7 +80,8 @@
   "known_failure_modes": [],
   "predictive_performance": [
     { "metric": "MDPE", "value": -27.0, "units": "%", "population": "older adults (plasma propofol; greater bias than younger groups)", "citation": "eleveld-2018-propofol" },
-    { "metric": "MDAPE", "value": 30.0, "units": "%", "population": "pooled (reported ceiling: MDAPE < 30% across neonate/child/adult/obese/older groups)", "citation": "eleveld-2018-propofol" }
+    { "metric": "MDAPE", "value": 30.0, "units": "%", "population": "pooled (reported ceiling: MDAPE < 30% across neonate/child/adult/obese/older groups)", "citation": "eleveld-2018-propofol" },
+    { "metric": "MDAPE", "value": 22.0, "units": "%", "population": "external validation, 50 elective surgical adults (head-to-head, best of three: Eleveld 22%, Marsh 25%, Schnider 26%)", "citation": "huppe-2020-propofol-comparison" }
   ],
   "tier": "A",
   "extraction": {

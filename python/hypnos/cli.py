@@ -22,10 +22,9 @@ import numpy as np
 from . import CLINICAL_USE, __version__
 from .analysis import decrement_time, time_to_peak_effect
 from .export import FORMATS, bibtex, combine, csv_flat, export_model
-from .filter import pk_drugs, select, summary
+from .filter import performance_table, pk_drugs, select, summary
 from .inhalational import mac as mac_eval
 from .load import load
-from .presets import default_schedule_for
 from .presets import default_schedule_for
 from .simulate import compare as compare_models
 from .simulate import simulate, simulate_interaction
@@ -207,6 +206,24 @@ def cmd_models(args) -> int:
     return 0
 
 
+def cmd_performance(args) -> int:
+    ds = load()
+    rows = performance_table(ds, drug=args.drug)
+    if not rows:
+        print(f"no published predictive-performance metrics{' for drug ' + args.drug if args.drug else ''}",
+              file=sys.stderr)
+        return 2
+    print("Published predictive performance — the numeric counterpart to the tier "
+          "(spec §5; MDPE = bias, MDAPE = inaccuracy).")
+    print(f"{'model_id':46s} {'tier':4s} {'metric':10s} {'value':>8s}  population (citation)")
+    for r in rows:
+        val = f"{r['value']:g} {r['units']}".strip()
+        src = r["citation"] or "?"
+        pop = r["population"] or ""
+        print(f"{r['model_id']:46s} {r['tier']:4s} {r['metric']:10s} {val:>8s}  {pop} [{src}]")
+    return 0
+
+
 def cmd_tpeak(args) -> int:
     ds = load()
     patient = _patient_from_args(args)
@@ -332,6 +349,10 @@ def build_parser() -> argparse.ArgumentParser:
     mlp = sub.add_parser("models", help="list models (optionally filtered by drug)")
     mlp.add_argument("--drug", default=None)
     mlp.set_defaults(func=cmd_models)
+
+    pp = sub.add_parser("performance", help="published predictive-performance metrics (MDPE/MDAPE/…)")
+    pp.add_argument("--drug", default=None)
+    pp.set_defaults(func=cmd_performance)
 
     vp = sub.add_parser("verify", help="field-by-field verification checklist for a model")
     vp.add_argument("model")

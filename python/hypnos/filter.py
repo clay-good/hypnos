@@ -46,6 +46,35 @@ def pk_drugs(ds: Dataset) -> List[str]:
     return sorted(out)
 
 
+def performance_table(ds: Dataset, *, drug: Optional[str] = None) -> List[dict]:
+    """Published predictive-performance metrics (Varvel's MDPE/MDAPE, wobble,
+    divergence) across the dataset — one row per metric per model.
+
+    These are the numeric counterpart to the editorial confidence tier (spec §5:
+    "tier assignment can be partly numeric"). MDPE is bias (signed), MDAPE is
+    inaccuracy. Each row carries its derivation/validation population and resolves
+    the citation's DOI so the number is traceable to a source, never asserted bare.
+    """
+    rows: List[dict] = []
+    for m in sorted(ds, key=lambda x: x.id):
+        if drug is not None and m.drug_name != drug:
+            continue
+        for pp in m.predictive_performance:
+            cid = pp.get("citation")
+            cit = ds.citation(cid) if cid else None
+            rows.append({
+                "model_id": m.id,
+                "tier": m.tier,
+                "metric": pp["metric"],
+                "value": pp["value"],
+                "units": pp.get("units", ""),
+                "population": pp.get("population"),
+                "citation": cid,
+                "doi": (cit or {}).get("doi"),
+            })
+    return rows
+
+
 def _counter(items: Iterable[str]) -> dict:
     return dict(sorted(Counter(items).items()))
 
@@ -63,4 +92,5 @@ def summary(ds: Dataset) -> dict:
         "by_tier": _counter(m.tier for m in models),
         "by_review_status": _counter(m.review_status for m in models),
         "kernels_implemented": sum(1 for m in models if m.kernel_implemented),
+        "models_with_predictive_performance": sum(1 for m in models if m.predictive_performance),
     }

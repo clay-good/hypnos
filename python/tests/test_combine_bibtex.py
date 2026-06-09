@@ -84,5 +84,10 @@ def test_eleveld_predictive_performance_backfilled(ds):
     perf = ds[ELEVELD].predictive_performance
     metrics = {p["metric"] for p in perf}
     assert {"MDPE", "MDAPE"} <= metrics
+    # the model's own report plus an independent external head-to-head validation;
+    # every entry must still resolve to a real citation record (honesty stance).
+    cits = {p["citation"] for p in perf}
+    assert "eleveld-2018-propofol" in cits
+    assert "huppe-2020-propofol-comparison" in cits
     for p in perf:
-        assert p["citation"] == "eleveld-2018-propofol"
+        assert ds.citation(p["citation"]) is not None

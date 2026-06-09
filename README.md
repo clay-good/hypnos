@@ -291,7 +291,7 @@ Honest status. A is the propofol spine; B adds the dominant opioid and the inter
 | Propofol PK — **Paedfusor 2005** | ✅ | ✅ executable | B | Pediatric (1–12 y); the Tier-D extrapolation showcase, in both directions. |
 | Propofol PD — **BIS sigmoid** | ✅ | ✅ executable | C | Single-slope effect-site → BIS; composes onto any PK model and floors the tier to C. |
 | Propofol PD — **Eleveld two-slope BIS** | ✅ | ✅ executable | B | Validated PD companion to the Eleveld PK kernel; asymmetric Hill (γ=1.47 below Ce50, 1.89 above), age-corrected Ce50. A fully-Eleveld PK-PD BIS trajectory. |
-| Remifentanil PK — **Minto 1997** | ✅ | ✅ executable | B | Age + James-LBM; shares the high-BMI LBM failure mode; concentrations in µg/mL (= ng/mL ÷ 1000). |
+| Remifentanil PK — **Minto 1997** | ✅ | ✅ executable | B | Age + James-LBM; shares the high-BMI LBM failure mode; reported in ng/mL (the opioid convention). |
 | Remifentanil PK — **Eleveld 2017** | ✅ | ✅ executable | A | Allometric (FFM) general-purpose; broad envelope (neonate→obese elderly), faster `ke0` than Minto. Validated to reference; `unverified`. Found+fixed a V3 reference typo in the `tci` source. |
 | Remifentanil PK — **Kim 2017** | ✅ | ✅ executable | A | Derived in obesity (Janmahasatian FFM, BMI to ~70); widest obesity envelope of the trio. PK-only (no published `ke0`). Validated to reference; `unverified`. |
 | Dexmedetomidine PK — **Hannivoort 2015** | ✅ | ✅ executable | B | New drug class (α₂-agonist); allometric (vol ^1, CL ^0.75); adult-only, narrow BMI. |
@@ -334,6 +334,7 @@ $ hypnos verify hypnotics_iv.propofol.schnider_1998 --markdown   # copy-pasteabl
 | **Tier & envelope warnings propagate; worst input wins** | A composed simulation is only as trustworthy as its weakest component or furthest extrapolation. |
 | **Humans verify; LLMs do not promote** | `unverified → verified` requires reading the source PDF and confirming the parameters *and the covariate equations*. Even Eleveld — implemented and validated to its reference patient — stays `unverified`; that flag means *a human has checked the PDF*, nothing less. Models whose parameters cannot be reconciled to a primary source (rocuronium PK, Shafer fentanyl) stay kernel-pending and `simulate()` refuses them. |
 | **Age extrapolations are named, not just flagged** | "Out of envelope" is generic; "pediatric extrapolation of an adult model" is the actual clinical risk the spec calls out. The label is first-class and tested. |
+| **One internal concentration unit (µg/mL), conventional units for display** | The kernels work in µg/mL (= mg/L) throughout; each drug declares its conventional unit so output reads naturally (ng/mL for opioids and dexmedetomidine). The CLI likewise uses drug-appropriate default doses — a 2 mg/kg propofol regimen applied to remifentanil would be a ~1000× overdose. |
 | **No TCI engine, no dosing output, ever** | The line between "research simulator" and "unregulated medical device" is exactly the inverse-control step. Hypnos stays on the safe side by construction. |
 | **Exact matrix-exponential solver** | Closed-form per segment for a linear time-invariant system; faster and more accurate than stepwise integration, and the augmented form handles `ke0 = 0` without a singular inverse. |
 
@@ -390,6 +391,7 @@ hypnos.simulate(ds, model_id, patient=..., schedule=..., t=...)       # forward 
 hypnos.compare(ds, drug=..., patient=..., schedule=..., t=...)        # divergence view
 hypnos.simulate_interaction(ds, surface_id, pk_a=.., pk_b=.., ...)    # two-drug response surface
 hypnos.mac(ds, agent_id, age=.., end_tidal_pct=.., n2o_end_tidal_pct=..)  # volatile MAC + fraction
+res.cp_peak_display, res.concentration_unit                          # conventional units (ng/mL for opioids)
 hypnos.verification_summary(ds)                                       # coverage + next-to-verify
 hypnos.model_verification(ds, model_id)                              # field-by-field checklist object
 hypnos.validate_dataset(ds)                                           # -> list of problems ([] == valid)

@@ -1,10 +1,14 @@
 {
   "name": "propofol",
-  "synonyms": ["2,6-diisopropylphenol", "Diprivan"],
+  "synonyms": [
+    "2,6-diisopropylphenol",
+    "Diprivan"
+  ],
   "unii": "YI7VU623SF",
   "atc": "N01AX10",
   "cas": "2078-54-8",
   "drug_class": "IV hypnotic (GABA-A potentiator)",
   "subsystem": "hypnotics_iv",
-  "notes": "Most-modeled IV anesthetic; the canonical case for model-selection risk (Marsh vs Schnider vs Eleveld)."
+  "notes": "Most-modeled IV anesthetic; the canonical case for model-selection risk (Marsh vs Schnider vs Eleveld).",
+  "concentration_unit": "ug/mL"
 }

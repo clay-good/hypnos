@@ -29,7 +29,21 @@ from .simulate import simulate, simulate_interaction
 from .validate import validate_dataset
 from .verification import checklist_markdown, model_verification, verification_summary
 
+# Drug-appropriate default dose schedules for the CLI. A propofol regimen
+# (2 mg/kg) applied to remifentanil would be a ~1000x overdose, so each drug
+# gets a clinically sensible default; users can still vary the patient.
 _DEFAULT_SCHEDULE = [("bolus", 0.0, "2 mg/kg"), ("infusion", 0.0, "6 mg/kg/h")]
+_DEFAULT_SCHEDULES = {
+    "propofol": [("bolus", 0.0, "2 mg/kg"), ("infusion", 0.0, "6 mg/kg/h")],
+    "remifentanil": [("bolus", 0.0, "1 mcg/kg"), ("infusion", 0.0, "0.25 mcg/kg/min")],
+    "dexmedetomidine": [("infusion", 0.0, "6 mcg/kg/h"), ("infusion", 10.0, "0.5 mcg/kg/h")],
+    "fentanyl": [("bolus", 0.0, "2 mcg/kg")],
+    "rocuronium": [("bolus", 0.0, "0.6 mg/kg")],
+}
+
+
+def _default_schedule_for(drug: str):
+    return _DEFAULT_SCHEDULES.get(drug, _DEFAULT_SCHEDULE)
 
 
 def _patient_from_args(args) -> dict:
@@ -72,8 +86,8 @@ def _run_sim(args):
     ds = load()
     patient = _patient_from_args(args)
     t = np.linspace(0.0, args.tmax, args.n)
-    res = simulate(ds, args.model, patient=patient, schedule=_DEFAULT_SCHEDULE, t=t,
-                   pd_model=args.pd)
+    schedule = _default_schedule_for(ds[args.model].drug_name)
+    res = simulate(ds, args.model, patient=patient, schedule=schedule, t=t, pd_model=args.pd)
     return res
 
 
@@ -81,7 +95,8 @@ def cmd_simulate(args) -> int:
     res = _run_sim(args)
     print(f"model: {res.model_id}")
     print(f"tier (propagated): {res.tier}")
-    print(f"Cp peak: {res.cp_peak:.3f} ug/mL   Ce peak: {res.ce_peak:.3f} ug/mL")
+    u = res.concentration_unit
+    print(f"Cp peak: {res.cp_peak_display:.3f} {u}   Ce peak: {res.ce_peak_display:.3f} {u}")
     if res.effect is not None:
         print(f"effect ({res.effect_label}): min {float(np.min(res.effect)):.1f}")
     if res.warnings:
@@ -97,11 +112,15 @@ def cmd_compare(args) -> int:
     ds = load()
     patient = _patient_from_args(args)
     t = np.linspace(0.0, args.tmax, args.n)
-    cmp = compare_models(ds, drug=args.drug, patient=patient, schedule=_DEFAULT_SCHEDULE, t=t)
-    print(f"drug: {cmp.drug}   patient: {patient}")
+    cmp = compare_models(ds, drug=args.drug, patient=patient,
+                         schedule=_default_schedule_for(args.drug), t=t)
+    cu = cmp.concentration_unit
+    print(f"drug: {cmp.drug}   patient: {patient}   (concentrations in {cu})")
     print(f"included ({len(cmp.included)}):")
     for r in cmp.included:
-        print(f"  - {r.model_id:42s} tier {r.tier}  Ce peak {r.ce_peak:.3f}")
+        peak = r.ce_peak_display if r.ce_peak > 0 else r.cp_peak_display
+        kind = "Ce" if r.ce_peak > 0 else "Cp"
+        print(f"  - {r.model_id:42s} tier {r.tier}  {kind} peak {peak:.3f} {cu}")
     if cmp.excluded:
         print(f"excluded for envelope ({len(cmp.excluded)}):")
         for e in cmp.excluded:
@@ -113,7 +132,7 @@ def cmd_compare(args) -> int:
     d = cmp.divergence.get("ce", {})
     if d:
         print(f"effect-site divergence across included models: "
-              f"peak abs {d['max_abs']:.3f} ug/mL, peak rel {100*d['max_rel']:.0f}%")
+              f"peak abs {d['max_abs'] * cmp.conc_factor:.3f} {cu}, peak rel {100*d['max_rel']:.0f}%")
     return 0
 
 

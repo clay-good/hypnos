@@ -1,10 +1,14 @@
 {
   "name": "remifentanil",
-  "synonyms": ["GI87084B", "Ultiva"],
+  "synonyms": [
+    "GI87084B",
+    "Ultiva"
+  ],
   "unii": "P10582JYYK",
   "atc": "N01AH06",
   "cas": "132875-61-7",
   "drug_class": "ultra-short-acting opioid (mu agonist)",
   "subsystem": "opioids",
-  "notes": "Esterase-metabolized; context-insensitive half-time near-constant. The clinically dominant partner to propofol in TIVA, hence the canonical interaction case."
+  "notes": "Esterase-metabolized; context-insensitive half-time near-constant. The clinically dominant partner to propofol in TIVA, hence the canonical interaction case.",
+  "concentration_unit": "ng/mL"
 }

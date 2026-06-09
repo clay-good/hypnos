@@ -8,6 +8,18 @@ version is pinned in `dataset/VERSION` and stamped into every export as
 
 ## [Unreleased]
 
+### Conventional concentration units + drug-appropriate CLI dosing (2026-06-09)
+- **Conventional concentration units.** Each drug declares a `concentration_unit`
+  (opioids and dexmedetomidine: ng/mL; propofol/rocuronium: µg/mL). The kernels
+  still compute one internal unit (µg/mL = mg/L); `SimulationResult`/`Comparison`
+  expose `cp_peak_display`/`ce_peak_display` and the unit, and the CLI prints in
+  it. Removes the awkward "remifentanil Ce 0.008 µg/mL" readout.
+- **Bug fix:** the CLI `simulate`/`compare` previously applied a fixed propofol
+  schedule (2 mg/kg) to every drug — a ~1000× overdose for remifentanil
+  (26,874 ng/mL artifact). Added drug-appropriate default schedules
+  (`_default_schedule_for`): remifentanil mcg/kg + mcg/kg/min, dexmedetomidine
+  mcg/kg/h, rocuronium 0.6 mg/kg, etc.
+
 ### Kim remifentanil + effect-site divergence fix (2026-06-09)
 - **`remifentanil_kim_2017` executable kernel** — completes the spec's named
   remifentanil trio (Minto, Eleveld, Kim). Derived in obesity; Janmahasatian FFM;

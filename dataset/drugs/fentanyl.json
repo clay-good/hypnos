@@ -1,10 +1,13 @@
 {
   "name": "fentanyl",
-  "synonyms": ["Sublimaze"],
+  "synonyms": [
+    "Sublimaze"
+  ],
   "unii": "UF599785JZ",
   "atc": "N01AH01",
   "cas": "437-38-7",
   "drug_class": "synthetic opioid (mu agonist)",
   "subsystem": "opioids",
-  "notes": "Longer context-sensitive half-time than remifentanil. Concentrations conventionally in ng/mL."
+  "notes": "Longer context-sensitive half-time than remifentanil. Concentrations conventionally in ng/mL.",
+  "concentration_unit": "ng/mL"
 }

@@ -22,6 +22,19 @@ def worst_tier(tiers: List[str]) -> str:
     return max(present, key=lambda t: TIER_RANK[t])
 
 
+# Internal concentrations are always mg/L (== ug/mL). Drugs declare a conventional
+# display unit (opioids and dexmedetomidine are reported in ng/mL); this maps that
+# unit to the multiplier from the internal ug/mL value.
+_CONC_FACTORS = {"ug/ml": 1.0, "µg/ml": 1.0, "mcg/ml": 1.0, "mg/l": 1.0, "ng/ml": 1000.0}
+
+
+def concentration_factor(unit: Optional[str]) -> float:
+    """Multiplier from the internal ug/mL concentration to the given display unit."""
+    if not unit:
+        return 1.0
+    return _CONC_FACTORS.get(unit.strip().lower(), 1.0)
+
+
 @dataclass(frozen=True)
 class Range:
     min: Optional[float] = None

@@ -22,7 +22,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 import numpy as np
 
 from .load import Dataset, load
-from .models import Model, worst_tier
+from .models import Model, concentration_factor, worst_tier
 from .reference import (
     Dosing,
     MicroParams,
@@ -105,8 +105,9 @@ class SimulationResult:
     pd_model_id: Optional[str] = None
     params: Optional[MicroParams] = None
     patient: Dict[str, Any] = field(default_factory=dict)
+    concentration_unit: str = "ug/mL"   # conventional display unit for this drug
 
-    # convenience scalars
+    # convenience scalars — cp/ce arrays are always internal ug/mL (== mg/L)
     @property
     def cp_peak(self) -> float:
         return float(np.max(self.cp))
@@ -114,6 +115,19 @@ class SimulationResult:
     @property
     def ce_peak(self) -> float:
         return float(np.max(self.ce))
+
+    @property
+    def conc_factor(self) -> float:
+        return concentration_factor(self.concentration_unit)
+
+    @property
+    def cp_peak_display(self) -> float:
+        """Peak plasma concentration in the drug's conventional unit (e.g. ng/mL for opioids)."""
+        return self.cp_peak * self.conc_factor
+
+    @property
+    def ce_peak_display(self) -> float:
+        return self.ce_peak * self.conc_factor
 
 
 # --------------------------------------------------------------------------- #
@@ -248,9 +262,11 @@ def simulate(
     tier_floor, warnings, excluded = evaluate_safety(model, patient)
     tier = worst_tier([model.tier, tier_floor])
 
+    drug_meta = ds.drug(model.drug_name) or {}
     result = SimulationResult(
         model_id=model_id, t=t, cp=traj.cp, ce=traj.ce, tier=tier,
         warnings=warnings, excluded=excluded, params=params, patient=dict(patient),
+        concentration_unit=drug_meta.get("concentration_unit", "ug/mL"),
     )
 
     if pd_model is not None:
@@ -282,6 +298,11 @@ class Comparison:
     excluded: List[Dict[str, Any]] = field(default_factory=list)     # envelope-violating
     unavailable: List[Dict[str, Any]] = field(default_factory=list)  # kernel pending
     divergence: Dict[str, Any] = field(default_factory=dict)
+    concentration_unit: str = "ug/mL"   # conventional display unit for this drug
+
+    @property
+    def conc_factor(self) -> float:
+        return concentration_factor(self.concentration_unit)
 
 
 def _divergence(results: List[SimulationResult], key: str) -> Dict[str, float]:
@@ -313,7 +334,8 @@ def compare(
     from .filter import select
 
     t = np.asarray(t, dtype=float)
-    cmp = Comparison(drug=drug, purpose=purpose, t=t)
+    cmp = Comparison(drug=drug, purpose=purpose, t=t,
+                     concentration_unit=(ds.drug(drug) or {}).get("concentration_unit", "ug/mL"))
     for m in select(ds, drug=drug, purpose=purpose):
         if not m.kernel_implemented:
             cmp.unavailable.append({"model_id": m.id, "tier": m.tier,

@@ -20,7 +20,7 @@ from typing import List, Optional
 import numpy as np
 
 from . import CLINICAL_USE, __version__
-from .analysis import time_to_peak_effect
+from .analysis import decrement_time, time_to_peak_effect
 from .export import FORMATS, bibtex, combine, csv_flat, export_model
 from .filter import pk_drugs, select, summary
 from .inhalational import mac as mac_eval
@@ -223,6 +223,34 @@ def cmd_tpeak(args) -> int:
     return 0
 
 
+def cmd_decrement(args) -> int:
+    ds = load()
+    patient = _patient_from_args(args)
+    drug = ds[args.model].drug_name
+    infusion = args.infusion
+    if infusion is None:  # default to the drug's preset infusion rate
+        infusion = next((spec for kind, _, spec in default_schedule_for(drug) if kind == "infusion"), None)
+        if infusion is None:
+            print(f"no preset infusion for {drug}; pass --infusion (e.g. '6 mg/kg/h')", file=sys.stderr)
+            return 2
+    try:
+        dt = decrement_time(ds, args.model, patient=patient, infusion=infusion,
+                            duration=args.duration, fraction=args.fraction)
+    except (ValueError, NotImplementedError) as e:
+        print(str(e), file=sys.stderr)
+        return 2
+    u = (ds.drug(drug) or {}).get("concentration_unit", "ug/mL")
+    from .models import concentration_factor
+    cstop = dt.conc_at_stop * concentration_factor(u)
+    print(f"model: {dt.model_id}   tier {dt.tier}")
+    print(f"infusion: {dt.infusion} for {dt.duration_min:g} min  ->  plasma at stop {cstop:.3f} {u}")
+    val = "not reached" if dt.decrement_min == float("inf") else f"{dt.decrement_min:.1f} min"
+    print(f"{100*dt.fraction:g}% plasma decrement time (constant-rate; not classic CSHT): {val}")
+    for w in dt.warnings:
+        print("  - " + w)
+    return 0
+
+
 def cmd_mac(args) -> int:
     ds = load()
     agent = args.agent
@@ -332,6 +360,14 @@ def build_parser() -> argparse.ArgumentParser:
     tp.add_argument("model")
     _add_patient_args(tp)
     tp.set_defaults(func=cmd_tpeak)
+
+    dp = sub.add_parser("decrement", help="plasma decrement time after a constant-rate infusion (offset)")
+    dp.add_argument("model")
+    dp.add_argument("--infusion", default=None, help="infusion rate, e.g. '6 mg/kg/h' (default: drug preset)")
+    dp.add_argument("--duration", type=float, default=60.0, help="infusion duration (min)")
+    dp.add_argument("--fraction", type=float, default=0.5, help="fractional decrement (0-1)")
+    _add_patient_args(dp)
+    dp.set_defaults(func=cmd_decrement)
 
     mp = sub.add_parser("mac", help="age-corrected MAC for a volatile agent")
     mp.add_argument("--agent", required=True, help="agent name (sevoflurane) or full model id")

@@ -12,7 +12,7 @@ __version__ = "0.1.0"
 
 CLINICAL_USE = "PROHIBITED — research/education/simulation only"
 
-from .analysis import PeakEffect, time_to_peak_effect  # noqa: E402
+from .analysis import DecrementTime, PeakEffect, decrement_time, time_to_peak_effect  # noqa: E402
 from .filter import select, summary  # noqa: E402
 from .inhalational import MacResult, mac  # noqa: E402
 from .load import Dataset, load  # noqa: E402
@@ -52,6 +52,8 @@ __all__ = [
     "MacResult",
     "time_to_peak_effect",
     "PeakEffect",
+    "decrement_time",
+    "DecrementTime",
     "validate_dataset",
     "assert_valid",
     "worst_tier",

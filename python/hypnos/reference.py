@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 from scipy.linalg import expm
@@ -172,6 +172,10 @@ def simulate(params: MicroParams, dosing: Dosing, t: np.ndarray) -> Trajectory:
 
     # Cache state at each breakpoint.
     state = np.zeros(n)
+    # Memoize the augmented matrix exponential by (dt, rate): on a uniform time
+    # grid with piecewise-constant infusion the same propagator recurs at almost
+    # every step, so this turns O(n) expm calls into ~1 (identical results).
+    phi_cache: Dict[Any, np.ndarray] = {}
     state_at: Dict[float, np.ndarray] = {}
     for i, bp in enumerate(ordered):
         # apply boluses at this instant
@@ -184,13 +188,17 @@ def simulate(params: MicroParams, dosing: Dosing, t: np.ndarray) -> Trajectory:
             dt = ordered[i + 1] - bp
             if dt > 0:
                 rate = dosing.active_rate(bp + dt / 2.0)
-                # Augmented matrix exponential solves x' = M x + b exactly for
-                # constant b, even when M is singular (e.g. ke0 = 0):
-                #   [x'; 0] = [[M, b], [0, 0]] [x; 1]
-                aug = np.zeros((n + 1, n + 1))
-                aug[:n, :n] = M
-                aug[0, n] = rate  # infusion enters the central compartment
-                phi_aug = expm(aug * dt)
+                key = (round(dt, 12), rate)
+                phi_aug = phi_cache.get(key)
+                if phi_aug is None:
+                    # Augmented matrix exponential solves x' = M x + b exactly for
+                    # constant b, even when M is singular (e.g. ke0 = 0):
+                    #   [x'; 0] = [[M, b], [0, 0]] [x; 1]
+                    aug = np.zeros((n + 1, n + 1))
+                    aug[:n, :n] = M
+                    aug[0, n] = rate  # infusion enters the central compartment
+                    phi_aug = expm(aug * dt)
+                    phi_cache[key] = phi_aug
                 state = phi_aug[:n, :n] @ state + phi_aug[:n, n]
 
     # Sample at requested times (each t is a breakpoint, so look it up).

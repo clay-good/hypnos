@@ -8,6 +8,20 @@ version is pinned in `dataset/VERSION` and stamped into every export as
 
 ## [Unreleased]
 
+### Offset analysis (decrement time) + solver memoization (2026-06-09)
+- **Performance:** `reference.simulate` now memoizes the augmented matrix
+  exponential by `(dt, rate)`. On a uniform grid the same propagator recurs every
+  step, so this turns O(n) `expm` calls into ~1 — n=8001 dropped 230→41 ms,
+  n=361 dropped 68→1 ms; results are bit-identical (it is the same computation,
+  cached). The full test suite went from ~26 s back to ~2 s.
+- **`hypnos.analysis.decrement_time`** + `hypnos decrement` CLI — the *offset*
+  companion to `tpeak` (onset): plasma decline after a constant-*rate* infusion.
+  Forward-only; it lengthens with infusion duration for propofol (accumulation,
+  1.0→4.2 min over 10→600 min) yet stays near-flat for remifentanil (~2.2 min,
+  its celebrated context-insensitivity). Explicitly **not** the classic
+  constant-concentration context-sensitive half-time (which needs inverse
+  control, out of scope). Hypnos now offers an onset/peak/offset analysis triad.
+
 ### Drug-aware dashboard + shared dosing presets + `hypnos models` (2026-06-09)
 - **`hypnos.presets`** — drug-appropriate default dose schedules, now a single
   source of truth shared by the CLI and the dashboard (moved out of `cli.py`).

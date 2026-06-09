@@ -135,6 +135,25 @@ isoflurane                 1.4    0.364    0.23        0.364
 
 The discriminating quantity is the **early FA/FI plateau** (the wash-in "knee" reached before tissue uptake dominates): a *less* soluble agent has a *higher* plateau and rises toward it faster, reproducing the canonical ordering — desflurane and nitrous oxide wash in fast, isoflurane slowly — straight from the curated coefficients. Honesty boundary, same stance as the Greco surface: the math is exact, but it rests on **stated, standard 70-kg-adult ventilation constants** (V̇_A ≈ 4 L/min, FRC ≈ 2.5 L, Q̇ ≈ 5 L/min, all overridable). It is a comparative, education-grade characterization, **not** a per-patient FA/FI predictor; full multi-compartment tissue uptake (Mapleson) is out of v0.1 scope.
 
+**Offset — the wash-out mirror (emergence).** Onset has an offset. Run the same alveolar mass balance with the inspired fraction set to zero (and the symmetric early-phase idealization that tissues are still saturated, so blood *redelivers* agent), and it integrates to the exact mirror of wash-in — falling from 1 toward an **elimination floor** rather than rising toward a plateau (`hypnos washout`):
+
+```text
+FA/FA₀(t) = floor + (1 − floor)·e^(−t/τ),   floor = λ·Q̇/(V̇_A + λ·Q̇) = 1 − plateau,   same τ
+```
+
+![Inhalational wash-out (FA/FA₀)](docs/images/washout.png)
+
+```text
+$ hypnos washout
+agent             λ(blood:gas)   floor  τ(min)   FA/FA0@3min
+desflurane                0.42   0.344    0.41        0.345
+nitrous_oxide             0.47   0.370    0.39        0.370
+sevoflurane               0.65   0.448    0.34        0.448
+isoflurane                 1.4   0.636    0.23        0.636
+```
+
+The discriminator flips sign but tells the same story: a *less* soluble agent has a *lower* floor, so it washes out more completely and faster — desflurane settles toward 0.34 while isoflurane holds at 0.64. This is the physicochemical reason desflurane is chosen for long cases (faster emergence), now computable from the curated `λ` alone. Same honesty boundary as wash-in, and the same scope limit: this captures only the early, lung-dominated phase — the long tissue-release tail (full Mapleson) is out of v0.1. With `floor = 1 − plateau` and a shared τ, wash-in and wash-out are one model run in two directions, giving the volatiles the onset→offset symmetry the IV families have via `tpeak`/`decrement`.
+
 **Neuromuscular blockers** are seeded: a **train-of-four (T1 twitch) sigmoid** PD record (the NMB convention — a steep Hill curve on a twitch-height scale, Ce50 ≈ 0.82 µg/mL at the adductor pollicis) composes onto a rocuronium PK model that is curated but **kernel-pending** (the Wierda 1991 compartmental parameters aren't openly reconcilable, so `simulate()` refuses it). Sugammadex reversal (1:1 encapsulation binding kinetics) is deferred — it needs its own model type, like the deferred local-anesthetics subsystem.
 
 ## Install & quickstart
@@ -182,9 +201,9 @@ The **dataset is the single source of truth.** Everything else — simulation, e
 ```mermaid
 flowchart TD
     DS["<b>dataset/</b> — source of truth<br/>JSON model records + JSON Schema + JSON-LD context<br/>drugs · models · covariate eqs · envelopes · tiers · citations"]
-    DS --> PKG["<b>hypnos</b> Python package<br/>load · filter · validate<br/>simulate · compare (PK/PD + divergence)<br/>simulate_interaction (synergy surface)<br/>analysis (tpeak · decrement)<br/>inhalational (MAC · wash-in)<br/>verification (checklists, never promotes)"]
-    PKG --> CLI["<b>hypnos</b> CLI<br/>validate · info · models · status · verify<br/>simulate · compare · interact<br/>tpeak · decrement · mac · washin<br/>performance · export"]
-    PKG --> DASH["Streamlit dashboard<br/>drug-aware divergence + accuracy + driver<br/>onset table · synergy · volatiles (MAC + wash-in)"]
+    DS --> PKG["<b>hypnos</b> Python package<br/>load · filter · validate<br/>simulate · compare (PK/PD + divergence)<br/>simulate_interaction (synergy surface)<br/>analysis (tpeak · decrement)<br/>inhalational (MAC · wash-in/out)<br/>verification (checklists, never promotes)"]
+    PKG --> CLI["<b>hypnos</b> CLI<br/>validate · info · models · status · verify<br/>simulate · compare · interact<br/>tpeak · decrement · mac · washin · washout<br/>performance · export"]
+    PKG --> DASH["Streamlit dashboard<br/>drug-aware divergence + accuracy + driver<br/>onset table · synergy · volatiles (MAC + wash-in/out)"]
     PKG --> EXP["<b>hypnos.export</b><br/>format builders"]
     EXP --> NM["NONMEM control stream"]
     EXP --> PHARMML["PharmML projection"]
@@ -243,7 +262,7 @@ Every model with `kernel.implemented = true` binds to a **pure-NumPy/SciPy refer
 - the effect-compartment first-order `ke0` link;
 - the sigmoid E_max / Hill PD transform (propofol→BIS, rocuronium→train-of-four), single-slope and the Eleveld two-slope variant (asymmetric Hill about Ce50);
 - the two-drug Greco response surface;
-- the volatile MAC age-correction (Mapleson/Nickalls) and the single-compartment alveolar wash-in (FA/FI) — non-compartmental, physicochemical kernels.
+- the volatile MAC age-correction (Mapleson/Nickalls) and the single-compartment alveolar wash-in / wash-out (FA/FI uptake and FA/FA₀ emergence, mirror-image: `floor = 1 − plateau`, shared τ) — non-compartmental, physicochemical kernels.
 
 Validation, run in CI ([test suite](python/tests)):
 
@@ -386,7 +405,7 @@ hypnos/
 │   ├── load.py · filter.py · validate.py · models.py
 │   ├── reference.py             # pure-NumPy/SciPy PK/PD kernels
 │   ├── simulate.py              # forward simulation + compare + interaction (no inverse control)
-│   ├── inhalational.py          # volatile MAC API (age correction, fraction, N2O additivity) + wash-in (FA/FI)
+│   ├── inhalational.py          # volatile MAC API (age correction, fraction, N2O additivity) + wash-in/out (FA/FI · FA/FA₀)
 │   ├── analysis.py              # derived characterizations (time-to-peak-effect; forward-only)
 │   ├── verification.py          # verification checklists + coverage (guides humans; never promotes)
 │   ├── cli.py
@@ -395,7 +414,7 @@ hypnos/
 ├── notebooks/                   # reference notebooks executed in CI (nbmake)
 ├── CHANGELOG.md · .zenodo.json   # release metadata (Zenodo DOI on first tagged release)
 ├── python/tests/                # analytic-vs-numeric, round-trip, envelope, tier, CLI, verification
-├── dashboard/app.py             # Streamlit: drug-aware divergence + onset + synergy + volatiles (MAC/wash-in)
+├── dashboard/app.py             # Streamlit: drug-aware divergence + onset + synergy + volatiles (MAC/wash-in/out)
 ├── docs/about/essay.md          # why model-selection risk is the load-bearing idea
 ├── docs/specs/v0.1/spec.md      # the design spec
 └── .github/workflows/ci.yml
@@ -415,7 +434,8 @@ hypnos simulate <model_id> --age .. --weight .. --height .. --sex .. [--pd <pd_i
 hypnos compare  --drug propofol --age .. --weight .. --height .. --sex ..
 hypnos interact --age .. --weight .. --height .. --sex ..             # propofol+remifentanil synergy
 hypnos mac --agent sevoflurane --age 75 [--end-tidal 1.2] [--n2o 50]  # age-corrected MAC + fraction
-hypnos washin [--agent sevoflurane]                                  # inhalational wash-in (FA/FI), solubility-driven
+hypnos washin  [--agent sevoflurane]                                 # inhalational wash-in (FA/FI uptake), solubility-driven
+hypnos washout [--agent sevoflurane]                                 # inhalational wash-out (FA/FA₀ emergence), the offset mirror
 hypnos tpeak <model_id> --age .. --weight .. --height .. --sex ..    # time to peak effect (onset)
 hypnos decrement <model_id> --duration 240 [--infusion '6 mg/kg/h']  # plasma decrement time (offset)
 hypnos export   --format {nonmem,pharmml,sbml,tci_json,rxode2,pumas,bibtex,csv,omex} --output exports/ [--model <id>]
@@ -434,6 +454,7 @@ hypnos.compare(ds, drug=..., patient=..., schedule=..., t=...)        # divergen
 hypnos.simulate_interaction(ds, surface_id, pk_a=.., pk_b=.., ...)    # two-drug response surface
 hypnos.mac(ds, agent_id, age=.., end_tidal_pct=.., n2o_end_tidal_pct=..)  # volatile MAC + fraction
 hypnos.washin_comparison(ds)                                         # inhalational wash-in (FA/FI) across agents
+hypnos.washout_comparison(ds)                                        # inhalational wash-out (FA/FA₀ emergence) across agents
 hypnos.time_to_peak_effect(ds, model_id, patient=..)                 # onset: tpeak after a bolus
 hypnos.decrement_time(ds, model_id, patient=.., infusion=.., duration=..)  # offset: plasma decrement
 res.cp_peak_display, res.concentration_unit                          # conventional units (ng/mL for opioids)
@@ -455,7 +476,7 @@ hypnos.validate_dataset(ds)                                           # -> list 
 | **A — Propofol spine** | Marsh/Schnider/Eleveld PK + `ke0` + propofol→BIS; reference kernels; NONMEM/PharmML/SBML/TCI-JSON; round-trip validation; divergence view | ✅ complete (Marsh + Schnider + Eleveld all executable; 3-way divergence view live) |
 | **B — Opioids + interaction** | remifentanil (Minto, Eleveld, Kim); propofol–remifentanil response surface; nlmixr2/rxode2 + Pumas export | ✅ complete (Minto + Eleveld + Kim all executable; propofol×remifentanil Greco surface; R + Julia export round-tripped) |
 | **C — Breadth** | dexmedetomidine, ketamine, midazolam, fentanyl family; pediatric models with explicit Tier-D labeling | ✅ core shipped (dexmedetomidine + the pediatric pair Kataria & Paedfusor executable with explicit pediatric/geriatric extrapolation labeling and a live pediatric model-divergence; fentanyl curated, kernel pending; ketamine/midazolam roadmap) |
-| **D — Inhalational + NMB** | volatile MAC/partition/uptake; neuromuscular blockers + train-of-four; sugammadex reversal | ✅ core shipped (4 volatiles with MAC age-correction + additivity + solubility-driven wash-in (FA/FI) all executable; rocuronium seeded with TOF PD; rocuronium PK kernel + sugammadex binding kinetics pending) |
+| **D — Inhalational + NMB** | volatile MAC/partition/uptake; neuromuscular blockers + train-of-four; sugammadex reversal | ✅ core shipped (4 volatiles with MAC age-correction + additivity + solubility-driven wash-in (FA/FI uptake) and wash-out (FA/FA₀ emergence) all executable; rocuronium seeded with TOF PD; rocuronium PK kernel + sugammadex binding kinetics pending) |
 | **E — Hardening** | external-validation MDPE/MDAPE backfill; COMBINE `.omex`; Zenodo DOI | ✅ core shipped (deterministic `.omex` + BibTeX exporters; `scripts/regenerate.py`; `.zenodo.json` + `CHANGELOG.md`; external-validation MDPE/MDAPE backfilled across both headline drugs + dexmedetomidine, citation-integrity-checked and surfaced via `hypnos performance`; minted DOI on first tagged release) |
 
 ---

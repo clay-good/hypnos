@@ -24,7 +24,7 @@ from .analysis import decrement_time, time_to_peak_effect
 from .export import FORMATS, bibtex, combine, csv_flat, export_model
 from .filter import performance_table, pk_drugs, select, summary
 from .inhalational import mac as mac_eval
-from .inhalational import washin, washin_comparison
+from .inhalational import washin, washin_comparison, washout, washout_comparison
 from .load import load
 from .presets import default_schedule_for
 from .simulate import compare as compare_models
@@ -335,6 +335,34 @@ def cmd_washin(args) -> int:
     return 0
 
 
+def cmd_washout(args) -> int:
+    ds = load()
+    vent = dict(t_min=args.t, alveolar_ventilation=args.valv, frc=args.frc, cardiac_output=args.co)
+    if args.agent:
+        agent = args.agent if "." in args.agent else f"volatiles.{args.agent.replace(' ', '_')}.mac"
+        try:
+            r = washout(ds, agent, **vent)
+        except (KeyError, ValueError) as e:
+            print(str(e), file=sys.stderr)
+            return 2
+        print(f"agent: {r.agent_id}   tier {r.tier}   blood:gas lambda = {r.blood_gas:g}")
+        print(f"single-compartment alveolar wash-out (V_A {r.alveolar_ventilation:g}, "
+              f"FRC {r.frc:g}, Q {r.cardiac_output:g} L/min):")
+        print(f"  early elimination floor (= 1 - wash-in plateau): {r.floor:.3f}")
+        print(f"  time constant tau: {r.tau_min:.2f} min")
+        print(f"  FA/FA0 at {r.t_min:g} min: {r.fa_fa0:.3f}")
+        print("comparative/education-grade; lower lambda -> lower floor -> faster emergence. NOT a per-patient predictor.")
+        return 0
+    rows = washout_comparison(ds, **vent)
+    print("Inhalational wash-out (FA/FA0) -- single-compartment alveolar model, sorted fastest-first.")
+    print(f"{'agent':14s} {'blood:gas':>10s} {'floor':>8s} {'tau(min)':>9s} {f'FA/FA0@{args.t:g}min':>13s}")
+    for r in rows:
+        name = r.agent_id.split(".")[1]
+        print(f"{name:14s} {r.blood_gas:10g} {r.floor:8.3f} {r.tau_min:9.2f} {r.fa_fa0:13.3f}")
+    print("Lower blood:gas solubility -> lower floor -> faster wash-out (des/N2O fast, iso slow).")
+    return 0
+
+
 def cmd_export(args) -> int:
     ds = load()
     if args.format not in FORMATS:
@@ -452,6 +480,14 @@ def build_parser() -> argparse.ArgumentParser:
     wp.add_argument("--frc", type=float, default=2.5, help="functional residual capacity (L)")
     wp.add_argument("--co", type=float, default=5.0, help="cardiac output (L/min)")
     wp.set_defaults(func=cmd_washin)
+
+    op = sub.add_parser("washout", help="inhalational wash-out (FA/FA0) — solubility-driven emergence")
+    op.add_argument("--agent", default=None, help="agent name or model id (omit for a comparison table)")
+    op.add_argument("--t", type=float, default=3.0, help="time point for FA/FA0 (min)")
+    op.add_argument("--valv", type=float, default=4.0, help="alveolar ventilation (L/min)")
+    op.add_argument("--frc", type=float, default=2.5, help="functional residual capacity (L)")
+    op.add_argument("--co", type=float, default=5.0, help="cardiac output (L/min)")
+    op.set_defaults(func=cmd_washout)
 
     ep = sub.add_parser("export", help="export models to a pharmacometric format")
     ep.add_argument("--format", required=True, choices=FORMATS)

@@ -14,7 +14,16 @@ CLINICAL_USE = "PROHIBITED — research/education/simulation only"
 
 from .analysis import DecrementTime, PeakEffect, decrement_time, time_to_peak_effect  # noqa: E402
 from .filter import performance_table, select, summary  # noqa: E402
-from .inhalational import MacResult, WashinResult, mac, washin, washin_comparison  # noqa: E402
+from .inhalational import (  # noqa: E402
+    MacResult,
+    WashinResult,
+    WashoutResult,
+    mac,
+    washin,
+    washin_comparison,
+    washout,
+    washout_comparison,
+)
 from .load import Dataset, load  # noqa: E402
 from .models import Model, worst_tier  # noqa: E402
 from .simulate import (  # noqa: E402
@@ -54,6 +63,9 @@ __all__ = [
     "washin",
     "washin_comparison",
     "WashinResult",
+    "washout",
+    "washout_comparison",
+    "WashoutResult",
     "time_to_peak_effect",
     "PeakEffect",
     "decrement_time",

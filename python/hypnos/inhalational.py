@@ -19,7 +19,7 @@ import numpy as np
 
 from .load import Dataset
 from .models import worst_tier
-from .reference import alveolar_washin, mac_age_corrected
+from .reference import alveolar_washin, alveolar_washout, mac_age_corrected
 from .reference import mac_fraction as _mac_fraction
 
 
@@ -47,6 +47,21 @@ class WashinResult:
     tau_min: float                 # time constant τ = FRC / (V̇_A + λ·Q̇)
     t_min: float                   # the time point reported below
     fa_fi: float                   # FA/FI at t_min
+    tier: str
+    # the (stated, overridable) ventilation assumptions this result rests on
+    alveolar_ventilation: float
+    frc: float
+    cardiac_output: float
+
+
+@dataclass
+class WashoutResult:
+    agent_id: str
+    blood_gas: float               # λ, blood:gas partition coefficient
+    floor: float                   # early elimination floor = λ·Q̇ / (V̇_A + λ·Q̇) = 1 − plateau
+    tau_min: float                 # time constant τ = FRC / (V̇_A + λ·Q̇)
+    t_min: float                   # the time point reported below
+    fa_fa0: float                  # FA/FA₀ at t_min
     tier: str
     # the (stated, overridable) ventilation assumptions this result rests on
     alveolar_ventilation: float
@@ -103,6 +118,55 @@ def washin_comparison(ds: Dataset, agents: Optional[List[str]] = None, **kwargs)
         agents = [m.id for m in ds if m.purpose == "physicochemical"]
     results = [washin(ds, a, **kwargs) for a in agents]
     return sorted(results, key=lambda r: r.plateau, reverse=True)
+
+
+def washout(
+    ds: Dataset,
+    agent_id: str,
+    *,
+    t_min: float = 3.0,
+    alveolar_ventilation: float = 4.0,
+    frc: float = 2.5,
+    cardiac_output: float = 5.0,
+) -> WashoutResult:
+    """Single-compartment alveolar wash-out (FA/FA₀) for one volatile agent.
+
+    The offset mirror of :func:`washin`: a comparative, solubility-driven
+    characterization of inhalational *emergence* from the curated blood:gas
+    partition coefficient. Reports the early elimination floor (= 1 − the wash-in
+    plateau), the time constant τ, and FA/FA₀ at ``t_min`` minutes. Lower blood:gas
+    solubility → lower floor → faster, more complete wash-out. Standard
+    70-kg-adult ventilation constants, all overridable; NOT a per-patient predictor.
+    """
+    model = ds[agent_id]
+    if model.purpose != "physicochemical":
+        raise ValueError(f"{agent_id} has purpose '{model.purpose}', expected 'physicochemical'")
+    lam = _params(model).get("blood_gas")
+    if lam is None:
+        raise ValueError(f"{agent_id} has no blood_gas partition coefficient")
+    fa_fa0, floor, tau = alveolar_washout(
+        lam, np.array([t_min]), alveolar_ventilation=alveolar_ventilation,
+        frc=frc, cardiac_output=cardiac_output,
+    )
+    return WashoutResult(
+        agent_id=agent_id, blood_gas=lam, floor=floor, tau_min=tau,
+        t_min=t_min, fa_fa0=float(fa_fa0[0]), tier=model.tier,
+        alveolar_ventilation=alveolar_ventilation, frc=frc, cardiac_output=cardiac_output,
+    )
+
+
+def washout_comparison(ds: Dataset, agents: Optional[List[str]] = None, **kwargs) -> List[WashoutResult]:
+    """Wash-out for every volatile agent, sorted fastest-first (lowest floor).
+
+    The offset counterpart to :func:`washin_comparison`: it makes the textbook
+    emergence ordering (desflurane / nitrous oxide fast, isoflurane slow) computable
+    from the curated partition coefficients — the clinical reason desflurane is
+    preferred for long cases.
+    """
+    if agents is None:
+        agents = [m.id for m in ds if m.purpose == "physicochemical"]
+    results = [washout(ds, a, **kwargs) for a in agents]
+    return sorted(results, key=lambda r: r.floor)
 
 
 def mac(

@@ -23,7 +23,12 @@ import numpy as np
 
 import hypnos
 from hypnos.export import FORMATS, bibtex, combine, csv_flat, export_model
-from hypnos.reference import alveolar_washin, greco_response_surface, mac_age_corrected
+from hypnos.reference import (
+    alveolar_washin,
+    alveolar_washout,
+    greco_response_surface,
+    mac_age_corrected,
+)
 
 ROOT = Path(__file__).resolve().parent.parent
 EXPORTS = ROOT / "exports"
@@ -222,6 +227,34 @@ def _fig_washin(ds, plt) -> None:
     plt.close(fig)
 
 
+def _fig_washout(ds, plt) -> None:
+    """Inhalational wash-out (FA/FA₀): the offset mirror — solubility sets emergence speed."""
+    t = np.linspace(0, 10, 240)
+    agents = [("desflurane", "#d62728"), ("nitrous_oxide", "#9467bd"),
+              ("sevoflurane", "#1f77b4"), ("isoflurane", "#2ca02c")]
+    fig, (axL, axR) = plt.subplots(1, 2, figsize=(13, 4.8))
+    lam_pts, floor_pts = [], []
+    for name, color in agents:
+        lam = _params(ds[f"volatiles.{name}.mac"])["blood_gas"]
+        fa, floor, tau = alveolar_washout(lam, t)
+        axL.plot(t, fa, color=color, lw=2.3, label=f"{name} (λ {lam:g})")
+        axL.axhline(floor, color=color, ls=":", lw=1, alpha=0.6)
+        lam_pts.append(lam); floor_pts.append(floor)
+        axR.scatter([lam], [floor], color=color, s=70, zorder=3)
+        axR.annotate(name, (lam, floor), textcoords="offset points", xytext=(8, 4), fontsize=9, color=color)
+    axL.set_title("Alveolar wash-out FA/FA₀(t) — single-compartment, standard ventilation", fontsize=11)
+    axL.set_xlabel("time (min)"); axL.set_ylabel("FA / FA₀"); axL.set_ylim(0, 1.0)
+    axL.legend(fontsize=9, title="lower λ = faster emergence"); axL.grid(alpha=0.25)
+    order = np.argsort(lam_pts)
+    axR.plot(np.array(lam_pts)[order], np.array(floor_pts)[order], color="#888", lw=1, ls="--", zorder=1)
+    axR.set_title("Solubility sets the wash-out floor\nhigher blood:gas λ → higher residual FA/FA₀", fontsize=11)
+    axR.set_xlabel("blood:gas partition coefficient λ"); axR.set_ylabel("early elimination floor (1 − plateau)")
+    axR.grid(alpha=0.25)
+    fig.suptitle(f"Hypnos Phase D — inhalational wash-out (FA/FA₀ emergence)  ·  {_DISCLAIMER}", y=1.02)
+    fig.tight_layout(); fig.savefig(IMAGES / "washout.png", dpi=130, bbox_inches="tight")
+    plt.close(fig)
+
+
 def regenerate_figures(ds) -> bool:
     try:
         import matplotlib
@@ -236,7 +269,8 @@ def regenerate_figures(ds) -> bool:
     _fig_pediatric(ds, plt)
     _fig_mac_age(ds, plt)
     _fig_washin(ds, plt)
-    print(f"figures: regenerated divergence, synergy, pediatric, mac_age, washin -> {IMAGES}/")
+    _fig_washout(ds, plt)
+    print(f"figures: regenerated divergence, synergy, pediatric, mac_age, washin, washout -> {IMAGES}/")
     return True
 
 

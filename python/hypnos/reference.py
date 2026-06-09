@@ -337,6 +337,54 @@ def alveolar_washin(
     return fa_fi, plateau, tau
 
 
+def alveolar_washout(
+    blood_gas: float,
+    t: np.ndarray,
+    *,
+    alveolar_ventilation: float = 4.0,
+    frc: float = 2.5,
+    cardiac_output: float = 5.0,
+):
+    """Single-compartment alveolar wash-out (emergence) of an inhaled agent: FA/FA₀(t).
+
+    The offset mirror of :func:`alveolar_washin`. The inspired fraction is now zero
+    (``FI = 0``) and the agent leaves the alveoli through ventilation; the symmetric
+    early-phase idealization is that the mixed-venous fraction is still ≈ the initial
+    alveolar fraction ``FA₀`` (tissues are saturated and have not yet given up their
+    load), so blood *redelivers* agent at ``λ·Q̇·FA₀``:
+
+        FRC · dFA/dt = −V̇_A·FA + λ·Q̇·(FA₀ − FA)
+
+    which integrates (FA(0)=FA₀) to
+
+        FA/FA₀(t) = floor + (1 − floor)·e^(−t/τ),
+        floor     = λ·Q̇ / (V̇_A + λ·Q̇) = 1 − plateau,   τ = FRC / (V̇_A + λ·Q̇)
+
+    The discriminating, solubility-driven quantity is the **early elimination floor**
+    ``floor = 1 − plateau`` — the residual alveolar fraction the single-compartment
+    model settles toward before tissue release dominates. A *less* soluble agent
+    (smaller ``λ``) has a *lower* floor and so washes out more completely and faster —
+    the canonical ordering (desflurane / nitrous oxide fast emergence, isoflurane
+    slow). This is the exact symmetry of the wash-in plateau, and it reproduces the
+    clinical reason desflurane is chosen for long cases.
+
+    Same honesty boundary as wash-in: a comparative, education-grade kernel with
+    stated standard 70-kg-adult ventilation constants, all overridable; it is **not**
+    a per-patient emergence predictor, and the full multi-compartment tissue release
+    (Mapleson) that governs the long offset tail is out of scope — this captures only
+    the early, lung-dominated phase.
+
+    Returns ``(fa_fa0, floor, tau)`` — the FA/FA₀ array over ``t`` (minutes), the
+    early elimination floor (dimensionless), and the time constant ``τ`` (minutes).
+    """
+    t = np.asarray(t, dtype=float)
+    denom = alveolar_ventilation + blood_gas * cardiac_output
+    floor = blood_gas * cardiac_output / denom
+    tau = frc / denom
+    fa_fa0 = floor + (1.0 - floor) * np.exp(-t / tau)
+    return fa_fa0, floor, tau
+
+
 def sigmoid_emax_twoslope(
     ce: np.ndarray, E0: float, Emax: float, Ce50: float, gamma_low: float, gamma_high: float
 ) -> np.ndarray:

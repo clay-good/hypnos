@@ -2,7 +2,12 @@ import numpy as np
 import pytest
 
 import hypnos
-from hypnos.reference import alveolar_washin, mac_age_corrected, mac_fraction, sigmoid_emax
+from hypnos.reference import (
+    alveolar_washin,
+    alveolar_washout,
+    mac_age_corrected,
+    sigmoid_emax,
+)
 
 SEVO = "volatiles.sevoflurane.mac"
 DES = "volatiles.desflurane.mac"
@@ -110,6 +115,56 @@ def test_cli_washin(capsys):
     assert "desflurane" in out and "isoflurane" in out
     assert main(["washin", "--agent", "sevoflurane"]) == 0
     assert "plateau" in capsys.readouterr().out
+
+
+def test_alveolar_washout_kernel_math():
+    # FA/FA₀(0) == 1; monotonic decreasing; bounded below by the floor = λQ̇/(V̇_A+λQ̇)
+    t = np.linspace(0, 10, 101)
+    fa, floor, tau = alveolar_washout(0.65, t, alveolar_ventilation=4.0, frc=2.5, cardiac_output=5.0)
+    assert abs(fa[0] - 1.0) < 1e-12
+    assert np.all(np.diff(fa) <= 1e-15)                 # monotonic non-increasing
+    assert np.all(fa >= floor - 1e-12)                  # never falls below the floor
+    assert abs(floor - 0.65 * 5.0 / (4.0 + 0.65 * 5.0)) < 1e-12
+    assert abs(tau - 2.5 / (4.0 + 0.65 * 5.0)) < 1e-12
+    # wash-out floor and wash-in plateau are exact complements; same time constant
+    _, plateau, tau_in = alveolar_washin(0.65, t)
+    assert abs(floor - (1.0 - plateau)) < 1e-12
+    assert abs(tau - tau_in) < 1e-12
+    # one time constant -> decayed ~63.2% of the way from 1 toward the floor
+    one_tau, f, _ = alveolar_washout(0.65, np.array([tau]))
+    assert abs((1.0 - one_tau[0]) / (1.0 - f) - (1 - np.exp(-1))) < 1e-9
+
+
+def test_washout_lower_solubility_is_faster(ds):
+    # less soluble -> lower elimination floor -> more complete, faster wash-out
+    des = hypnos.washout(ds, DES).floor
+    n2o = hypnos.washout(ds, N2O).floor
+    sevo = hypnos.washout(ds, SEVO).floor
+    iso = hypnos.washout(ds, ISO).floor
+    assert des < n2o < sevo < iso          # exactly the blood:gas ordering
+
+
+def test_washout_comparison_sorted_fastest_first(ds):
+    rows = hypnos.washout_comparison(ds)
+    assert rows[0].agent_id.split(".")[1] == "desflurane"
+    assert rows[-1].agent_id.split(".")[1] == "isoflurane"
+    floors = [r.floor for r in rows]
+    assert floors == sorted(floors)
+    assert all(0.0 < r.floor < 1.0 for r in rows)
+
+
+def test_washout_rejects_non_physicochemical(ds):
+    with pytest.raises(ValueError):
+        hypnos.washout(ds, "hypnotics_iv.propofol.schnider_1998")
+
+
+def test_cli_washout(capsys):
+    from hypnos.cli import main
+    assert main(["washout"]) == 0
+    out = capsys.readouterr().out
+    assert "desflurane" in out and "isoflurane" in out
+    assert main(["washout", "--agent", "sevoflurane"]) == 0
+    assert "floor" in capsys.readouterr().out
 
 
 def test_train_of_four_sigmoid_shape():

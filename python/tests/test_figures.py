@@ -35,7 +35,8 @@ def test_all_figures_regenerate(tmp_path, monkeypatch):
     ds = hypnos.load()
     assert regen.regenerate_figures(ds) is True
 
-    expected = {"divergence.png", "synergy.png", "pediatric.png", "mac_age.png", "washin.png"}
+    expected = {"divergence.png", "synergy.png", "pediatric.png", "mac_age.png",
+                "washin.png", "washout.png"}
     produced = {p.name for p in tmp_path.glob("*.png")}
     assert expected <= produced
     # every figure is a non-trivial PNG (renders something, not an empty file)

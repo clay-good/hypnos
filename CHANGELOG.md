@@ -8,6 +8,28 @@ version is pinned in `dataset/VERSION` and stamped into every export as
 
 ## [Unreleased]
 
+### Inhalational wash-out (FA/FA₀ emergence) — the offset mirror of wash-in (2026-06-09)
+- **`hypnos.washout` / `washout_comparison` + `hypnos washout` CLI** — the
+  emergence (offset) companion to wash-in, completing the volatile onset→offset
+  symmetry exactly as `decrement_time` completed the IV onset/peak/offset triad.
+  Same single-compartment alveolar mass balance, run with the inspired fraction
+  set to zero and the symmetric early-phase idealization (mixed-venous ≈ the
+  initial alveolar fraction, i.e. tissues still saturated), giving
+  `FA/FA₀(t) = floor + (1 − floor)·e^(−t/τ)` with `floor = λ·Q̇/(V̇_A + λ·Q̇) = 1 −`
+  the wash-in plateau and the *same* τ. New `alveolar_washout` reference kernel.
+- **Reproduces the correct clinical ordering from the curated λ alone:**
+  desflurane (λ 0.42, floor 0.34) and nitrous oxide (0.47, 0.37) wash out fast,
+  isoflurane (1.4, 0.64) slowly — the discriminator is the *floor* (lower = more
+  complete, faster emergence), the exact complement of the wash-in plateau. This
+  is the physicochemical reason desflurane is preferred for long cases. New
+  `washout.png` figure (mirror of `washin.png`); dashboard gains a wash-out chart.
+- **Honesty boundary (identical to wash-in):** the math is exact but rests on the
+  stated, standard 70-kg-adult ventilation constants and captures only the early,
+  lung-dominated phase — the long tissue-release tail (full multi-compartment
+  Mapleson) stays out of v0.1 scope. Tests assert FA/FA₀(0)=1, monotone decay, the
+  floor bound, floor = 1 − plateau and the shared τ, the one-time-constant 63.2%
+  point, and the solubility ordering.
+
 ### Dashboard covers the volatiles + export well-formedness hardening (2026-06-09)
 - **Dashboard inhalational section:** the Streamlit dashboard showed zero of the 4
   volatile agents (it filtered to compartmental drugs only). It now has an

@@ -25,7 +25,7 @@ except ImportError:  # pragma: no cover
 import hypnos
 from hypnos.filter import pk_drugs
 from hypnos.presets import default_schedule_for
-from hypnos.reference import alveolar_washin, mac_age_corrected
+from hypnos.reference import alveolar_washin, alveolar_washout, mac_age_corrected
 
 st.set_page_config(page_title="Hypnos — model-divergence view", layout="wide")
 ds = hypnos.load()
@@ -155,7 +155,8 @@ if volatiles:
     st.divider()
     st.subheader("Inhalational agents (volatiles)")
     st.caption("Not compartmental: characterized by MAC (minimum alveolar concentration), "
-               "its age correction, and the blood:gas-driven wash-in. Research / education only.")
+               "its age correction, and the blood:gas-driven wash-in / wash-out. "
+               "Research / education only.")
     vc1, vc2 = st.columns(2)
     with vc1:
         st.markdown(f"**Age-corrected MAC at age {age} y**")
@@ -173,12 +174,18 @@ if volatiles:
         st.caption("MAC vs age (Mapleson/Nickalls 2003, ~6% per decade)")
         st.line_chart(mac_curve, x="age (y)")
     with vc2:
-        st.markdown("**Wash-in FA/FI — lower blood:gas λ washes in faster**")
         tw = np.linspace(0, 8, 160)
+        st.markdown("**Wash-in FA/FI — lower blood:gas λ washes in faster**")
         washin = pd.DataFrame({"t (min)": tw})
         for vid in volatiles:
             lam = next(p.central for p in ds[vid].parameters if p.symbol == "blood_gas")
             washin[vid.split(".")[1]] = alveolar_washin(lam, tw)[0]
         st.line_chart(washin, x="t (min)")
+        st.markdown("**Wash-out FA/FA₀ (emergence) — lower λ washes out faster**")
+        washout = pd.DataFrame({"t (min)": tw})
+        for vid in volatiles:
+            lam = next(p.central for p in ds[vid].parameters if p.symbol == "blood_gas")
+            washout[vid.split(".")[1]] = alveolar_washout(lam, tw)[0]
+        st.line_chart(washout, x="t (min)")
         st.caption("Single-compartment alveolar model, standard ventilation. "
                    "Comparative only — NOT a per-patient predictor.")

@@ -37,6 +37,15 @@ def select(
     return out
 
 
+def pk_drugs(ds: Dataset) -> List[str]:
+    """Drugs with at least one executable PK kernel (i.e. simulatable / comparable)."""
+    out: List[str] = []
+    for m in ds:
+        if m.purpose == "pk" and m.kernel_implemented and m.drug_name not in out:
+            out.append(m.drug_name)
+    return sorted(out)
+
+
 def _counter(items: Iterable[str]) -> dict:
     return dict(sorted(Counter(items).items()))
 

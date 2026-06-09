@@ -363,7 +363,7 @@ hypnos/
 ├── notebooks/                   # reference notebooks executed in CI (nbmake)
 ├── CHANGELOG.md · .zenodo.json   # release metadata (Zenodo DOI on first tagged release)
 ├── python/tests/                # analytic-vs-numeric, round-trip, envelope, tier, CLI, verification
-├── dashboard/app.py             # Streamlit: browse + model-divergence view
+├── dashboard/app.py             # Streamlit: drug-aware divergence view + onset + synergy
 ├── docs/about/essay.md          # why model-selection risk is the load-bearing idea
 ├── docs/specs/v0.1/spec.md      # the design spec
 └── .github/workflows/ci.yml
@@ -375,6 +375,7 @@ hypnos/
 hypnos version
 hypnos validate                                   # schema + integrity (citations, tiers, kernels, envelopes)
 hypnos info                                       # counts by subsystem / tier / review status
+hypnos models [--drug propofol]                   # list models (id / purpose / tier / kernel / review)
 hypnos status                                     # verification coverage + what to verify next
 hypnos verify <model_id> [--markdown]             # field-by-field verification checklist
 hypnos simulate <model_id> --age .. --weight .. --height .. --sex .. [--pd <pd_id>]

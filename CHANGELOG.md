@@ -8,6 +8,20 @@ version is pinned in `dataset/VERSION` and stamped into every export as
 
 ## [Unreleased]
 
+### Drug-aware dashboard + shared dosing presets + `hypnos models` (2026-06-09)
+- **`hypnos.presets`** — drug-appropriate default dose schedules, now a single
+  source of truth shared by the CLI and the dashboard (moved out of `cli.py`).
+- **Dashboard modernized** (`dashboard/app.py`): a **drug selector** (every
+  simulatable drug, not just propofol), drug-appropriate default doses,
+  conventional concentration units (ng/mL for opioids), plasma + effect-site
+  charts, and an onset (time-to-peak-effect) table. Reuses the tested package
+  logic so it never drifts from the CLI.
+- **Bug fix:** the dashboard had the same propofol-dose-for-every-drug overdose
+  bug previously fixed in the CLI (it hardcoded `drug="propofol"` and a 2 mg/kg
+  schedule); both are now fixed at the shared-preset source.
+- **`hypnos models [--drug X]`** + `filter.pk_drugs` — list models
+  (id/purpose/tier/kernel/review) and discover which drugs are simulatable.
+
 ### Time-to-peak-effect (onset) analysis (2026-06-09)
 - **`hypnos.analysis.time_to_peak_effect`** + `hypnos tpeak` CLI — the spec's
   `effect_link` "time-to-peak-effect parameterization" (§3). Pure forward

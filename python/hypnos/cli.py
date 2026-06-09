@@ -20,31 +20,21 @@ from typing import List, Optional
 import numpy as np
 
 from . import CLINICAL_USE, __version__
-from .export import FORMATS, bibtex, combine, csv_flat, export_model
-from .filter import summary
-from .load import load
 from .analysis import time_to_peak_effect
+from .export import FORMATS, bibtex, combine, csv_flat, export_model
+from .filter import pk_drugs, select, summary
 from .inhalational import mac as mac_eval
+from .load import load
+from .presets import default_schedule_for
+from .presets import default_schedule_for
 from .simulate import compare as compare_models
 from .simulate import simulate, simulate_interaction
 from .validate import validate_dataset
 from .verification import checklist_markdown, model_verification, verification_summary
 
-# Drug-appropriate default dose schedules for the CLI. A propofol regimen
-# (2 mg/kg) applied to remifentanil would be a ~1000x overdose, so each drug
-# gets a clinically sensible default; users can still vary the patient.
-_DEFAULT_SCHEDULE = [("bolus", 0.0, "2 mg/kg"), ("infusion", 0.0, "6 mg/kg/h")]
-_DEFAULT_SCHEDULES = {
-    "propofol": [("bolus", 0.0, "2 mg/kg"), ("infusion", 0.0, "6 mg/kg/h")],
-    "remifentanil": [("bolus", 0.0, "1 mcg/kg"), ("infusion", 0.0, "0.25 mcg/kg/min")],
-    "dexmedetomidine": [("infusion", 0.0, "6 mcg/kg/h"), ("infusion", 10.0, "0.5 mcg/kg/h")],
-    "fentanyl": [("bolus", 0.0, "2 mcg/kg")],
-    "rocuronium": [("bolus", 0.0, "0.6 mg/kg")],
-}
-
-
-def _default_schedule_for(drug: str):
-    return _DEFAULT_SCHEDULES.get(drug, _DEFAULT_SCHEDULE)
+# Drug-appropriate default dose schedules live in hypnos.presets (shared with the
+# dashboard so the two never drift). Aliased here for the existing call sites.
+_default_schedule_for = default_schedule_for
 
 
 def _patient_from_args(args) -> dict:
@@ -201,6 +191,22 @@ def cmd_verify(args) -> int:
     return 0
 
 
+def cmd_models(args) -> int:
+    ds = load()
+    models = select(ds, drug=args.drug) if args.drug else list(ds)
+    models = sorted(models, key=lambda m: m.id)
+    if not models:
+        print(f"no models{' for drug ' + args.drug if args.drug else ''}", file=sys.stderr)
+        return 2
+    print(f"{'model_id':46s} {'purpose':14s} {'tier':4s} {'kernel':8s} review")
+    for m in models:
+        kern = "yes" if m.kernel_implemented else "pending"
+        print(f"{m.id:46s} {m.purpose:14s} {m.tier:4s} {kern:8s} {m.review_status}")
+    if not args.drug:
+        print(f"\nsimulatable drugs (>=1 PK kernel): {', '.join(pk_drugs(ds))}")
+    return 0
+
+
 def cmd_tpeak(args) -> int:
     ds = load()
     patient = _patient_from_args(args)
@@ -294,6 +300,10 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("validate").set_defaults(func=cmd_validate)
     sub.add_parser("info").set_defaults(func=cmd_info)
     sub.add_parser("status", help="verification-coverage report + what to verify next").set_defaults(func=cmd_status)
+
+    mlp = sub.add_parser("models", help="list models (optionally filtered by drug)")
+    mlp.add_argument("--drug", default=None)
+    mlp.set_defaults(func=cmd_models)
 
     vp = sub.add_parser("verify", help="field-by-field verification checklist for a model")
     vp.add_argument("model")

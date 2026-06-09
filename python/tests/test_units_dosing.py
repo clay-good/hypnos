@@ -3,7 +3,8 @@ import numpy as np
 import pytest
 
 import hypnos
-from hypnos.cli import _default_schedule_for, main
+from hypnos.cli import main
+from hypnos.presets import default_schedule_for as _default_schedule_for
 from hypnos.models import concentration_factor
 
 T = np.linspace(0, 30, 181)

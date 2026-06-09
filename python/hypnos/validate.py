@@ -48,9 +48,9 @@ def validate_dataset(ds: Optional[Dataset] = None) -> List[str]:
         problems.append("[schema] jsonschema not installed; skipped schema validation")
 
     # --- integrity layer --------------------------------------------------
-    from .export.registry import KERNELS, PD_KERNELS  # local import to avoid cycle
+    from .export.registry import INTERACTION_KERNELS, KERNELS, PD_KERNELS  # local import to avoid cycle
 
-    known_kernels = set(KERNELS) | set(PD_KERNELS)
+    known_kernels = set(KERNELS) | set(PD_KERNELS) | set(INTERACTION_KERNELS)
 
     known_citations = set(ds.citations.keys())
     for m in ds:

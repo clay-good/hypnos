@@ -74,3 +74,27 @@ with col2:
     if d:
         st.metric("Peak effect-site divergence", f"{d['max_abs']:.2f} µg/mL",
                   f"{100 * d['max_rel']:.0f}% peak relative spread")
+
+st.divider()
+st.subheader("Propofol–remifentanil hypnotic synergy")
+st.caption("How much does adding remifentanil deepen hypnosis at the same propofol dose? "
+           "Greco response surface — coefficients illustrative (Tier C). NOT a dosing tool.")
+if st.checkbox("Show interaction (propofol Schnider + remifentanil Minto)"):
+    remi_sched = [("bolus", 0.0, "1 mcg/kg"), ("infusion", 0.0, "0.25 mcg/kg/min")]
+    ir = hypnos.simulate_interaction(
+        ds, "interactions.propofol_remifentanil.greco_bis",
+        pk_a="hypnotics_iv.propofol.schnider_1998",
+        pk_b="opioids.remifentanil.minto_1997",
+        patient=patient, schedule_a=schedule, schedule_b=remi_sched, t=t,
+    )
+    alone = hypnos.simulate(ds, "hypnotics_iv.propofol.schnider_1998", patient=patient,
+                            schedule=schedule, t=t, pd_model="pd_effect.propofol.bis_sigmoid")
+    import pandas as pd
+
+    bis = pd.DataFrame({"t (min)": t, "propofol alone": alone.effect,
+                        "propofol + remifentanil": ir.effect})
+    st.line_chart(bis, x="t (min)")
+    c1, c2, c3 = st.columns(3)
+    c1.metric("BIS min — propofol alone", f"{float(alone.effect.min()):.1f}")
+    c2.metric("BIS min — + remifentanil", f"{ir.effect_min:.1f}")
+    c3.metric("Composed tier", ir.tier)

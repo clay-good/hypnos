@@ -1,0 +1,99 @@
+{
+  "id": "opioids.remifentanil.minto_1997",
+  "subsystem": "opioids",
+  "drug": { "name": "remifentanil", "unii": "P10582JYYK", "atc": "N01AH06" },
+  "purpose": "pk",
+  "label": "Remifentanil PK — Minto (1997)",
+  "structure": {
+    "compartments": 3,
+    "parameterization": "volumes_clearances",
+    "elimination": "linear",
+    "effect_compartment": true
+  },
+  "kernel": { "implemented": true, "function": "remifentanil_minto_1997" },
+  "parameters": [
+    {
+      "symbol": "V1", "label": "central volume",
+      "value": { "central": 5.1, "low": null, "high": null, "units": "L" },
+      "covariate_model": "V1 = 5.1 - 0.0201*(AGE-40) + 0.072*(LBM-55)",
+      "tier": "B",
+      "extraction": { "review_status": "unverified", "tier_rationale": "Age + lean-body-mass covariate model; large multicentre derivation cohort with external validation.", "source_locator": "Minto 1997, Table 2" },
+      "primary_citation": "minto-1997-remifentanil"
+    },
+    {
+      "symbol": "V2", "label": "rapid peripheral volume",
+      "value": { "central": 9.82, "low": null, "high": null, "units": "L" },
+      "covariate_model": "V2 = 9.82 - 0.0811*(AGE-40) + 0.108*(LBM-55)",
+      "tier": "B",
+      "extraction": { "review_status": "unverified", "source_locator": "Minto 1997, Table 2" },
+      "primary_citation": "minto-1997-remifentanil"
+    },
+    {
+      "symbol": "V3", "label": "slow peripheral volume",
+      "value": { "central": 5.42, "low": null, "high": null, "units": "L" },
+      "covariate_model": "V3 = 5.42",
+      "tier": "B",
+      "extraction": { "review_status": "unverified", "source_locator": "Minto 1997, Table 2" },
+      "primary_citation": "minto-1997-remifentanil"
+    },
+    {
+      "symbol": "Cl1", "label": "metabolic (esterase) clearance",
+      "value": { "central": 2.6, "low": null, "high": null, "units": "L/min" },
+      "covariate_model": "Cl1 = 2.6 - 0.0162*(AGE-40) + 0.0191*(LBM-55)",
+      "tier": "B",
+      "extraction": { "review_status": "unverified", "source_locator": "Minto 1997, Table 2" },
+      "primary_citation": "minto-1997-remifentanil"
+    },
+    {
+      "symbol": "Cl2", "label": "rapid intercompartmental clearance",
+      "value": { "central": 2.05, "low": null, "high": null, "units": "L/min" },
+      "covariate_model": "Cl2 = 2.05 - 0.0301*(AGE-40)",
+      "tier": "B",
+      "extraction": { "review_status": "unverified", "source_locator": "Minto 1997, Table 2" },
+      "primary_citation": "minto-1997-remifentanil"
+    },
+    {
+      "symbol": "Cl3", "label": "slow intercompartmental clearance",
+      "value": { "central": 0.076, "low": null, "high": null, "units": "L/min" },
+      "covariate_model": "Cl3 = 0.076 - 0.00113*(AGE-40)",
+      "tier": "B",
+      "extraction": { "review_status": "unverified", "source_locator": "Minto 1997, Table 2" },
+      "primary_citation": "minto-1997-remifentanil"
+    },
+    {
+      "symbol": "ke0", "label": "effect-site equilibration rate constant",
+      "value": { "central": 0.595, "low": null, "high": null, "units": "1/min" },
+      "covariate_model": "ke0 = 0.595 - 0.007*(AGE-40)",
+      "tier": "B",
+      "extraction": { "review_status": "unverified", "tier_rationale": "Minto effect-site ke0 (spectral-edge endpoint); age-dependent.", "source_locator": "Minto 1997 (PD)" },
+      "primary_citation": "minto-1997-remifentanil"
+    }
+  ],
+  "covariates": { "required": ["age", "weight", "height", "sex"], "optional": [], "lbm_equation": "james_1976" },
+  "applicability_envelope": {
+    "age_years": { "min": 20, "max": 85 },
+    "weight_kg": { "min": 45, "max": 120 },
+    "height_cm": { "min": 150, "max": 195 },
+    "bmi_kg_m2": { "min": 18, "max": 40 },
+    "populations": ["healthy_adult", "elderly", "elective_surgery"],
+    "derivation_n": 65
+  },
+  "known_failure_modes": [
+    {
+      "condition": "bmi_kg_m2 > 40 (approx, via James LBM)",
+      "predicate": "bmi > 40",
+      "behavior": "Shares the James lean-body-mass covariate with Schnider; the LBM term misbehaves at high BMI, distorting V1/Cl1 scaling in the obese.",
+      "action": "tier_down_to_D",
+      "citation": "minto-1997-remifentanil"
+    }
+  ],
+  "predictive_performance": [],
+  "tier": "B",
+  "extraction": {
+    "review_status": "unverified",
+    "tier_rationale": "Robust, widely deployed in TCI; age + LBM covariate model. Concentrations are conventionally reported in ng/mL (Hypnos works in µg/mL = ng/mL / 1000). Awaits human PDF verification of every covariate equation, especially the James LBM term.",
+    "source_locator": "Minto 1997, Table 2"
+  },
+  "primary_citation": "minto-1997-remifentanil",
+  "notes": "Concentrations internally in µg/mL (= mg/L); multiply by 1000 for the conventional ng/mL. LBM via James 1976 (same term, same high-BMI caveat, as Schnider propofol)."
+}

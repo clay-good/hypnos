@@ -69,9 +69,32 @@ def propofol_schnider_1998(patient: dict) -> MicroParams:
     )
 
 
+# --------------------------------------------------------------------------- #
+# Remifentanil — Minto (1997): volumes/clearances with age + LBM (James 1976)
+# --------------------------------------------------------------------------- #
+def remifentanil_minto_1997(patient: dict) -> MicroParams:
+    age = _req(patient, "age")
+    wgt = _req(patient, "weight")
+    hgt = _req(patient, "height")
+    sex = patient.get("sex", "M")
+    lbm = lbm_james(wgt, hgt, sex)
+
+    V1 = 5.1 - 0.0201 * (age - 40.0) + 0.072 * (lbm - 55.0)
+    V2 = 9.82 - 0.0811 * (age - 40.0) + 0.108 * (lbm - 55.0)
+    V3 = 5.42
+    Cl1 = 2.6 - 0.0162 * (age - 40.0) + 0.0191 * (lbm - 55.0)
+    Cl2 = 2.05 - 0.0301 * (age - 40.0)
+    Cl3 = 0.076 - 0.00113 * (age - 40.0)
+    ke0 = 0.595 - 0.007 * (age - 40.0)
+    return MicroParams.from_volumes_clearances(
+        V1=V1, Cl1=Cl1, V2=V2, Cl2=Cl2, V3=V3, Cl3=Cl3, ke0=ke0
+    )
+
+
 KERNELS: Dict[str, KernelFn] = {
     "propofol_marsh_1991": propofol_marsh_1991,
     "propofol_schnider_1998": propofol_schnider_1998,
+    "remifentanil_minto_1997": remifentanil_minto_1997,
 }
 
 
@@ -90,6 +113,9 @@ def _sigmoid_params(model) -> dict:
 
 
 PD_KERNELS = {"propofol_bis_sigmoid"}
+
+# Two-drug response-surface kernels (purpose == "interaction").
+INTERACTION_KERNELS = {"greco_response_surface"}
 
 
 # --------------------------------------------------------------------------- #

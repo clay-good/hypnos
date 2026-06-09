@@ -15,7 +15,14 @@ CLINICAL_USE = "PROHIBITED — research/education/simulation only"
 from .filter import select, summary  # noqa: E402
 from .load import Dataset, load  # noqa: E402
 from .models import Model, worst_tier  # noqa: E402
-from .simulate import Comparison, SimulationResult, compare, simulate  # noqa: E402
+from .simulate import (  # noqa: E402
+    Comparison,
+    InteractionResult,
+    SimulationResult,
+    compare,
+    simulate,
+    simulate_interaction,
+)
 from .validate import assert_valid, validate_dataset  # noqa: E402
 
 __all__ = [
@@ -28,8 +35,10 @@ __all__ = [
     "summary",
     "simulate",
     "compare",
+    "simulate_interaction",
     "Comparison",
     "SimulationResult",
+    "InteractionResult",
     "validate_dataset",
     "assert_valid",
     "worst_tier",

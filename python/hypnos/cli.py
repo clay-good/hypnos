@@ -24,7 +24,7 @@ from .export import FORMATS, export_model
 from .filter import summary
 from .load import load
 from .simulate import compare as compare_models
-from .simulate import simulate
+from .simulate import simulate, simulate_interaction
 from .validate import validate_dataset
 
 _DEFAULT_SCHEDULE = [("bolus", 0.0, "2 mg/kg"), ("infusion", 0.0, "6 mg/kg/h")]
@@ -115,6 +115,31 @@ def cmd_compare(args) -> int:
     return 0
 
 
+def cmd_interact(args) -> int:
+    ds = load()
+    patient = _patient_from_args(args)
+    t = np.linspace(0.0, args.tmax, args.n)
+    prop_sched = [("bolus", 0.0, "2 mg/kg"), ("infusion", 0.0, "6 mg/kg/h")]
+    remi_sched = [("bolus", 0.0, "1 mcg/kg"), ("infusion", 0.0, "0.25 mcg/kg/min")]
+    ir = simulate_interaction(
+        ds, args.surface,
+        pk_a=args.propofol, pk_b=args.remifentanil,
+        patient=patient, schedule_a=prop_sched, schedule_b=remi_sched, t=t,
+    )
+    # propofol-alone BIS via the single-drug sigmoid, for the synergy contrast
+    alone = simulate(ds, args.propofol, patient=patient, schedule=prop_sched, t=t,
+                     pd_model="pd_effect.propofol.bis_sigmoid")
+    print(f"surface: {ir.surface_id}   patient: {patient}")
+    print(f"tier (propagated): {ir.tier}")
+    print(f"BIS min — propofol alone:        {float(np.min(alone.effect)):.1f}")
+    print(f"BIS min — propofol + remifentanil: {ir.effect_min:.1f}  (synergy)")
+    if ir.warnings:
+        print("warnings:")
+        for w in ir.warnings:
+            print("  - " + w)
+    return 0
+
+
 def cmd_export(args) -> int:
     ds = load()
     if args.format not in FORMATS:
@@ -152,6 +177,13 @@ def build_parser() -> argparse.ArgumentParser:
     cp.add_argument("--drug", required=True)
     _add_patient_args(cp)
     cp.set_defaults(func=cmd_compare)
+
+    ip = sub.add_parser("interact", help="propofol-remifentanil response-surface synergy")
+    ip.add_argument("--propofol", default="hypnotics_iv.propofol.schnider_1998")
+    ip.add_argument("--remifentanil", default="opioids.remifentanil.minto_1997")
+    ip.add_argument("--surface", default="interactions.propofol_remifentanil.greco_bis")
+    _add_patient_args(ip)
+    ip.set_defaults(func=cmd_interact)
 
     ep = sub.add_parser("export", help="export models to a pharmacometric format")
     ep.add_argument("--format", required=True, choices=FORMATS)

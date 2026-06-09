@@ -23,8 +23,16 @@ import numpy as np
 
 from .load import Dataset, load
 from .models import Model, worst_tier
-from .reference import Dosing, MicroParams, Trajectory, sigmoid_emax, simulate as _simulate_ref, bmi as _bmi
-from .export.registry import KERNELS, parse_amount, parse_rate
+from .reference import (
+    Dosing,
+    MicroParams,
+    Trajectory,
+    bmi as _bmi,
+    greco_response_surface,
+    sigmoid_emax,
+    simulate as _simulate_ref,
+)
+from .export.registry import INTERACTION_KERNELS, KERNELS, parse_amount, parse_rate
 
 Schedule = Sequence[Tuple[str, float, str]]
 
@@ -280,3 +288,75 @@ def compare(
         "ce": _divergence(cmp.included, "ce"),
     }
     return cmp
+
+
+# --------------------------------------------------------------------------- #
+# simulate_interaction — two-drug response surface (hypnotic synergy)
+# --------------------------------------------------------------------------- #
+@dataclass
+class InteractionResult:
+    surface_id: str
+    pk_a_id: str
+    pk_b_id: str
+    t: np.ndarray
+    ce_a: np.ndarray
+    ce_b: np.ndarray
+    effect: np.ndarray
+    tier: str
+    effect_label: str
+    warnings: List[str] = field(default_factory=list)
+
+    @property
+    def effect_min(self) -> float:
+        return float(np.min(self.effect))
+
+
+def simulate_interaction(
+    ds: Dataset,
+    surface_id: str,
+    *,
+    pk_a: str,
+    pk_b: str,
+    patient: Dict[str, Any],
+    schedule_a: Schedule,
+    schedule_b: Schedule,
+    t: np.ndarray,
+) -> InteractionResult:
+    """Forward-simulate a two-drug response surface.
+
+    Drug A is the hypnotic (e.g. propofol), drug B the opioid (e.g.
+    remifentanil). Each PK model is simulated independently to its effect-site
+    concentration, then the interaction surface maps (Ce_a, Ce_b) -> effect.
+    The composed result inherits the **worst** tier among PK-A, PK-B, the
+    surface, and any envelope floor (worst input wins).
+    """
+    surf = ds[surface_id]
+    if surf.purpose != "interaction":
+        raise ValueError(f"{surface_id} has purpose '{surf.purpose}', expected 'interaction'")
+    if not surf.kernel_implemented or surf.kernel_function not in INTERACTION_KERNELS:
+        raise NotImplementedError(f"{surface_id}: interaction kernel not implemented")
+
+    t = np.asarray(t, dtype=float)
+    res_a = simulate(ds, pk_a, patient=patient, schedule=schedule_a, t=t)
+    res_b = simulate(ds, pk_b, patient=patient, schedule=schedule_b, t=t)
+
+    sp = {p.symbol: p.central for p in surf.parameters}
+    effect = greco_response_surface(
+        res_a.ce, res_b.ce,
+        E0=sp["E0"], Emax=sp["Emax"],
+        Ce50_a=sp["Ce50_prop"], Ce50_b=sp["Ce50_remi"],
+        alpha=sp["alpha"], gamma=sp["gamma"],
+    )
+
+    surf_floor, surf_warn, _ = evaluate_safety(surf, patient)
+    tier = worst_tier([res_a.tier, res_b.tier, surf.tier, surf_floor])
+    warnings: List[str] = []
+    warnings += [f"[{pk_a}] {w}" for w in res_a.warnings]
+    warnings += [f"[{pk_b}] {w}" for w in res_b.warnings]
+    warnings += surf_warn
+
+    return InteractionResult(
+        surface_id=surface_id, pk_a_id=pk_a, pk_b_id=pk_b, t=t,
+        ce_a=res_a.ce, ce_b=res_b.ce, effect=effect, tier=tier,
+        effect_label=surf.label, warnings=warnings,
+    )

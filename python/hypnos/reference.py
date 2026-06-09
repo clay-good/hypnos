@@ -268,3 +268,36 @@ def sigmoid_emax(
     num = np.power(np.clip(ce, 0.0, None), gamma)
     den = Ce50 ** gamma + num
     return E0 - Emax * np.divide(num, den, out=np.zeros_like(num), where=den > 0)
+
+
+def greco_response_surface(
+    ce_a: np.ndarray,
+    ce_b: np.ndarray,
+    E0: float,
+    Emax: float,
+    Ce50_a: float,
+    Ce50_b: float,
+    alpha: float,
+    gamma: float,
+) -> np.ndarray:
+    """Greco-type two-drug response surface (the canonical interaction model).
+
+    With normalized concentrations ``uA = ce_a/Ce50_a`` and ``uB = ce_b/Ce50_b``::
+
+        U = uA + uB + alpha * uA * uB
+        E = E0 − Emax · U^γ / (1 + U^γ)
+
+    ``alpha`` is the interaction term: ``alpha > 0`` is **synergy** (the combination
+    is more potent than additivity), ``alpha = 0`` is exact additivity, ``alpha < 0``
+    is antagonism. At ``ce_b = 0`` this collapses to the single-drug sigmoid in
+    drug A, so an interaction surface composes consistently with the PK kernels.
+
+    Concentrations and Ce50s must share one unit system (Hypnos uses µg/mL = mg/L
+    throughout; for remifentanil that is ng/mL ÷ 1000).
+    """
+    ua = np.clip(np.asarray(ce_a, dtype=float), 0.0, None) / Ce50_a
+    ub = np.clip(np.asarray(ce_b, dtype=float), 0.0, None) / Ce50_b
+    U = ua + ub + alpha * ua * ub
+    num = np.power(U, gamma)
+    den = 1.0 + num
+    return E0 - Emax * np.divide(num, den, out=np.zeros_like(num), where=den > 0)

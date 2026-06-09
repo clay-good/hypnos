@@ -1,0 +1,87 @@
+{
+  "id": "interactions.propofol_remifentanil.greco_bis",
+  "subsystem": "interactions",
+  "drug": { "name": "propofol-remifentanil", "unii": null, "atc": null },
+  "purpose": "interaction",
+  "label": "Propofol–remifentanil hypnotic synergy — Greco response surface (BIS, illustrative)",
+  "structure": {
+    "compartments": 0,
+    "parameterization": "volumes_clearances",
+    "effect_compartment": false
+  },
+  "kernel": { "implemented": true, "function": "greco_response_surface" },
+  "parameters": [
+    {
+      "symbol": "E0", "label": "baseline BIS (awake)",
+      "value": { "central": 93.0, "low": null, "high": null, "units": "BIS index" },
+      "covariate_model": "E0 = 93",
+      "tier": "C",
+      "extraction": { "review_status": "unverified" },
+      "primary_citation": "bouillon-2004-interaction"
+    },
+    {
+      "symbol": "Emax", "label": "maximum BIS depression",
+      "value": { "central": 93.0, "low": null, "high": null, "units": "BIS index" },
+      "covariate_model": "Emax = 93",
+      "tier": "C",
+      "extraction": { "review_status": "unverified" },
+      "primary_citation": "bouillon-2004-interaction"
+    },
+    {
+      "symbol": "Ce50_prop", "label": "propofol effect-site potency (alone)",
+      "value": { "central": 4.0, "low": null, "high": null, "units": "ug/mL" },
+      "covariate_model": "Ce50_prop = 4.0",
+      "tier": "C",
+      "extraction": { "review_status": "unverified" },
+      "primary_citation": "bouillon-2004-interaction"
+    },
+    {
+      "symbol": "Ce50_remi", "label": "remifentanil effect-site potency (alone, weak hypnotic)",
+      "value": { "central": 0.04, "low": null, "high": null, "units": "ug/mL" },
+      "covariate_model": "Ce50_remi = 0.04 ug/mL (= 40 ng/mL); remifentanil is a weak direct hypnotic",
+      "tier": "C",
+      "extraction": { "review_status": "unverified", "tier_rationale": "Remifentanil alone barely affects BIS; the value chiefly sets the synergy partner scale." },
+      "primary_citation": "bouillon-2004-interaction"
+    },
+    {
+      "symbol": "alpha", "label": "interaction term (>0 = synergy)",
+      "value": { "central": 4.0, "low": null, "high": null, "units": "dimensionless" },
+      "covariate_model": "alpha = 4.0 (positive => supra-additive synergy)",
+      "tier": "C",
+      "extraction": { "review_status": "unverified", "tier_rationale": "Illustrative synergy magnitude; the qualitative effect (remifentanil markedly deepens propofol hypnosis / spares propofol) is robust, the exact value is not verified." },
+      "primary_citation": "bouillon-2004-interaction"
+    },
+    {
+      "symbol": "gamma", "label": "surface steepness (Hill)",
+      "value": { "central": 1.4, "low": null, "high": null, "units": "dimensionless" },
+      "covariate_model": "gamma = 1.4",
+      "tier": "C",
+      "extraction": { "review_status": "unverified" },
+      "primary_citation": "bouillon-2004-interaction"
+    }
+  ],
+  "covariates": { "required": [], "optional": [], "lbm_equation": null },
+  "applicability_envelope": {
+    "age_years": { "min": 18, "max": 81 },
+    "populations": ["adult"],
+    "derivation_n": null
+  },
+  "known_failure_modes": [
+    {
+      "condition": "BIS endpoint synergy is modest; analgesic/tolerance endpoints differ",
+      "predicate": null,
+      "behavior": "A single Greco surface cannot represent endpoint-specific interaction (BIS vs tolerance of laryngoscopy differ markedly); parameters here are illustrative.",
+      "action": "warn",
+      "citation": "bouillon-2004-interaction"
+    }
+  ],
+  "predictive_performance": [],
+  "tier": "C",
+  "extraction": {
+    "review_status": "unverified",
+    "tier_rationale": "The Greco response-surface MATHEMATICS is exact and round-trip validated; the PARAMETER VALUES are representative/illustrative (Tier C, unverified) pending field-by-field transcription of the Bouillon 2004 surface. Demonstrates the synergy capability honestly without claiming authoritative coefficients.",
+    "source_locator": "Bouillon 2004 (response surface); values illustrative"
+  },
+  "primary_citation": "bouillon-2004-interaction",
+  "notes": "E = E0 - Emax * U^gamma/(1+U^gamma), U = uA + uB + alpha*uA*uB, uA = Ce_prop/Ce50_prop, uB = Ce_remi/Ce50_remi. Drug A = propofol (hypnotic), drug B = remifentanil (opioid). All concentrations in ug/mL. At Ce_remi=0 the surface collapses to the propofol-alone sigmoid."
+}

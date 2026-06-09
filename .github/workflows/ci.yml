@@ -46,7 +46,7 @@ jobs:
           pip install -e .
       - name: Generate export artifacts
         run: |
-          for fmt in nonmem pharmml sbml tci_json; do
+          for fmt in nonmem pharmml sbml tci_json rxode2 pumas; do
             hypnos export --format "$fmt" --output "exports/$fmt"
           done
       - name: Upload exports

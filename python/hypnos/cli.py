@@ -23,6 +23,7 @@ from . import CLINICAL_USE, __version__
 from .export import FORMATS, export_model
 from .filter import summary
 from .load import load
+from .inhalational import mac as mac_eval
 from .simulate import compare as compare_models
 from .simulate import simulate, simulate_interaction
 from .validate import validate_dataset
@@ -140,6 +141,26 @@ def cmd_interact(args) -> int:
     return 0
 
 
+def cmd_mac(args) -> int:
+    ds = load()
+    agent = args.agent
+    if "." not in agent:  # short name -> volatiles.<agent>.mac
+        agent = f"volatiles.{agent.replace(' ', '_')}.mac"
+    res = mac_eval(ds, agent, age=args.age, end_tidal_pct=args.end_tidal,
+                   n2o_end_tidal_pct=args.n2o)
+    print(f"agent: {res.agent_id}   age: {res.age:g} y   tier: {res.tier}")
+    print(f"MAC (age-corrected): {res.mac_age:.2f} vol%   (MAC40 {res.mac40:g})")
+    print(f"MAC-awake (age-corrected): {res.mac_awake_age:.2f} vol%")
+    print(f"blood:gas {res.blood_gas:g}   oil:gas {res.oil_gas:g}")
+    if res.mac_fraction is not None:
+        print(f"end-tidal {res.end_tidal_pct:g} vol% -> MAC fraction {res.mac_fraction:.2f}")
+    if res.combined_mac_fraction is not None and args.n2o is not None:
+        print(f"+ N2O {args.n2o:g} vol% -> combined MAC fraction {res.combined_mac_fraction:.2f}")
+    for w in res.warnings:
+        print("  - " + w)
+    return 0
+
+
 def cmd_export(args) -> int:
     ds = load()
     if args.format not in FORMATS:
@@ -184,6 +205,14 @@ def build_parser() -> argparse.ArgumentParser:
     ip.add_argument("--surface", default="interactions.propofol_remifentanil.greco_bis")
     _add_patient_args(ip)
     ip.set_defaults(func=cmd_interact)
+
+    mp = sub.add_parser("mac", help="age-corrected MAC for a volatile agent")
+    mp.add_argument("--agent", required=True, help="agent name (sevoflurane) or full model id")
+    mp.add_argument("--age", type=float, required=True)
+    mp.add_argument("--end-tidal", type=float, default=None, dest="end_tidal",
+                    help="end-tidal concentration (vol%%) -> MAC fraction")
+    mp.add_argument("--n2o", type=float, default=None, help="nitrous oxide end-tidal (vol%%), additive")
+    mp.set_defaults(func=cmd_mac)
 
     ep = sub.add_parser("export", help="export models to a pharmacometric format")
     ep.add_argument("--format", required=True, choices=FORMATS)

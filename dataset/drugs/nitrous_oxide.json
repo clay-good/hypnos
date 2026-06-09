@@ -1,0 +1,10 @@
+{
+  "name": "nitrous oxide",
+  "synonyms": ["N2O", "laughing gas"],
+  "unii": "K50XQU1029",
+  "atc": "N01AX13",
+  "cas": "10024-97-2",
+  "drug_class": "inorganic gaseous anesthetic / analgesic",
+  "subsystem": "volatiles",
+  "notes": "MAC > 100% (104%) so it cannot reach 1 MAC alone at 1 atm; used additively to reduce the MAC requirement of potent agents. Very low solubility (0.47)."
+}

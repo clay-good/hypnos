@@ -151,10 +151,16 @@ def _sigmoid_params(model) -> dict:
     return {p.symbol: p.central for p in model.parameters}
 
 
-PD_KERNELS = {"propofol_bis_sigmoid"}
+# Single-drug effect-site sigmoid kernels (purpose == "pd"); all use sigmoid_emax
+# with parameters {E0, Emax, Ce50, gamma} read from the record.
+PD_KERNELS = {"propofol_bis_sigmoid", "nmb_tof_sigmoid"}
 
 # Two-drug response-surface kernels (purpose == "interaction").
 INTERACTION_KERNELS = {"greco_response_surface"}
+
+# Inhalational physicochemical kernels (purpose == "physicochemical"); MAC age
+# correction + partition coefficients, read directly from the record.
+VOLATILE_KERNELS = {"volatile_mac"}
 
 
 # --------------------------------------------------------------------------- #

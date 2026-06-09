@@ -1,0 +1,10 @@
+{
+  "name": "isoflurane",
+  "synonyms": ["Forane", "Forene"],
+  "unii": "CYS9AKD70P",
+  "atc": "N01AB06",
+  "cas": "26675-46-7",
+  "drug_class": "halogenated volatile anesthetic",
+  "subsystem": "volatiles",
+  "notes": "Higher blood:gas solubility (1.4) -> slower onset/offset; lowest MAC of the three potent agents."
+}

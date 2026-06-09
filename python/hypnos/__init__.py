@@ -13,6 +13,7 @@ __version__ = "0.1.0"
 CLINICAL_USE = "PROHIBITED — research/education/simulation only"
 
 from .filter import select, summary  # noqa: E402
+from .inhalational import MacResult, mac  # noqa: E402
 from .load import Dataset, load  # noqa: E402
 from .models import Model, worst_tier  # noqa: E402
 from .simulate import (  # noqa: E402
@@ -39,6 +40,8 @@ __all__ = [
     "Comparison",
     "SimulationResult",
     "InteractionResult",
+    "mac",
+    "MacResult",
     "validate_dataset",
     "assert_valid",
     "worst_tier",

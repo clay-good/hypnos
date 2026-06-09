@@ -270,6 +270,22 @@ def sigmoid_emax(
     return E0 - Emax * np.divide(num, den, out=np.zeros_like(num), where=den > 0)
 
 
+def mac_age_corrected(mac40: float, age: float) -> float:
+    """Age-corrected MAC via the Mapleson/Nickalls relation (BJA 2003).
+
+        MAC(age) = MAC40 · 10^(−0.00269·(age − 40))
+
+    Universal across inhaled anaesthetics (~6% decrease per decade), anchored at
+    age 40. Valid for age > 1 year.
+    """
+    return mac40 * 10.0 ** (-0.00269 * (age - 40.0))
+
+
+def mac_fraction(end_tidal_pct: float, mac40: float, age: float) -> float:
+    """MAC fraction (depth surrogate) = end-tidal concentration / age-corrected MAC."""
+    return end_tidal_pct / mac_age_corrected(mac40, age)
+
+
 def greco_response_surface(
     ce_a: np.ndarray,
     ce_b: np.ndarray,

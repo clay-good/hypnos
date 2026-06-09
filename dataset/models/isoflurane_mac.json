@@ -1,0 +1,118 @@
+{
+  "id": "volatiles.isoflurane.mac",
+  "subsystem": "volatiles",
+  "drug": {
+    "name": "isoflurane",
+    "unii": "CYS9AKD70P",
+    "atc": "N01AB06"
+  },
+  "purpose": "physicochemical",
+  "label": "Isoflurane — MAC + partition coefficients",
+  "structure": {
+    "compartments": 0,
+    "parameterization": "volumes_clearances",
+    "effect_compartment": false
+  },
+  "kernel": {
+    "implemented": true,
+    "function": "volatile_mac"
+  },
+  "parameters": [
+    {
+      "symbol": "MAC40",
+      "label": "minimum alveolar concentration at age 40",
+      "value": {
+        "central": 1.17,
+        "low": null,
+        "high": null,
+        "units": "vol%"
+      },
+      "covariate_model": "MAC(age) = MAC40 * 10^(-0.00269*(age-40))",
+      "tier": "B",
+      "extraction": {
+        "review_status": "unverified",
+        "source_locator": "Nickalls & Mapleson 2003"
+      },
+      "primary_citation": "nickalls-2003-isomac"
+    },
+    {
+      "symbol": "MAC_awake",
+      "label": "MAC-awake",
+      "value": {
+        "central": 0.4,
+        "low": null,
+        "high": null,
+        "units": "vol%"
+      },
+      "covariate_model": "MAC_awake ~ 0.34 * MAC",
+      "tier": "B",
+      "extraction": {
+        "review_status": "unverified",
+        "tier_rationale": "Standard textbook MAC-awake value; clinical value is lowered by opioid co-administration (noted in prose, not the tier)."
+      },
+      "primary_citation": "nickalls-2003-isomac"
+    },
+    {
+      "symbol": "blood_gas",
+      "label": "blood:gas partition coefficient (37C)",
+      "value": {
+        "central": 1.4,
+        "low": null,
+        "high": null,
+        "units": "dimensionless"
+      },
+      "covariate_model": "standard physicochemical constant",
+      "tier": "B",
+      "extraction": {
+        "review_status": "unverified",
+        "tier_rationale": "Higher solubility -> slower onset/offset than sevo/des."
+      },
+      "primary_citation": "nickalls-2003-isomac"
+    },
+    {
+      "symbol": "oil_gas",
+      "label": "oil:gas partition coefficient",
+      "value": {
+        "central": 91.0,
+        "low": null,
+        "high": null,
+        "units": "dimensionless"
+      },
+      "covariate_model": "standard physicochemical constant",
+      "tier": "B",
+      "extraction": {
+        "review_status": "unverified"
+      },
+      "primary_citation": "nickalls-2003-isomac"
+    }
+  ],
+  "covariates": {
+    "required": [
+      "age"
+    ],
+    "optional": [],
+    "lbm_equation": null
+  },
+  "applicability_envelope": {
+    "age_years": {
+      "min": 1,
+      "max": 95
+    },
+    "populations": [
+      "child",
+      "adult",
+      "elderly"
+    ],
+    "derivation_n": null
+  },
+  "known_failure_modes": [],
+  "predictive_performance": [],
+  "tier": "B",
+  "extraction": {
+    "review_status": "unverified",
+    "tier_rationale": "MAC40 anchor + Mapleson age-correction + textbook partition coefficients.",
+    "source_locator": "Nickalls & Mapleson 2003"
+  },
+  "primary_citation": "nickalls-2003-isomac",
+  "notes": "Most soluble of the three potent agents (blood:gas 1.4) -> slowest kinetics. MAC fraction = end-tidal% / MAC(age)."
+}

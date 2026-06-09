@@ -1,0 +1,10 @@
+{
+  "name": "rocuronium",
+  "synonyms": ["Org 9426", "Zemuron", "Esmeron"],
+  "unii": "WRE554RG7I",
+  "atc": "M03AC09",
+  "cas": "119302-91-9",
+  "drug_class": "aminosteroid non-depolarizing neuromuscular blocker",
+  "subsystem": "nmb_agents",
+  "notes": "Intermediate-acting NMB; effect measured by train-of-four (TOF). Reversible by sugammadex (1:1 encapsulation)."
+}

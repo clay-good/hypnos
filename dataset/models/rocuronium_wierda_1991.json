@@ -1,0 +1,44 @@
+{
+  "id": "nmb_agents.rocuronium.wierda_1991",
+  "subsystem": "nmb_agents",
+  "drug": { "name": "rocuronium", "unii": "WRE554RG7I", "atc": "M03AC09" },
+  "purpose": "pk",
+  "label": "Rocuronium PK — Wierda (1991)",
+  "structure": { "compartments": 3, "parameterization": "volumes_clearances", "elimination": "linear", "effect_compartment": true },
+  "kernel": { "implemented": false, "function": null },
+  "parameters": [
+    {
+      "symbol": "V1", "label": "central volume",
+      "value": { "central": null, "low": null, "high": null, "units": "L" },
+      "covariate_model": "see Wierda 1991 (transcription pending verification)",
+      "tier": "C",
+      "extraction": { "review_status": "unverified", "tier_rationale": "Canonical rocuronium PK model, but the primary-source compartmental parameters are not openly reproduced consistently across secondary sources; pending field-by-field transcription.", "source_locator": "Wierda 1991" },
+      "primary_citation": "wierda-1991-rocuronium"
+    },
+    {
+      "symbol": "ke0", "label": "effect-site equilibration rate constant",
+      "value": { "central": null, "low": null, "high": null, "units": "1/min" },
+      "covariate_model": "see Wierda 1991 (pending verification; literature range ~0.08-0.25 across models)",
+      "tier": "C",
+      "extraction": { "review_status": "unverified", "source_locator": "Wierda 1991 (PD)" },
+      "primary_citation": "wierda-1991-rocuronium"
+    }
+  ],
+  "covariates": { "required": ["weight"], "optional": ["age", "sex"], "lbm_equation": null },
+  "applicability_envelope": {
+    "age_years": { "min": 18, "max": 85 },
+    "weight_kg": { "min": 45, "max": 110 },
+    "populations": ["adult"],
+    "derivation_n": null
+  },
+  "known_failure_modes": [],
+  "predictive_performance": [],
+  "tier": "C",
+  "extraction": {
+    "review_status": "unverified",
+    "tier_rationale": "Curated record with verified citation; KERNEL PENDING. simulate() refuses this model rather than ship compartmental parameters that cannot be reconciled to the primary PDF. Seeds the nmb_agents subsystem; pairs with the train-of-four PD sigmoid once a verified PK kernel lands.",
+    "source_locator": "Wierda 1991"
+  },
+  "primary_citation": "wierda-1991-rocuronium",
+  "notes": "KERNEL PENDING. The reversal partner sugammadex (1:1 encapsulation kinetics) is a separate, deferred subsystem (binding kinetics need their own design pass, analogous to the deferred local anesthetics)."
+}

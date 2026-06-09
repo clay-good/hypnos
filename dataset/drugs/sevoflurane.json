@@ -1,0 +1,10 @@
+{
+  "name": "sevoflurane",
+  "synonyms": ["Ultane", "Sevorane"],
+  "unii": "38LVP0K73A",
+  "atc": "N01AB08",
+  "cas": "28523-86-6",
+  "drug_class": "halogenated volatile anesthetic",
+  "subsystem": "volatiles",
+  "notes": "Low blood:gas solubility (0.65) -> fast onset/offset. Characterized by MAC (minimum alveolar concentration) and partition coefficients rather than compartmental PK."
+}

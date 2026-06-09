@@ -89,6 +89,27 @@ excluded for envelope (2):
   - hypnotics_iv.propofol.schnider_1998   tier D  (... PEDIATRIC EXTRAPOLATION ...)
 ```
 
+## Inhalational agents: a different parameter convention (MAC)
+
+Phase D brings in the non-IV families, which do **not** fit compartmental PK. Volatile anaesthetics are characterized by **MAC** (minimum alveolar concentration), its **age correction**, and **partition coefficients** — a distinct, first-class `physicochemical` model type with its own kernel. Hypnos ships sevoflurane, desflurane, isoflurane, and nitrous oxide, and evaluates age-corrected MAC, the MAC fraction (a depth surrogate), and the *additive* combined MAC fraction when nitrous oxide is co-administered.
+
+![Volatile MAC vs age](docs/images/mac_age.png)
+
+The age correction is the verified, load-bearing relation (Nickalls & Mapleson 2003): `MAC(age) = MAC40 · 10^(−0.00269·(age−40))`, ~6% per decade and **universal** across agents — the right panel shows all three potent agents collapsing onto a single normalized curve. Envelope enforcement applies here too (the relation is valid for age > 1 y).
+
+```text
+$ hypnos mac --agent sevoflurane --age 75 --end-tidal 1.2 --n2o 50
+MAC (age-corrected): 1.45 vol%   (MAC40 1.8)        # 75 y reduces MAC ~19% below the age-40 anchor
+end-tidal 1.2 vol% -> MAC fraction 0.83
++ N2O 50 vol% -> combined MAC fraction 1.43          # MAC fractions are additive
+```
+
+```python
+hypnos.mac(ds, "volatiles.sevoflurane.mac", age=75, end_tidal_pct=1.2, n2o_end_tidal_pct=50).combined_mac_fraction
+```
+
+**Neuromuscular blockers** are seeded: a **train-of-four (T1 twitch) sigmoid** PD record (the NMB convention — a steep Hill curve on a twitch-height scale, Ce50 ≈ 0.82 µg/mL at the adductor pollicis) composes onto a rocuronium PK model that is curated but **kernel-pending** (the Wierda 1991 compartmental parameters aren't openly reconcilable, so `simulate()` refuses it). Sugammadex reversal (1:1 encapsulation binding kinetics) is deferred — it needs its own model type, like the deferred local-anesthetics subsystem.
+
 ## Install & quickstart
 
 ```bash
@@ -182,7 +203,9 @@ Every model with `kernel.implemented = true` binds to a **pure-NumPy/SciPy refer
 
 - an n-compartment mammillary linear-ODE PK solver, integrated **exactly** via the augmented matrix exponential (machine precision, robust even when `ke0 = 0`);
 - the effect-compartment first-order `ke0` link;
-- the sigmoid E_max / Hill PD transform.
+- the sigmoid E_max / Hill PD transform (propofol→BIS, rocuronium→train-of-four);
+- the two-drug Greco response surface;
+- the volatile MAC age-correction (Mapleson/Nickalls) — a non-compartmental, physicochemical kernel.
 
 Validation, run in CI ([test suite](python/tests)):
 
@@ -218,9 +241,9 @@ $THETA
 ; bqmodel:isDerivedFrom = https://doi.org/10.1097/00000542-199805000-00006
 ```
 
-## Current coverage (v0.1.0 — Phases A + B complete, C core)
+## Current coverage (v0.1.0 — Phases A + B complete, C + D core)
 
-Honest status. A is the propofol spine; B adds the dominant opioid and the interaction surface; C widens to a new drug class and pediatrics ([roadmap](docs/specs/v0.1/spec.md#11-phased-roadmap)). **9 models · 4 drugs · 5 subsystems · 7 executable kernels.**
+Honest status. A is the propofol spine; B adds the dominant opioid and the interaction surface; C widens to a new drug class and pediatrics; D brings in the non-IV families with their own conventions ([roadmap](docs/specs/v0.1/spec.md#11-phased-roadmap)). **15 models · 9 drugs · 7 subsystems · 12 executable kernels.**
 
 | Model | Record | Kernel | Tier | Notes |
 | --- | --- | --- | --- | --- |
@@ -233,6 +256,9 @@ Honest status. A is the propofol spine; B adds the dominant opioid and the inter
 | Dexmedetomidine PK — **Hannivoort 2015** | ✅ | ✅ executable | B | New drug class (α₂-agonist); allometric (vol ^1, CL ^0.75); adult-only, narrow BMI. |
 | Fentanyl PK — **Shafer 1990** | ✅ | ⏳ pending | C | Curated record with verified citation; kernel deferred — secondary sources disagree on the exact micro-rate constants, so `simulate()` refuses it. |
 | Interaction — **propofol×remifentanil** (Greco/BIS) | ✅ | ✅ executable | C | Two-drug response surface; math exact and round-tripped, **coefficients illustrative/unverified** pending Bouillon-2004 transcription. |
+| Volatiles — **sevoflurane · desflurane · isoflurane · N₂O** (MAC) | ✅ | ✅ executable | B | New `physicochemical` type: MAC40 + Mapleson age-correction + partition coefficients; MAC fraction + nitrous-oxide additivity. |
+| Rocuronium PK — **Wierda 1991** | ✅ | ⏳ pending | C | Seeds `nmb_agents`; kernel deferred (compartmental params not openly reconcilable). |
+| Rocuronium PD — **train-of-four sigmoid** | ✅ | ✅ executable | C | NMB convention: steep Hill on twitch-height; Ce50 ≈ 0.82 µg/mL (adductor pollicis). Composes onto a rocuronium PK kernel once verified. |
 
 > **Why Eleveld's kernel is pending, not faked.** The project's whole reason for existing is to *not* be another source of quietly mis-typed numbers. Eleveld's covariate equations (post-menstrual-age maturation, allometric scaling, BMI/age sigmoids) are exactly where transcription errors hide (spec §9). Shipping them unverified would contradict the dataset's purpose. Two correct, round-trip-validated models that genuinely disagree already make the divergence view real. Promoting Eleveld to an executable kernel is the highest-leverage next contribution — see [CONTRIBUTING.md](CONTRIBUTING.md).
 
@@ -262,7 +288,8 @@ hypnos/
 ├── python/hypnos/
 │   ├── load.py · filter.py · validate.py · models.py
 │   ├── reference.py             # pure-NumPy/SciPy PK/PD kernels
-│   ├── simulate.py              # forward simulation + compare (no inverse control)
+│   ├── simulate.py              # forward simulation + compare + interaction (no inverse control)
+│   ├── inhalational.py          # volatile MAC API (age correction, fraction, N2O additivity)
 │   ├── cli.py
 │   └── export/                  # registry · annotate · nonmem · pharmml · sbml · tci_json · rxode2 · pumas
 ├── python/tests/                # analytic-vs-numeric, round-trip, envelope, tier, CLI
@@ -280,6 +307,7 @@ hypnos info                                       # counts by subsystem / tier /
 hypnos simulate <model_id> --age .. --weight .. --height .. --sex .. [--pd <pd_id>]
 hypnos compare  --drug propofol --age .. --weight .. --height .. --sex ..
 hypnos interact --age .. --weight .. --height .. --sex ..             # propofol+remifentanil synergy
+hypnos mac --agent sevoflurane --age 75 [--end-tidal 1.2] [--n2o 50]  # age-corrected MAC + fraction
 hypnos export   --format {nonmem,pharmml,sbml,tci_json,rxode2,pumas} --output exports/ [--model <id>]
 streamlit run dashboard/app.py
 ```
@@ -291,6 +319,7 @@ hypnos.summary(ds)                                                    # dataset 
 hypnos.simulate(ds, model_id, patient=..., schedule=..., t=...)       # forward sim
 hypnos.compare(ds, drug=..., patient=..., schedule=..., t=...)        # divergence view
 hypnos.simulate_interaction(ds, surface_id, pk_a=.., pk_b=.., ...)    # two-drug response surface
+hypnos.mac(ds, agent_id, age=.., end_tidal_pct=.., n2o_end_tidal_pct=..)  # volatile MAC + fraction
 hypnos.validate_dataset(ds)                                           # -> list of problems ([] == valid)
 ```
 
@@ -307,7 +336,7 @@ hypnos.validate_dataset(ds)                                           # -> list 
 | **A — Propofol spine** | Marsh/Schnider/Eleveld PK + `ke0` + propofol→BIS; reference kernels; NONMEM/PharmML/SBML/TCI-JSON; round-trip validation; divergence view | ✅ core shipped (Marsh + Schnider executable; Eleveld curated, kernel pending) |
 | **B — Opioids + interaction** | remifentanil (Minto); propofol–remifentanil response surface; nlmixr2/rxode2 + Pumas export | ✅ core shipped (Minto executable; Greco surface with illustrative coefficients; R + Julia export round-tripped) |
 | **C — Breadth** | dexmedetomidine, ketamine, midazolam, fentanyl family; pediatric models with explicit Tier-D labeling | ✅ core shipped (dexmedetomidine + Paedfusor executable with explicit pediatric/geriatric extrapolation labeling; fentanyl curated, kernel pending; ketamine/midazolam roadmap) |
-| **D — Inhalational + NMB** | volatile MAC/partition/uptake; neuromuscular blockers + train-of-four; sugammadex reversal | 🔜 |
+| **D — Inhalational + NMB** | volatile MAC/partition/uptake; neuromuscular blockers + train-of-four; sugammadex reversal | ✅ core shipped (4 volatiles with MAC age-correction + additivity executable; rocuronium seeded with TOF PD; rocuronium PK kernel + sugammadex binding kinetics pending) |
 | **E — Hardening** | external-validation MDPE/MDAPE backfill; COMBINE `.omex`; Zenodo DOI | 🔜 |
 
 ---

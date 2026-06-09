@@ -1,0 +1,10 @@
+{
+  "name": "desflurane",
+  "synonyms": ["Suprane"],
+  "unii": "CRS35BZ94Q",
+  "atc": "N01AB07",
+  "cas": "57041-67-5",
+  "drug_class": "halogenated volatile anesthetic",
+  "subsystem": "volatiles",
+  "notes": "Lowest blood:gas solubility (0.42) of the potent agents -> fastest onset/offset; highest MAC."
+}

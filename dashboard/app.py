@@ -25,6 +25,7 @@ except ImportError:  # pragma: no cover
 import hypnos
 from hypnos.filter import pk_drugs
 from hypnos.presets import default_schedule_for
+from hypnos.reference import alveolar_washin, mac_age_corrected
 
 st.set_page_config(page_title="Hypnos — model-divergence view", layout="wide")
 ds = hypnos.load()
@@ -144,3 +145,40 @@ if drug == "propofol":
         c1.metric("BIS min — propofol alone", f"{float(alone.effect.min()):.1f}")
         c2.metric("BIS min — + remifentanil", f"{ir.effect_min:.1f}")
         c3.metric("Composed tier", ir.tier)
+
+# --- Inhalational agents: a different (non-compartmental) parameter convention ---
+# Volatiles are characterized by MAC + its age correction + the blood:gas-driven
+# wash-in, not compartmental PK — so they live outside the divergence view above.
+# All numbers come from the same tested package functions the CLI uses.
+volatiles = sorted(m.id for m in ds if m.purpose == "physicochemical")
+if volatiles:
+    st.divider()
+    st.subheader("Inhalational agents (volatiles)")
+    st.caption("Not compartmental: characterized by MAC (minimum alveolar concentration), "
+               "its age correction, and the blood:gas-driven wash-in. Research / education only.")
+    vc1, vc2 = st.columns(2)
+    with vc1:
+        st.markdown(f"**Age-corrected MAC at age {age} y**")
+        rows = []
+        for vid in volatiles:
+            r = hypnos.mac(ds, vid, age=age)
+            rows.append({"agent": vid.split(".")[1], "MAC (vol%)": round(r.mac_age, 2),
+                         "MAC-awake": round(r.mac_awake_age, 2), "blood:gas λ": r.blood_gas})
+        st.dataframe(pd.DataFrame(rows), hide_index=True)
+        ages = np.arange(1, 91)
+        mac_curve = pd.DataFrame({"age (y)": ages})
+        for vid in volatiles:
+            mac40 = next(p.central for p in ds[vid].parameters if p.symbol == "MAC40")
+            mac_curve[vid.split(".")[1]] = [mac_age_corrected(mac40, a) for a in ages]
+        st.caption("MAC vs age (Mapleson/Nickalls 2003, ~6% per decade)")
+        st.line_chart(mac_curve, x="age (y)")
+    with vc2:
+        st.markdown("**Wash-in FA/FI — lower blood:gas λ washes in faster**")
+        tw = np.linspace(0, 8, 160)
+        washin = pd.DataFrame({"t (min)": tw})
+        for vid in volatiles:
+            lam = next(p.central for p in ds[vid].parameters if p.symbol == "blood_gas")
+            washin[vid.split(".")[1]] = alveolar_washin(lam, tw)[0]
+        st.line_chart(washin, x="t (min)")
+        st.caption("Single-compartment alveolar model, standard ventilation. "
+                   "Comparative only — NOT a per-patient predictor.")

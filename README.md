@@ -184,7 +184,7 @@ flowchart TD
     DS["<b>dataset/</b> — source of truth<br/>JSON model records + JSON Schema + JSON-LD context<br/>drugs · models · covariate eqs · envelopes · tiers · citations"]
     DS --> PKG["<b>hypnos</b> Python package<br/>load · filter · validate<br/>simulate · compare (PK/PD + divergence)<br/>simulate_interaction (synergy surface)<br/>analysis (tpeak · decrement)<br/>inhalational (MAC · wash-in)<br/>verification (checklists, never promotes)"]
     PKG --> CLI["<b>hypnos</b> CLI<br/>validate · info · models · status · verify<br/>simulate · compare · interact<br/>tpeak · decrement · mac · washin<br/>performance · export"]
-    PKG --> DASH["Streamlit dashboard<br/>drug-aware divergence + accuracy<br/>onset table · synergy"]
+    PKG --> DASH["Streamlit dashboard<br/>drug-aware divergence + accuracy + driver<br/>onset table · synergy · volatiles (MAC + wash-in)"]
     PKG --> EXP["<b>hypnos.export</b><br/>format builders"]
     EXP --> NM["NONMEM control stream"]
     EXP --> PHARMML["PharmML projection"]
@@ -395,7 +395,7 @@ hypnos/
 ├── notebooks/                   # reference notebooks executed in CI (nbmake)
 ├── CHANGELOG.md · .zenodo.json   # release metadata (Zenodo DOI on first tagged release)
 ├── python/tests/                # analytic-vs-numeric, round-trip, envelope, tier, CLI, verification
-├── dashboard/app.py             # Streamlit: drug-aware divergence view + onset + synergy
+├── dashboard/app.py             # Streamlit: drug-aware divergence + onset + synergy + volatiles (MAC/wash-in)
 ├── docs/about/essay.md          # why model-selection risk is the load-bearing idea
 ├── docs/specs/v0.1/spec.md      # the design spec
 └── .github/workflows/ci.yml

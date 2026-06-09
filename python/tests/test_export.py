@@ -16,6 +16,12 @@ SCHNIDER = "hypnotics_iv.propofol.schnider_1998"
 MARSH = "hypnotics_iv.propofol.marsh_1991"
 ELEVELD = "hypnotics_iv.propofol.eleveld_2018"
 
+# Every PK model is exported (CI regenerates the matrix and bundles it in the
+# .omex), including the kernel-pending ones (fentanyl, rocuronium) whose exporters
+# take a distinct "no instantiated parameters" branch — so the well-formedness
+# guarantee must span all of them, not just the kernel-backed adult models.
+_PK_MODEL_IDS = sorted(m.id for m in hypnos.load() if m.purpose == "pk")
+
 
 @pytest.fixture(scope="module")
 def ds():
@@ -35,10 +41,10 @@ def test_every_export_carries_clinical_use(ds, fmt, mid):
 
 
 @pytest.mark.parametrize("fmt", ["sbml", "pharmml"])
-@pytest.mark.parametrize("mid", [SCHNIDER, MARSH, ELEVELD])
+@pytest.mark.parametrize("mid", _PK_MODEL_IDS)
 def test_xml_exports_are_well_formed(ds, fmt, mid):
     _, text = export_model(fmt, ds[mid], ds)
-    minidom.parseString(text)  # raises if malformed
+    minidom.parseString(text)  # raises if malformed — covers kernel-pending models too
 
 
 def _local(tag):

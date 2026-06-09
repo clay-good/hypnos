@@ -8,6 +8,19 @@ version is pinned in `dataset/VERSION` and stamped into every export as
 
 ## [Unreleased]
 
+### Dashboard covers the volatiles + export well-formedness hardening (2026-06-09)
+- **Dashboard inhalational section:** the Streamlit dashboard showed zero of the 4
+  volatile agents (it filtered to compartmental drugs only). It now has an
+  "Inhalational agents" panel — age-corrected MAC at the patient's age, the MAC-vs-age
+  curve, and the blood:gas-driven wash-in (FA/FI) curves — all computed by the same
+  tested package functions (`hypnos.mac`, `alveolar_washin`, `mac_age_corrected`) the
+  CLI uses, so the UI never drifts from the data.
+- **Export hardening:** the XML well-formedness test now spans *every* PK model, not
+  just the three kernel-backed adults — so the kernel-pending exporters (fentanyl,
+  rocuronium take a distinct "no instantiated parameters" branch) are covered too.
+  `pharmml.py` and `sbml.py` go to 100% line coverage; a malformed-XML or bad-escape
+  regression in any model's export can no longer ship.
+
 ### Divergence quantification: name the driver + show plasma spread (2026-06-09)
 - The divergence metric now names the **driver pair** — the two models furthest
   apart at the instant of peak disagreement — so the view reports not just *how

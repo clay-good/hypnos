@@ -25,6 +25,13 @@ from .simulate import (  # noqa: E402
     simulate_interaction,
 )
 from .validate import assert_valid, validate_dataset  # noqa: E402
+from .verification import (  # noqa: E402
+    ModelVerification,
+    checklist_markdown,
+    model_verification,
+    next_to_verify,
+    verification_summary,
+)
 
 __all__ = [
     "__version__",
@@ -45,4 +52,9 @@ __all__ = [
     "validate_dataset",
     "assert_valid",
     "worst_tier",
+    "verification_summary",
+    "model_verification",
+    "next_to_verify",
+    "checklist_markdown",
+    "ModelVerification",
 ]

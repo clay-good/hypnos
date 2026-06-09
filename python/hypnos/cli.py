@@ -27,6 +27,7 @@ from .inhalational import mac as mac_eval
 from .simulate import compare as compare_models
 from .simulate import simulate, simulate_interaction
 from .validate import validate_dataset
+from .verification import checklist_markdown, model_verification, verification_summary
 
 _DEFAULT_SCHEDULE = [("bolus", 0.0, "2 mg/kg"), ("infusion", 0.0, "6 mg/kg/h")]
 
@@ -141,6 +142,45 @@ def cmd_interact(args) -> int:
     return 0
 
 
+def cmd_status(args) -> int:
+    ds = load()
+    s = verification_summary(ds)
+    bs = s["by_review_status"]
+    print(f"verification coverage: {bs.get('verified', 0)}/{s['n_models']} verified "
+          f"({100 * s['verified_fraction']:.0f}%)   "
+          f"unverified {bs.get('unverified', 0)}   contested {bs.get('contested', 0)}")
+    print("\nstart here (highest-leverage unverified models — implemented kernel + best tier first):")
+    for item in s["next_to_verify"]:
+        kern = "kernel" if item["kernel"] else "no-kernel"
+        print(f"  - {item['model_id']:48s} tier {item['tier']}  {kern:9s}  cite {item['citation']}")
+    print("\nrun `hypnos verify <model_id>` for the field-by-field checklist.")
+    return 0
+
+
+def cmd_verify(args) -> int:
+    ds = load()
+    if args.model not in ds:
+        print(f"unknown model {args.model!r}", file=sys.stderr)
+        return 2
+    mv = model_verification(ds, args.model)
+    if args.markdown:
+        sys.stdout.write(checklist_markdown(mv))
+        return 0
+    print(f"model: {mv.model_id}   tier {mv.tier}   status: {mv.review_status}   "
+          f"kernel: {'implemented' if mv.kernel_implemented else 'pending'}")
+    print(f"source: doi:{mv.doi or '?'}  PMID:{mv.pmid or '?'}"
+          + (f"  ({mv.source_locator})" if mv.source_locator else ""))
+    if mv.blocking:
+        print("blocking before 'verified':")
+        for b in mv.blocking:
+            print("  - " + b)
+    print(f"\nchecklist ({mv.n_items} items to confirm against the PDF):")
+    for it in mv.checklist:
+        print(f"  [ ] ({it.group}) {it.label} = {it.value}")
+    print("\nLLMs do not promote: a human confirms these, then edits review_status -> verified.")
+    return 0
+
+
 def cmd_mac(args) -> int:
     ds = load()
     agent = args.agent
@@ -211,6 +251,12 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("version").set_defaults(func=cmd_version)
     sub.add_parser("validate").set_defaults(func=cmd_validate)
     sub.add_parser("info").set_defaults(func=cmd_info)
+    sub.add_parser("status", help="verification-coverage report + what to verify next").set_defaults(func=cmd_status)
+
+    vp = sub.add_parser("verify", help="field-by-field verification checklist for a model")
+    vp.add_argument("model")
+    vp.add_argument("--markdown", action="store_true", help="emit a copy-pasteable markdown checklist")
+    vp.set_defaults(func=cmd_verify)
 
     sp = sub.add_parser("simulate", help="forward-simulate one model")
     sp.add_argument("model")

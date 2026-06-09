@@ -8,6 +8,18 @@ version is pinned in `dataset/VERSION` and stamped into every export as
 
 ## [Unreleased]
 
+### Verification workflow & docs (2026-06-08)
+- **`hypnos.verification`** module + `hypnos status` / `hypnos verify <id>` CLI:
+  per-model field-by-field checklists (parameters, covariate equations, envelope,
+  derivation population, source DOI), a verification-coverage report, and a
+  prioritized "what to verify next" list (implemented kernel + best tier first).
+  Guides human verification; never promotes (`LLMs do not promote`).
+- **Essay** `docs/about/essay.md` — *Why model-selection risk is the load-bearing
+  idea* (the spec's declared conceptual cornerstone).
+- **Reference notebook** `notebooks/01_model_divergence.ipynb`, executed in CI via
+  `nbmake` so it cannot rot; reproduces the divergence comparison + verification
+  workflow. New `notebooks` optional-dependency extra.
+
 ### Phase E — Hardening (2026-06-08)
 - **COMBINE `.omex` exporter** (`hypnos.export.combine`): bundles SBML (master) +
   PharmML + TCI-JSON + provenance `metadata.rdf` + `citations.bib` with an

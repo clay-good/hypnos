@@ -297,6 +297,27 @@ Honest status. A is the propofol spine; B adds the dominant opioid and the inter
 
 > **Why Eleveld's kernel is pending, not faked.** The project's whole reason for existing is to *not* be another source of quietly mis-typed numbers. Eleveld's covariate equations (post-menstrual-age maturation, allometric scaling, BMI/age sigmoids) are exactly where transcription errors hide (spec §9). Shipping them unverified would contradict the dataset's purpose. Two correct, round-trip-validated models that genuinely disagree already make the divergence view real. Promoting Eleveld to an executable kernel is the highest-leverage next contribution — see [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## Verification: the single highest-leverage contribution
+
+Every model ships `unverified` and the dataset says so out loud. Promotion to `verified` requires a human to open the source PDF and confirm, field by field, every structural parameter **and** every covariate equation (the covariate equations are where published-vs-implemented divergence hides). **LLMs may assist but never promote** — nothing automated writes `review_status = verified`.
+
+Hypnos ships tooling to *support* that work without doing it for you:
+
+```text
+$ hypnos status
+verification coverage: 0/15 verified (0%)   unverified 15   contested 0
+
+start here (highest-leverage unverified models — implemented kernel + best tier first):
+  - alpha2_agonists.dexmedetomidine.hannivoort_2015  tier B  kernel   cite hannivoort-2015-dexmedetomidine
+  - hypnotics_iv.propofol.marsh_1991                 tier B  kernel   cite marsh-1991-propofol-pk
+  - hypnotics_iv.propofol.schnider_1998              tier B  kernel   cite schnider-1998-propofol-pk
+  ...
+
+$ hypnos verify hypnotics_iv.propofol.schnider_1998 --markdown   # copy-pasteable PR checklist
+```
+
+`hypnos verify <id>` emits the field-by-field checklist — each parameter, each covariate equation (e.g. the James LBM term), the envelope, the derivation population, and the DOI to confirm — as plain text or markdown for a PR. The prioritization is deliberate: models with an implemented kernel and the best tier come first, because verifying those unlocks trustworthy simulation. See the essay [*Why model-selection risk is the load-bearing idea*](docs/about/essay.md) for the philosophy, and [CONTRIBUTING.md](CONTRIBUTING.md) for the checklist rules.
+
 ## Design decisions
 
 | Decision | Rationale |
@@ -325,12 +346,15 @@ hypnos/
 │   ├── reference.py             # pure-NumPy/SciPy PK/PD kernels
 │   ├── simulate.py              # forward simulation + compare + interaction (no inverse control)
 │   ├── inhalational.py          # volatile MAC API (age correction, fraction, N2O additivity)
+│   ├── verification.py          # verification checklists + coverage (guides humans; never promotes)
 │   ├── cli.py
 │   └── export/                  # registry · annotate · nonmem · pharmml · sbml · tci_json · rxode2 · pumas · bibtex · combine(.omex)
 ├── scripts/regenerate.py        # deterministically regenerate all exports + figures
+├── notebooks/                   # reference notebooks executed in CI (nbmake)
 ├── CHANGELOG.md · .zenodo.json   # release metadata (Zenodo DOI on first tagged release)
-├── python/tests/                # analytic-vs-numeric, round-trip, envelope, tier, CLI
+├── python/tests/                # analytic-vs-numeric, round-trip, envelope, tier, CLI, verification
 ├── dashboard/app.py             # Streamlit: browse + model-divergence view
+├── docs/about/essay.md          # why model-selection risk is the load-bearing idea
 ├── docs/specs/v0.1/spec.md      # the design spec
 └── .github/workflows/ci.yml
 ```
@@ -341,6 +365,8 @@ hypnos/
 hypnos version
 hypnos validate                                   # schema + integrity (citations, tiers, kernels, envelopes)
 hypnos info                                       # counts by subsystem / tier / review status
+hypnos status                                     # verification coverage + what to verify next
+hypnos verify <model_id> [--markdown]             # field-by-field verification checklist
 hypnos simulate <model_id> --age .. --weight .. --height .. --sex .. [--pd <pd_id>]
 hypnos compare  --drug propofol --age .. --weight .. --height .. --sex ..
 hypnos interact --age .. --weight .. --height .. --sex ..             # propofol+remifentanil synergy
@@ -358,6 +384,8 @@ hypnos.simulate(ds, model_id, patient=..., schedule=..., t=...)       # forward 
 hypnos.compare(ds, drug=..., patient=..., schedule=..., t=...)        # divergence view
 hypnos.simulate_interaction(ds, surface_id, pk_a=.., pk_b=.., ...)    # two-drug response surface
 hypnos.mac(ds, agent_id, age=.., end_tidal_pct=.., n2o_end_tidal_pct=..)  # volatile MAC + fraction
+hypnos.verification_summary(ds)                                       # coverage + next-to-verify
+hypnos.model_verification(ds, model_id)                              # field-by-field checklist object
 hypnos.validate_dataset(ds)                                           # -> list of problems ([] == valid)
 ```
 

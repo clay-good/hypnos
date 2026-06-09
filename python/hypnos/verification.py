@@ -1,0 +1,170 @@
+"""Verification workflow support — tooling for the single highest-leverage
+contribution (spec §9): promoting ``unverified`` models to ``verified`` by
+reading the source PDF, field by field.
+
+This module **guides** human verification; it never performs it. Promotion to
+``verified`` requires a human to confirm the parameters *and the covariate
+equations* against the primary source and then edit the record's
+``extraction.review_status`` (filling ``verified_by`` / ``verified_date``).
+Nothing here writes that field — by design (``Humans verify; LLMs do not
+promote``).
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional
+
+from .load import Dataset, load
+from .models import TIER_RANK, Model
+
+REVIEW_STATES = ("unverified", "verified", "contested")
+
+
+@dataclass
+class ChecklistItem:
+    group: str           # "structural" | "covariate" | "envelope" | "population" | "citation"
+    label: str
+    value: str           # the current value a verifier must confirm against the PDF
+    confirmed: bool = False
+
+
+@dataclass
+class ModelVerification:
+    model_id: str
+    label: str
+    tier: str
+    review_status: str
+    kernel_implemented: bool
+    primary_citation: str
+    doi: Optional[str]
+    pmid: Optional[str]
+    source_locator: Optional[str]
+    checklist: List[ChecklistItem] = field(default_factory=list)
+    blocking: List[str] = field(default_factory=list)   # what stands between this and `verified`
+
+    @property
+    def n_items(self) -> int:
+        return len(self.checklist)
+
+
+def _checklist_for(model: Model, ds: Dataset) -> List[ChecklistItem]:
+    items: List[ChecklistItem] = []
+    # 1. structural parameters
+    for p in model.parameters:
+        units = p.units or ""
+        central = "covariate" if p.central is None else f"{p.central:g}"
+        items.append(ChecklistItem("structural", f"parameter {p.symbol}", f"{central} {units}".strip()))
+    # 2. covariate equations (where transcription errors hide)
+    for p in model.parameters:
+        if p.covariate_model:
+            items.append(ChecklistItem("covariate", f"{p.symbol} equation", p.covariate_model))
+    cov = model.covariates
+    if cov.get("lbm_equation"):
+        items.append(ChecklistItem("covariate", "LBM/FFM equation", cov["lbm_equation"]))
+    # 3. derivation population and n
+    env = model.applicability_envelope
+    if env.populations:
+        items.append(ChecklistItem("population", "derivation populations", ", ".join(env.populations)))
+    if env.derivation_n is not None:
+        items.append(ChecklistItem("population", "derivation n", str(env.derivation_n)))
+    # 4. applicability range
+    for name in ("age_years", "weight_kg", "height_cm", "bmi_kg_m2"):
+        rng = getattr(env, name)
+        if rng.min is not None or rng.max is not None:
+            items.append(ChecklistItem("envelope", name, f"[{rng.min}, {rng.max}]"))
+    # 5. citation resolves to the right paper
+    cit = ds.citation(model.primary_citation) if ds is not None else None
+    if cit:
+        ref = f"{cit.get('container', '')} {cit.get('year', '')}; doi:{cit.get('doi', '?')}"
+        items.append(ChecklistItem("citation", "primary citation resolves", ref.strip()))
+    return items
+
+
+def model_verification(ds: Dataset, model_id: str) -> ModelVerification:
+    m = ds[model_id]
+    cit = ds.citation(m.primary_citation) or {}
+    blocking: List[str] = []
+    if m.review_status == "verified":
+        pass
+    else:
+        blocking.append("a human must confirm every field below against the source PDF")
+        if any(p.central is None for p in m.parameters):
+            blocking.append("some parameters have no central value (transcription incomplete)")
+        if not m.kernel_implemented and m.purpose in ("pk", "pd", "interaction", "physicochemical"):
+            blocking.append("reference kernel pending — verify parameters before implementing it")
+    return ModelVerification(
+        model_id=m.id, label=m.label, tier=m.tier, review_status=m.review_status,
+        kernel_implemented=m.kernel_implemented, primary_citation=m.primary_citation,
+        doi=cit.get("doi"), pmid=cit.get("pmid"),
+        source_locator=m.extraction.get("source_locator"),
+        checklist=_checklist_for(m, ds), blocking=blocking,
+    )
+
+
+def _priority(m: Model) -> tuple:
+    # Highest leverage first: implemented kernels (verifying unlocks trustworthy
+    # simulation), then better tier, then by id for stability.
+    return (0 if m.kernel_implemented else 1, TIER_RANK.get(m.tier, 9), m.id)
+
+
+def next_to_verify(ds: Dataset, limit: Optional[int] = None) -> List[Model]:
+    """Unverified models in highest-leverage order (implemented kernel, best tier first)."""
+    pending = [m for m in ds if m.review_status != "verified"]
+    pending.sort(key=_priority)
+    return pending[:limit] if limit else pending
+
+
+def verification_summary(ds: Optional[Dataset] = None) -> Dict[str, Any]:
+    if ds is None:
+        ds = load()
+    by_status: Dict[str, int] = {s: 0 for s in REVIEW_STATES}
+    for m in ds:
+        by_status[m.review_status] = by_status.get(m.review_status, 0) + 1
+    n = len(ds)
+    verified = by_status.get("verified", 0)
+    return {
+        "n_models": n,
+        "by_review_status": by_status,
+        "verified_fraction": (verified / n) if n else 0.0,
+        "next_to_verify": [
+            {"model_id": m.id, "tier": m.tier, "kernel": m.kernel_implemented,
+             "citation": m.primary_citation}
+            for m in next_to_verify(ds, limit=5)
+        ],
+    }
+
+
+def checklist_markdown(mv: ModelVerification) -> str:
+    """A copy-pasteable verification checklist (e.g. for a PR description)."""
+    lines = [
+        f"# Verification checklist — `{mv.model_id}`",
+        "",
+        f"- **Model:** {mv.label}",
+        f"- **Tier:** {mv.tier}  ·  **Status:** {mv.review_status}  ·  "
+        f"**Kernel:** {'implemented' if mv.kernel_implemented else 'pending'}",
+        f"- **Source:** doi:{mv.doi or '?'}  ·  PMID:{mv.pmid or '?'}"
+        + (f"  ·  {mv.source_locator}" if mv.source_locator else ""),
+        "",
+        "Confirm every item below **against the source PDF**, then set "
+        "`extraction.review_status = \"verified\"` and fill `verified_by` / "
+        "`verified_date`. The covariate equations are the part most worth "
+        "double-checking; that is where published-vs-implemented divergence hides.",
+        "",
+    ]
+    groups = ["structural", "covariate", "population", "envelope", "citation"]
+    titles = {
+        "structural": "Structural parameters",
+        "covariate": "Covariate equations (incl. exact LBM/FFM form)",
+        "population": "Derivation population & n",
+        "envelope": "Stated applicability range",
+        "citation": "Primary citation",
+    }
+    for g in groups:
+        items = [it for it in mv.checklist if it.group == g]
+        if not items:
+            continue
+        lines.append(f"## {titles[g]}")
+        for it in items:
+            lines.append(f"- [ ] **{it.label}** = `{it.value}`")
+        lines.append("")
+    return "\n".join(lines).rstrip() + "\n"

@@ -51,6 +51,38 @@ Each included model also reports its **published in-envelope inaccuracy** (MDAPE
 
 The same view works for **remifentanil** (`--drug remifentanil`), now with all three models the spec names (Minto, Eleveld, Kim): they agree closely for a standard adult (a useful cross-check), but their envelopes differ sharply at the extremes. For a morbidly-obese patient, only **Kim** (derived in obesity, BMI to ~70) stays in-envelope while Eleveld (BMI to 52) and Minto (James-LBM failure > 40) are greyed; for a child, only **Eleveld** (neonate→adult) covers, with Minto and Kim greyed as adult-only. Agreement where models are jointly valid, honest exclusion where one is not: exactly what a model-selection instrument should show.
 
+## v0.2: the population-variability layer — bands and the second hidden uncertainty
+
+The divergence view above answers *which model did you pick?* — **structural** uncertainty. But a single typical-value curve hides a **second**, equally real uncertainty: even within one model, real individuals scatter around the typical patient. That is the entire reason these are fitted as **non-linear mixed-effects** models — a fixed-effect layer *plus* a random-effect layer (Ω for between-subject variability, Σ for residual error). v0.1 curated the first layer and silently dropped the second. v0.2 curates the second with the **same** tiering, citation, and verification discipline — and, crucially, makes the *relationship between the two* measurable. ([Full design spec.](docs/specs/v0.2/variability.md))
+
+![Hypnos population-variability layer — prediction band + variance decomposition](docs/images/variability.png)
+
+Both panels are real, **seeded, byte-reproducible** output from `compare(..., bands=True, seed=7)` on the same elderly patient:
+
+- **Left — the never-synthesize rule, made visible.** Of the three eligible propofol models, **only Eleveld** publishes the random-effects structure, so only it earns a 5–95% prediction band (shaded). Marsh and Schnider are drawn as bare median lines and **named as excluded** from the band math — Hypnos will not borrow a sibling's Ω or impute a "typical" CV. *A missing band is a true statement; a borrowed one is a lie with error bars.* Notice Schnider's peak (~8 µg/mL) sits **clearly above Eleveld's 95th percentile** — a structural disagreement no amount of within-Eleveld variability explains away.
+- **Right — where does the uncertainty come from?** A time-resolved **variance decomposition** of Eleveld's prediction: at the peak (t\* ≈ 3.3 min) **~88% of the within-model predictive variance is between-subject (η / Ω)** and only ~12% is residual assay/model noise (ε / Σ). The honest reading: for this patient the *patient* is the uncertainty, not the measurement — a regime where curating yet another model helps less than the line-spread suggests.
+
+Two machine-readable readouts fall out, both added to `divergence["cp"]`/`["ce"]`:
+
+- **Separation index** — at the instant of peak median spread, are the two driver models' bands **disjoint**? `separation > 0` means a genuine, irreducible structural disagreement that neither model's own stated variability explains; the reported `fraction_trajectory_disjoint` is the share of the curve where the bands separate — *model-selection risk you cannot variability-away.* (It computes once ≥ 2 models carry curated BSV; today Eleveld is the only propofol model that does, so it is reported for drugs/comparisons where two band-eligible models overlap.)
+- **Variance decomposition** — the structural / BSV / residual share of the total predictive variance, time-resolved. It tells a researcher *when curating more models helps* (structural-dominated regimes) versus *when the patient is the irreducible uncertainty* (BSV-dominated).
+
+```text
+$ hypnos compare --drug propofol --age 72 --weight 60 --height 162 --sex F \
+                 --bands --percentile 5,95 --samples 2000 --seed 7
+included (3):
+  - hypnotics_iv.propofol.eleveld_2018   tier A  Ce peak 3.57  band-tier B  Ce 2.99 [1.15, 7.98]
+  - hypnotics_iv.propofol.marsh_1991     tier B  Ce peak 3.74  band-tier — (no published BSV; line only)
+  - hypnotics_iv.propofol.schnider_1998  tier B  Ce peak 8.15  band-tier — (no published BSV; line only)
+effect-site divergence … peak rel 169%  (driver: schnider_1998 vs marsh_1991)
+  variance share @ t*=3.33 min: structural 0.00 | BSV 0.88 | residual 0.12
+  note: marsh_1991, schnider_1998 excluded from band metrics (variability_status: none)
+```
+
+**Curated for Eleveld 2018 propofol** (the model with the most completely published random-effects structure): the full **Ω diagonal** (ω² on V1/V2/V3/CL/Q2/Q3/ke0, η-scale log-variances — exactly a NONMEM `$OMEGA` diagonal) plus the **log-additive Σ** (σ = 0.191). Cross-checked against the `tci` R package (the same source Hypnos already cross-checks its kernels against) and curated **`unverified`**: the random effects are *more* error-prone to transcribe than the fixed effects (variance vs SD vs CV%, log vs natural scale), so `hypnos validate` recomputes each `cv_percent` from `omega2` and the human checklist confirms the [five §4 traps](docs/specs/v0.2/variability.md#4-the-canonical-representation-and-the-transcription-traps) against the source table. The band carries its **own tier** (B), one rung below the Tier-A median line it surrounds — honest, and visible in the output.
+
+> **Safety, tightened in proportion.** A band makes the output *look* more like a clinical tool, so the guardrails tighten: **no quantile-targeting** ("the dose that keeps the 95th percentile below X" is inverse control wearing a statistical hat — still forbidden), and every band is labeled a statement about *the model's stated uncertainty*, not a claim about a real individual. `clinicalUse = "PROHIBITED"` remains universal.
+
 ## Drug–drug interaction: the propofol–remifentanil synergy surface
 
 The clinically dominant TIVA pairing is propofol + remifentanil, and their hypnotic interaction is **supra-additive** (synergistic): adding remifentanil markedly deepens hypnosis at the same propofol dose. Hypnos models this with a Greco-type response surface and a two-drug forward simulator (`simulate_interaction`), composing two independent PK models into one effect.
@@ -192,6 +224,19 @@ res.tier, res.warnings          # propagated tier + envelope/failure-mode warnin
 cmp = hypnos.compare(ds, drug="propofol", patient=patient, schedule=schedule, t=t)
 cmp.divergence["ce"]            # {'max_abs': 5.62, 'max_rel': 1.69, 'driver': {'high': '...schnider_1998', 'low': '...marsh_1991', 'gap': 5.62}}
 cmp.excluded                    # models greyed out for envelope violation, with reasons
+
+# v0.2 — seeded prediction bands + uncertainty-aware divergence
+res = hypnos.simulate(ds, "hypnotics_iv.propofol.eleveld_2018", patient=patient,
+                      schedule=schedule, t=t, bands=True, percentile=(5, 95),
+                      samples=2000, seed=7)
+res.ce_quantiles                # {5: array, 50: array, 95: array}; None if no published BSV
+res.band_tier                   # "B" — the band's own tier, ≤ the median-line tier
+
+cmp = hypnos.compare(ds, drug="propofol", patient=patient, schedule=schedule, t=t,
+                     bands=True, seed=7)
+cmp.divergence["ce"]["variance_share"]   # {'structural': .., 'bsv': .., 'residual': ..}
+cmp.divergence["ce"].get("separation")   # disjoint-band test (≥2 band-eligible models)
+cmp.excluded_from_bands                  # models with no published BSV, named (never fabricated)
 ```
 
 ## How it works
@@ -201,7 +246,7 @@ The **dataset is the single source of truth.** Everything else — simulation, e
 ```mermaid
 flowchart TD
     DS["<b>dataset/</b> — source of truth<br/>JSON model records + JSON Schema + JSON-LD context<br/>drugs · models · covariate eqs · envelopes · tiers · citations"]
-    DS --> PKG["<b>hypnos</b> Python package<br/>load · filter · validate<br/>simulate · compare (PK/PD + divergence)<br/>simulate_interaction (synergy surface)<br/>analysis (tpeak · decrement)<br/>inhalational (MAC · wash-in/out)<br/>verification (checklists, never promotes)"]
+    DS --> PKG["<b>hypnos</b> Python package<br/>load · filter · validate<br/>simulate · compare (PK/PD + divergence + bands)<br/>sample_individual (seeded BSV draws)<br/>simulate_interaction (synergy surface)<br/>analysis (tpeak · decrement)<br/>inhalational (MAC · wash-in/out)<br/>verification (checklists, never promotes)"]
     PKG --> CLI["<b>hypnos</b> CLI<br/>validate · info · models · status · verify<br/>simulate · compare · interact<br/>tpeak · decrement · mac · washin · washout<br/>performance · export"]
     PKG --> DASH["Streamlit dashboard<br/>drug-aware divergence + accuracy + driver<br/>onset table · synergy · volatiles (MAC + wash-in/out)"]
     PKG --> EXP["<b>hypnos.export</b><br/>format builders"]
@@ -233,6 +278,7 @@ One JSON file = one model of one drug for one purpose (e.g. *propofol PK — Sch
 
 - **`applicability_envelope`** — the covariate ranges the model was actually derived in. First-class, machine-readable, **enforced by the simulator**.
 - **`known_failure_modes`** — documented, cited ways a model misbehaves, each with a machine-evaluable `predicate` (e.g. `"bmi > 42"`) and an `action` (`tier_down_to_D` / `warn` / `exclude`).
+- **`variability` / `residual_error` / `omega_block` (v0.2, optional)** — the random-effects layer: per-parameter `bsv.omega2` (η-scale variance), the Σ residual model, off-diagonal Ω, and a `variability_status` rollup. Each carries its **own tier** and extraction status; absence renders as an explicit gap (no band), never a fabricated one.
 
 ### Confidence tiers and how they propagate
 
@@ -268,7 +314,7 @@ Validation, run in CI ([test suite](python/tests)):
 
 - **Analytic vs. independent numeric** — the matrix-exponential solver is checked against a separate `scipy.solve_ivp` integration (≤ 1e-4 relative) and against the closed-form one-compartment bolus solution (≤ 1e-7).
 - **Export round-trip** — each SBML / TCI-JSON / rxode2 / Pumas export is parsed back, re-simulated, and compared to the kernel (≤ 1e-6 algebraic). An export bug cannot ship silently.
-- **NONMEM `$THETA` fidelity** — emitted thetas are asserted equal to the instantiated parameters.
+- **NONMEM `$THETA` fidelity** — emitted thetas are asserted equal to the instantiated parameters; the **v0.2** `$OMEGA`/`$SIGMA` are emitted from the curated `omega2`/residual model with `EXP(ETA(.))` wired into `$PK`, and a no-BSV model keeps `0 FIX` with the missing component named.
 - **`.omex` determinism** — the COMBINE archive is byte-identical across runs (fixed timestamps); CI rebuilds it and validates the manifest, so an archive bug cannot ship silently.
 - **effect-site divergence is computed only over models that carry a `ke0` link** — a PK-only model (e.g. Kim remifentanil, Paedfusor) has `ce = 0` and is excluded from the effect-site spread so it cannot manufacture a spurious divergence; plasma divergence still spans every model.
 
@@ -278,7 +324,7 @@ Exports are generated artifacts, never hand-edited (CI regenerates them), each i
 
 | Format | Role | Status |
 | --- | --- | --- |
-| **NONMEM** control stream (`$PK`/`$THETA`/…) | Lingua franca of population PK | ✅ ADVAN11/TRANS4 |
+| **NONMEM** control stream (`$PK`/`$THETA`/`$OMEGA`/`$SIGMA`) | Lingua franca of population PK | ✅ ADVAN11/TRANS4; **v0.2** emits the real `$OMEGA` diagonal + `$SIGMA` where BSV is curated (else `0 FIX`) |
 | **SBML** L3v2 | Compartmental ODE → COPASI/Tellurium; continuity with Nidus | ✅ rate-rule form, round-tripped |
 | **TCI-sim JSON** | Clean ingestable JSON for the open-TCI/simulator community | ✅ round-tripped |
 | **PharmML** (projection) | The "SBML of PK/PD"; durable interop anchor | ✅ structural + params + provenance |
@@ -330,15 +376,15 @@ hypnos export --format bibtex --output exports/               # citations.bib
 python scripts/regenerate.py                                  # regenerate every export + figures
 ```
 
-## Current coverage (v0.1.0 — A/B complete · C/D/E core)
+## Current coverage (v0.2.0 — v0.1 A–E complete · v0.2 variability V0–V2)
 
-Honest status. A is the propofol spine; B adds the dominant opioid and the interaction surface; C widens to a new drug class and pediatrics; D brings in the non-IV families; E hardens for release (COMBINE `.omex`, BibTeX, reproducibility, verified MDPE/MDAPE) ([roadmap](docs/specs/v0.1/spec.md#11-phased-roadmap)). **19 models · 9 drugs · 7 subsystems · 17 executable kernels · 9 export formats.**
+Honest status. A is the propofol spine; B adds the dominant opioid and the interaction surface; C widens to a new drug class and pediatrics; D brings in the non-IV families; E hardens for release (COMBINE `.omex`, BibTeX, reproducibility, verified MDPE/MDAPE) ([v0.1 roadmap](docs/specs/v0.1/spec.md#11-phased-roadmap)). **v0.2** adds the [population-variability layer](docs/specs/v0.2/variability.md) — Ω/Σ random effects, seeded prediction bands, and uncertainty-aware divergence (Eleveld propofol curated; bands + separation index + variance decomposition live; NONMEM `$OMEGA`/`$SIGMA` and TCI-JSON exports carry it). **19 models · 9 drugs · 7 subsystems · 17 executable kernels · 9 export formats · 1 model with a curated random-effects layer.**
 
 | Model | Record | Kernel | Tier | Notes |
 | --- | --- | --- | --- | --- |
 | Propofol PK — **Marsh 1991** | ✅ | ✅ executable | B | Weight-only; warns in elderly. |
 | Propofol PK — **Schnider 1998** | ✅ | ✅ executable | B | Age/weight/height/James-LBM; high-BMI failure mode encoded. |
-| Propofol PK — **Eleveld 2018** | ✅ | ✅ executable | A | General-purpose, broad envelope (neonate→obese elderly). Kernel transcribed from the published equations (cross-checked vs the `tci` R package), validated to reproduce the reference individual exactly; `review_status` stays **`unverified`** pending human PDF confirmation. |
+| Propofol PK — **Eleveld 2018** | ✅ | ✅ executable | A | General-purpose, broad envelope (neonate→obese elderly). Kernel transcribed from the published equations (cross-checked vs the `tci` R package), validated to reproduce the reference individual exactly; `review_status` stays **`unverified`** pending human PDF confirmation. **v0.2:** carries the curated Ω-diagonal + log-additive Σ (band-tier B) — the only model with a random-effects layer today. |
 | Propofol PK — **Paedfusor 2005** | ✅ | ✅ executable | B | Pediatric (1–12 y); the Tier-D extrapolation showcase, in both directions. |
 | Propofol PK — **Kataria 1994** | ✅ | ✅ executable | C | Pediatric (3–11 y, n=53); the canonical "Kataria vs Paedfusor" pair. Weight-proportional with an age term on V2; PK-only. Transcribed from the standard published set (Shafer/STANPUMP lineage); `unverified`. |
 | Propofol PD — **BIS sigmoid** | ✅ | ✅ executable | C | Single-slope effect-site → BIS; composes onto any PK model and floors the tier to C. |
@@ -416,7 +462,8 @@ hypnos/
 ├── python/tests/                # analytic-vs-numeric, round-trip, envelope, tier, CLI, verification
 ├── dashboard/app.py             # Streamlit: drug-aware divergence + onset + synergy + volatiles (MAC/wash-in/out)
 ├── docs/about/essay.md          # why model-selection risk is the load-bearing idea
-├── docs/specs/v0.1/spec.md      # the design spec
+├── docs/specs/v0.1/spec.md      # the design spec (typical-value layer)
+├── docs/specs/v0.2/variability.md  # the population-variability layer (Ω/Σ, bands)
 └── .github/workflows/ci.yml
 ```
 
@@ -432,6 +479,7 @@ hypnos status                                     # verification coverage + what
 hypnos verify <model_id> [--markdown]             # field-by-field verification checklist
 hypnos simulate <model_id> --age .. --weight .. --height .. --sex .. [--pd <pd_id>]
 hypnos compare  --drug propofol --age .. --weight .. --height .. --sex ..
+hypnos compare  --drug propofol --age .. ... --bands --percentile 5,95 --samples 2000 --seed 7  # v0.2 prediction bands + uncertainty-aware divergence
 hypnos interact --age .. --weight .. --height .. --sex ..             # propofol+remifentanil synergy
 hypnos mac --agent sevoflurane --age 75 [--end-tidal 1.2] [--n2o 50]  # age-corrected MAC + fraction
 hypnos washin  [--agent sevoflurane]                                 # inhalational wash-in (FA/FI uptake), solubility-driven
@@ -451,6 +499,8 @@ hypnos.performance_table(ds, drug="propofol")                        # published
 ds[model_id].predictive_mdape                                        # in-envelope MDAPE shown in the divergence view
 hypnos.simulate(ds, model_id, patient=..., schedule=..., t=...)       # forward sim
 hypnos.compare(ds, drug=..., patient=..., schedule=..., t=...)        # divergence view
+hypnos.simulate(ds, model_id, ..., bands=True, seed=7)               # v0.2: seeded prediction band -> .ce_quantiles/.band_tier
+hypnos.compare(ds, drug=..., ..., bands=True, seed=7)                # v0.2: .divergence[..]["separation"]/["variance_share"]
 hypnos.simulate_interaction(ds, surface_id, pk_a=.., pk_b=.., ...)    # two-drug response surface
 hypnos.mac(ds, agent_id, age=.., end_tidal_pct=.., n2o_end_tidal_pct=..)  # volatile MAC + fraction
 hypnos.washin_comparison(ds)                                         # inhalational wash-in (FA/FI) across agents
@@ -478,6 +528,7 @@ hypnos.validate_dataset(ds)                                           # -> list 
 | **C — Breadth** | dexmedetomidine, ketamine, midazolam, fentanyl family; pediatric models with explicit Tier-D labeling | ✅ core shipped (dexmedetomidine + the pediatric pair Kataria & Paedfusor executable with explicit pediatric/geriatric extrapolation labeling and a live pediatric model-divergence; fentanyl curated, kernel pending; ketamine/midazolam roadmap) |
 | **D — Inhalational + NMB** | volatile MAC/partition/uptake; neuromuscular blockers + train-of-four; sugammadex reversal | ✅ core shipped (4 volatiles with MAC age-correction + additivity + solubility-driven wash-in (FA/FI uptake) and wash-out (FA/FA₀ emergence) all executable; rocuronium seeded with TOF PD; rocuronium PK kernel + sugammadex binding kinetics pending) |
 | **E — Hardening** | external-validation MDPE/MDAPE backfill; COMBINE `.omex`; Zenodo DOI | ✅ core shipped (deterministic `.omex` + BibTeX exporters; `scripts/regenerate.py`; `.zenodo.json` + `CHANGELOG.md`; external-validation MDPE/MDAPE backfilled across both headline drugs + dexmedetomidine, citation-integrity-checked and surfaced via `hypnos performance`; minted DOI on first tagged release) |
+| **v0.2 — Population-variability layer** | curate Ω/Σ random effects; seeded prediction bands; uncertainty-aware divergence (separation index + variance decomposition); export the NLME object ([spec](docs/specs/v0.2/variability.md)) | 🟢 V0–V2 shipped + V3 partial (Eleveld propofol Ω-diagonal + Σ curated `unverified` with the §4-trap validate checks; `simulate`/`compare --bands` draw seeded, reproducible bands with the never-synthesize rule; NONMEM `$OMEGA`/`$SIGMA` + TCI-JSON carry it). **Remaining:** `$OMEGA BLOCK` + PharmML/nlmixr2/Pumas random effects; BSV backfill for Schnider/opioids/dexmedetomidine; PD random effects; dashboard ribbons |
 
 ---
 

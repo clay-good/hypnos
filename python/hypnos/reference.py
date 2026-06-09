@@ -212,6 +212,92 @@ def simulate(params: MicroParams, dosing: Dosing, t: np.ndarray) -> Trajectory:
 
 
 # --------------------------------------------------------------------------- #
+# Population variability — virtual-individual sampling (v0.2 spec §6)
+# --------------------------------------------------------------------------- #
+# Symbols carried in the volumes/clearances view a curated BSV block may key on.
+_VC_SYMBOLS = ("V1", "V2", "V3", "Cl1", "Cl2", "Cl3", "ke0")
+
+
+def sample_individual(typical: MicroParams, omegas: Dict[str, float], rng) -> MicroParams:
+    """Draw one *virtual individual* by perturbing the typical-value parameters.
+
+    Exponential (log-normal) between-subject variability, the near-universal
+    convention for disposition parameters:
+
+        P_i = P_typical · exp(η_i),   η_i ~ N(0, ω²)
+
+    ``omegas`` maps a volumes/clearances symbol (V1, V2, V3, Cl1, Cl2, Cl3, ke0) to
+    its η-scale variance ω² (``omega2``). Parameters absent from ``omegas`` are held
+    at the typical value (no fabricated variability — spec §5). Draws are taken from
+    the caller-supplied seeded ``rng`` so a band is byte-reproducible (spec §6).
+
+    Off-diagonal Ω (correlated η's) is curated separately and not yet sampled here;
+    each η is drawn independently, which is the honest default a ``diagonal``
+    ``variability_status`` records (spec §3.3 / §5).
+    """
+    vc = typical.as_volumes_clearances()
+    for sym in _VC_SYMBOLS:
+        om2 = omegas.get(sym)
+        if om2 and om2 > 0 and vc.get(sym, 0.0) > 0:
+            vc[sym] = vc[sym] * math.exp(rng.normal(0.0, math.sqrt(om2)))
+    return MicroParams.from_volumes_clearances(
+        V1=vc["V1"], Cl1=vc["Cl1"], V2=vc["V2"], Cl2=vc["Cl2"],
+        V3=vc["V3"], Cl3=vc["Cl3"], ke0=vc["ke0"],
+    )
+
+
+def residual_std(
+    conc: np.ndarray,
+    model: str,
+    *,
+    prop_var: Optional[float] = None,
+    add_sd: Optional[float] = None,
+    log_sd: Optional[float] = None,
+) -> np.ndarray:
+    """Pointwise residual standard deviation of an *observation* given the predicted
+    concentration ``conc`` and a residual-error model (spec §2.2).
+
+    * ``proportional`` — SD = conc · sqrt(prop_var)
+    * ``additive``     — SD = add_sd (constant)
+    * ``combined``     — SD = sqrt((conc·sqrt(prop_var))² + add_sd²)
+    * ``log``          — additive on log scale; SD ≈ conc · sqrt(exp(log_sd²) − 1)
+    """
+    conc = np.asarray(conc, dtype=float)
+    if model == "proportional":
+        return conc * math.sqrt(prop_var or 0.0)
+    if model == "additive":
+        return np.full_like(conc, float(add_sd or 0.0))
+    if model == "combined":
+        return np.sqrt((conc * math.sqrt(prop_var or 0.0)) ** 2 + float(add_sd or 0.0) ** 2)
+    if model == "log":
+        return conc * math.sqrt(math.exp(float(log_sd or 0.0) ** 2) - 1.0)
+    raise ValueError(f"unknown residual-error model {model!r}")
+
+
+def apply_residual(
+    conc: np.ndarray,
+    model: str,
+    rng,
+    *,
+    prop_var: Optional[float] = None,
+    add_sd: Optional[float] = None,
+    log_sd: Optional[float] = None,
+) -> np.ndarray:
+    """Draw observation-level samples by applying residual error to a trajectory."""
+    conc = np.asarray(conc, dtype=float)
+    if model == "log":
+        return conc * np.exp(rng.normal(0.0, float(log_sd or 0.0), size=conc.shape))
+    if model == "additive":
+        return conc + rng.normal(0.0, float(add_sd or 0.0), size=conc.shape)
+    if model == "proportional":
+        return conc * (1.0 + rng.normal(0.0, math.sqrt(prop_var or 0.0), size=conc.shape))
+    if model == "combined":
+        return conc * (1.0 + rng.normal(0.0, math.sqrt(prop_var or 0.0), size=conc.shape)) \
+            + rng.normal(0.0, float(add_sd or 0.0), size=conc.shape)
+    raise ValueError(f"unknown residual-error model {model!r}")
+
+
+# --------------------------------------------------------------------------- #
 # Independent numerical solver (for cross-validation only)
 # --------------------------------------------------------------------------- #
 def simulate_numeric(params: MicroParams, dosing: Dosing, t: np.ndarray) -> Trajectory:

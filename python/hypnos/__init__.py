@@ -8,7 +8,7 @@ See spec §10.
 """
 from __future__ import annotations
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 CLINICAL_USE = "PROHIBITED — research/education/simulation only"
 
@@ -25,7 +25,14 @@ from .inhalational import (  # noqa: E402
     washout_comparison,
 )
 from .load import Dataset, load  # noqa: E402
-from .models import Model, worst_tier  # noqa: E402
+from .models import (  # noqa: E402
+    Model,
+    OmegaBlock,
+    Parameter,
+    ParameterVariability,
+    ResidualError,
+    worst_tier,
+)
 from .simulate import (  # noqa: E402
     Comparison,
     InteractionResult,
@@ -49,6 +56,10 @@ __all__ = [
     "load",
     "Dataset",
     "Model",
+    "Parameter",
+    "ParameterVariability",
+    "ResidualError",
+    "OmegaBlock",
     "select",
     "summary",
     "performance_table",

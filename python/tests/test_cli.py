@@ -39,6 +39,16 @@ def test_compare_cli(capsys):
     assert "excluded for envelope" in out
 
 
+def test_compare_bands_cli(capsys):
+    rc = main(["compare", "--drug", "propofol", "--age", "72", "--weight", "60",
+               "--height", "162", "--sex", "F", "--bands", "--samples", "200", "--seed", "7"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "band-tier B" in out          # Eleveld earns a band
+    assert "variance share" in out       # variance decomposition surfaced
+    assert "excluded from band metrics" in out  # Marsh/Schnider named, not fabricated
+
+
 def test_export_cli(tmp_path, capsys):
     rc = main(["export", "--format", "sbml", "--output", str(tmp_path),
                "--model", "hypnotics_iv.propofol.schnider_1998"])

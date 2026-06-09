@@ -255,6 +255,64 @@ def _fig_washout(ds, plt) -> None:
     plt.close(fig)
 
 
+def _fig_variability(ds, plt) -> None:
+    """v0.2 headline: the prediction band + variance decomposition.
+
+    Of the three propofol models eligible for the elderly patient, only Eleveld
+    publishes the random-effects structure, so only it earns a band; Marsh and
+    Schnider are drawn as bare median lines and named as excluded from the band
+    math — the never-synthesize rule made visible (a missing band is honest, a
+    borrowed one is a lie with error bars).
+    """
+    t = np.linspace(0, 60, 361)
+    sched = [("bolus", 0.0, "2 mg/kg"), ("infusion", 0.0, "6 mg/kg/h")]
+    patient = dict(age=72, weight=60, height=162, sex="F")
+    cmp = hypnos.compare(ds, drug="propofol", patient=patient, schedule=sched, t=t,
+                         bands=True, percentile=(5, 95), samples=2000, seed=7)
+
+    fig, (axL, axR) = plt.subplots(1, 2, figsize=(13, 4.8))
+    for r in sorted(cmp.included, key=lambda r: r.model_id):
+        if float(np.max(r.ce)) <= 0:
+            continue
+        name = r.model_id.split(".")[-1]
+        color = _COLORS.get(name, "#333")
+        if r.ce_quantiles is not None:
+            lo, hi = r.band_percentile
+            axL.fill_between(t, r.ce_quantiles[lo], r.ce_quantiles[hi], color=color, alpha=0.18,
+                             label=f"{name} {lo}–{hi}% band (band-tier {r.band_tier})")
+            axL.plot(t, r.ce_quantiles[50], color=color, lw=2.4)
+        else:
+            axL.plot(t, r.ce, color=color, lw=2.0, ls="--",
+                     label=f"{name} (tier {r.tier} — no published BSV; line only)")
+    axL.set_title("Propofol effect-site — only Eleveld publishes between-subject\n"
+                  "variability, so only Eleveld earns a band (never-synthesize rule)", fontsize=11)
+    axL.set_xlabel("time (min)"); axL.set_ylabel("propofol Ce (µg/mL)")
+    axL.legend(fontsize=8.5); axL.grid(alpha=0.25)
+
+    # right: time-resolved variance decomposition for the band-eligible model
+    elev = next(r for r in cmp.included if r.ce_quantiles is not None)
+    bsv = elev.ce_bsv_var
+    res = elev.ce_resid_var
+    total = bsv + res
+    with np.errstate(divide="ignore", invalid="ignore"):
+        f_bsv = np.where(total > 0, bsv / total, 0.0)
+        f_res = np.where(total > 0, res / total, 0.0)
+    axR.stackplot(t, f_bsv, f_res, labels=["between-subject (η / Ω)", "residual (ε / Σ)"],
+                  colors=["#2ca02c", "#bbbbbb"], alpha=0.85)
+    vs = cmp.divergence["ce"]["variance_share"]
+    axR.axvline(vs["t_star_min"], color="#333", ls=":", lw=1)
+    axR.set_ylim(0, 1); axR.set_xlim(t.min(), t.max())
+    axR.set_title("Where does the uncertainty come from? (Eleveld)\n"
+                  f"at t*={vs['t_star_min']:g} min: BSV {vs['bsv']:.0%} vs residual {vs['residual']:.0%}"
+                  "  — the patient, not the assay", fontsize=11)
+    axR.set_xlabel("time (min)"); axR.set_ylabel("share of within-model predictive variance")
+    axR.legend(fontsize=9, loc="lower right")
+    fig.suptitle("Hypnos v0.2 — population-variability layer (seeded, reproducible bands)"
+                 f"  ·  {_DISCLAIMER}", y=1.02)
+    fig.tight_layout(); fig.savefig(IMAGES / "variability.png", dpi=130, bbox_inches="tight")
+    plt.close(fig)
+
+
 def regenerate_figures(ds) -> bool:
     try:
         import matplotlib
@@ -270,7 +328,9 @@ def regenerate_figures(ds) -> bool:
     _fig_mac_age(ds, plt)
     _fig_washin(ds, plt)
     _fig_washout(ds, plt)
-    print(f"figures: regenerated divergence, synergy, pediatric, mac_age, washin, washout -> {IMAGES}/")
+    _fig_variability(ds, plt)
+    print(f"figures: regenerated divergence, synergy, pediatric, mac_age, washin, washout, "
+          f"variability -> {IMAGES}/")
     return True
 
 

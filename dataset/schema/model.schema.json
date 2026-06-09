@@ -72,7 +72,8 @@
           "covariate_model": { "type": "string", "description": "Verbatim published equation, for human verification and export." },
           "tier": { "type": "string", "enum": ["A", "B", "C", "D"] },
           "extraction": { "$ref": "#/$defs/extraction" },
-          "primary_citation": { "type": "string" }
+          "primary_citation": { "type": "string" },
+          "variability": { "$ref": "#/$defs/parameter_variability" }
         }
       }
     },
@@ -127,12 +128,111 @@
         }
       }
     },
+    "residual_error": { "$ref": "#/$defs/residual_error" },
+    "omega_block": { "$ref": "#/$defs/omega_block" },
+    "variability_status": {
+      "type": "string",
+      "description": "Rollup of how much of the NLME random-effects structure is curated; drives band eligibility (v0.2 spec §5).",
+      "enum": ["none", "partial", "diagonal", "full"]
+    },
     "tier": { "type": "string", "enum": ["A", "B", "C", "D"] },
     "extraction": { "$ref": "#/$defs/extraction" },
     "primary_citation": { "type": "string" },
     "notes": { "type": "string" }
   },
   "$defs": {
+    "parameter_variability": {
+      "type": "object",
+      "description": "Between-subject (and optional inter-occasion) variability for ONE structural parameter (v0.2 spec §3.1). Has its own tier and extraction, independent of the point-estimate tier.",
+      "required": ["tier", "extraction"],
+      "additionalProperties": false,
+      "properties": {
+        "bsv": {
+          "type": "object",
+          "description": "Between-subject variability on the eta (log) scale by default.",
+          "required": ["omega2"],
+          "additionalProperties": false,
+          "properties": {
+            "omega2": { "type": ["number", "null"], "description": "CANONICAL: variance on the eta scale (the NONMEM $OMEGA diagonal entry)." },
+            "distribution": { "type": "string", "enum": ["exponential", "additive", "logit"], "default": "exponential", "description": "exponential (log-normal) BSV unless stated; additive BSV puts omega2 on the natural scale." },
+            "cv_percent": { "type": ["number", "null"], "description": "OPTIONAL human-readable convenience; checked-consistent with omega2 (spec §4 Trap 1)." },
+            "shrinkage_percent": { "type": ["number", "null"], "description": "eta-shrinkage if the source reports it (interpretation caveat, spec §4 Trap 4)." }
+          }
+        },
+        "iov": {
+          "type": "object",
+          "description": "Inter-occasion variability, only when separately published; NEVER folded into bsv (spec §2.3).",
+          "additionalProperties": false,
+          "properties": { "omega2": { "type": ["number", "null"] } }
+        },
+        "tier": { "type": "string", "enum": ["A", "B", "C", "D"] },
+        "extraction": { "$ref": "#/$defs/extraction" },
+        "primary_citation": { "type": "string" }
+      }
+    },
+    "residual_error": {
+      "type": "object",
+      "description": "Residual unexplained variability — the Sigma layer (v0.2 spec §3.2). Each term labels its scale (variance vs sd) in the key name, because variance-vs-SD is the most common Sigma transcription error.",
+      "required": ["model", "tier", "extraction"],
+      "additionalProperties": false,
+      "properties": {
+        "model": { "type": "string", "enum": ["proportional", "additive", "combined", "log"] },
+        "proportional": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "variance": { "type": ["number", "null"], "description": "sigma^2_prop on the multiplicative scale." },
+            "cv_percent": { "type": ["number", "null"] }
+          }
+        },
+        "additive": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "sd": { "type": ["number", "null"], "description": "sigma_add in concentration units (note: SD, not variance)." },
+            "variance": { "type": ["number", "null"] },
+            "units": { "type": "string" }
+          }
+        },
+        "log": {
+          "type": "object",
+          "description": "Additive error on the natural-log concentration scale (approx. proportional on the natural scale).",
+          "additionalProperties": false,
+          "properties": {
+            "sd": { "type": ["number", "null"] },
+            "variance": { "type": ["number", "null"] }
+          }
+        },
+        "tier": { "type": "string", "enum": ["A", "B", "C", "D"] },
+        "extraction": { "$ref": "#/$defs/extraction" },
+        "primary_citation": { "type": "string" }
+      }
+    },
+    "omega_block": {
+      "type": "object",
+      "description": "Published off-diagonal Omega (correlated random effects). Present only when the source publishes covariances/correlations (v0.2 spec §3.3).",
+      "required": ["correlations", "complete", "tier", "extraction"],
+      "additionalProperties": false,
+      "properties": {
+        "correlations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["between", "correlation"],
+            "additionalProperties": false,
+            "properties": {
+              "between": { "type": "array", "items": { "type": "string" }, "minItems": 2, "maxItems": 2 },
+              "correlation": { "type": "number", "minimum": -1, "maximum": 1 },
+              "citation": { "type": ["string", "null"] }
+            }
+          }
+        },
+        "complete": { "type": "boolean", "description": "false => only the listed pairs are published; the rest are UNKNOWN, not zero." },
+        "tier": { "type": "string", "enum": ["A", "B", "C", "D"] },
+        "extraction": { "$ref": "#/$defs/extraction" },
+        "primary_citation": { "type": "string" }
+      }
+    },
     "range": {
       "type": "object",
       "additionalProperties": false,

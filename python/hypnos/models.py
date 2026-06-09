@@ -7,6 +7,7 @@ truth.
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
@@ -51,6 +52,73 @@ class Range:
 
 
 @dataclass(frozen=True)
+class ParameterVariability:
+    """Between-subject (and optional inter-occasion) variability for one parameter.
+
+    ``omega2`` is the canonical eta-scale variance (the NONMEM ``$OMEGA`` diagonal
+    entry); ``cv_percent`` is a derived convenience kept checked-consistent with it
+    (v0.2 spec §4 Trap 1).
+    """
+
+    omega2: Optional[float] = None
+    cv_percent: Optional[float] = None
+    shrinkage_percent: Optional[float] = None
+    distribution: str = "exponential"
+    iov_omega2: Optional[float] = None
+    tier: str = "D"
+    primary_citation: Optional[str] = None
+    extraction: Dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def cv_from_omega2(self) -> Optional[float]:
+        """Exact log-normal CV% recomputed from omega2 (the consistency reference)."""
+        if self.omega2 is None or self.omega2 < 0:
+            return None
+        return 100.0 * math.sqrt(math.exp(self.omega2) - 1.0)
+
+
+@dataclass(frozen=True)
+class ResidualError:
+    """The Sigma layer — residual unexplained variability (v0.2 spec §3.2)."""
+
+    model: str
+    proportional: Optional[Dict[str, Any]] = None
+    additive: Optional[Dict[str, Any]] = None
+    log: Optional[Dict[str, Any]] = None
+    tier: str = "D"
+    primary_citation: Optional[str] = None
+    extraction: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class OmegaBlock:
+    """Published off-diagonal Omega — correlated random effects (v0.2 spec §3.3)."""
+
+    correlations: List[Dict[str, Any]] = field(default_factory=list)
+    complete: bool = False
+    tier: str = "D"
+    primary_citation: Optional[str] = None
+    extraction: Dict[str, Any] = field(default_factory=dict)
+
+
+def _parse_param_variability(raw: Optional[Dict[str, Any]]) -> Optional[ParameterVariability]:
+    if not raw:
+        return None
+    bsv = raw.get("bsv") or {}
+    iov = raw.get("iov") or {}
+    return ParameterVariability(
+        omega2=bsv.get("omega2"),
+        cv_percent=bsv.get("cv_percent"),
+        shrinkage_percent=bsv.get("shrinkage_percent"),
+        distribution=bsv.get("distribution", "exponential"),
+        iov_omega2=iov.get("omega2"),
+        tier=raw.get("tier", "D"),
+        primary_citation=raw.get("primary_citation"),
+        extraction=raw.get("extraction", {}),
+    )
+
+
+@dataclass(frozen=True)
 class Parameter:
     symbol: str
     value: Dict[str, Any]
@@ -59,6 +127,7 @@ class Parameter:
     label: Optional[str] = None
     primary_citation: Optional[str] = None
     extraction: Dict[str, Any] = field(default_factory=dict)
+    variability: Optional[ParameterVariability] = None
 
     @property
     def central(self) -> Optional[float]:
@@ -205,6 +274,7 @@ class Model:
                     label=p.get("label"),
                     primary_citation=p.get("primary_citation"),
                     extraction=p.get("extraction", {}),
+                    variability=_parse_param_variability(p.get("variability")),
                 )
             )
         return out
@@ -266,6 +336,84 @@ class Model:
                 continue
             out.append({"value": pp["value"], "citation": pp.get("citation")})
         return out
+
+    # --- variability (v0.2 population-variability layer) -------------------
+    @property
+    def variability_status(self) -> str:
+        """Rollup: 'none' | 'partial' | 'diagonal' | 'full' (default 'none')."""
+        return self.raw.get("variability_status", "none")
+
+    @property
+    def has_published_variability(self) -> bool:
+        """True when the model carries any curated random-effects structure.
+
+        The never-synthesize rule (spec §5): a model with no published BSV draws
+        no band — a missing band is a true statement, a borrowed one is a lie.
+        """
+        return self.variability_status not in (None, "none")
+
+    @property
+    def residual_error(self) -> Optional[ResidualError]:
+        raw = self.raw.get("residual_error")
+        if not raw:
+            return None
+        return ResidualError(
+            model=raw["model"],
+            proportional=raw.get("proportional"),
+            additive=raw.get("additive"),
+            log=raw.get("log"),
+            tier=raw.get("tier", "D"),
+            primary_citation=raw.get("primary_citation"),
+            extraction=raw.get("extraction", {}),
+        )
+
+    @property
+    def omega_block(self) -> Optional[OmegaBlock]:
+        raw = self.raw.get("omega_block")
+        if not raw:
+            return None
+        return OmegaBlock(
+            correlations=raw.get("correlations", []),
+            complete=raw.get("complete", False),
+            tier=raw.get("tier", "D"),
+            primary_citation=raw.get("primary_citation"),
+            extraction=raw.get("extraction", {}),
+        )
+
+    def bsv_omegas(self) -> Dict[str, float]:
+        """Map of structural-parameter symbol -> omega2 for parameters carrying BSV."""
+        out: Dict[str, float] = {}
+        for p in self.parameters:
+            if p.variability and p.variability.omega2 is not None:
+                out[p.symbol] = float(p.variability.omega2)
+        return out
+
+    @property
+    def variability_tier(self) -> Optional[str]:
+        """Worst tier among the curated variability components (None if uncurated).
+
+        The variability layer is typically the least externally-validated component,
+        so this usually drives ``band_tier`` below the point-estimate tier (spec §5).
+        """
+        tiers = [p.variability.tier for p in self.parameters
+                 if p.variability and p.variability.omega2 is not None]
+        if self.residual_error is not None:
+            tiers.append(self.residual_error.tier)
+        if self.omega_block is not None:
+            tiers.append(self.omega_block.tier)
+        return worst_tier(tiers) if tiers else None
+
+    @property
+    def band_tier(self) -> Optional[str]:
+        """Tier of a prediction band: worst of the structural and variability tiers.
+
+        The median line keeps its v0.1 tier; the band around it may be labeled
+        lower (spec §5). ``None`` when the model publishes no variability (no band).
+        """
+        if not self.has_published_variability:
+            return None
+        vt = self.variability_tier
+        return worst_tier([self.tier, vt]) if vt else self.tier
 
     def __repr__(self) -> str:  # pragma: no cover - cosmetic
         return f"<Model {self.id} tier={self.tier} review={self.review_status}>"

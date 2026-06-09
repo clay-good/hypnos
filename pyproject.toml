@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hypnos-pkpd"
-version = "0.1.0"
+version = "0.2.0"
 description = "Curated, citation-backed, tier-annotated dataset of anesthetic PK/PD models with envelope-aware forward simulation and pharmacometric exports."
 readme = "README.md"
 requires-python = ">=3.9"

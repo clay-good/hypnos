@@ -99,6 +99,14 @@ def cmd_simulate(args) -> int:
     return 0
 
 
+def _parse_percentile(spec: str) -> tuple:
+    """Parse a '5,95' percentile pair into a (lo, hi) int tuple."""
+    parts = [int(x) for x in str(spec).split(",")]
+    if len(parts) != 2:
+        raise ValueError(f"--percentile expects 'lo,hi' (e.g. '5,95'), got {spec!r}")
+    return (parts[0], parts[1])
+
+
 def _mdape_str(model) -> str:
     """Compact in-envelope MDAPE (inaccuracy) badge for the divergence view."""
     vals = sorted({e["value"] for e in model.predictive_mdape})
@@ -113,16 +121,30 @@ def cmd_compare(args) -> int:
     ds = load()
     patient = _patient_from_args(args)
     t = np.linspace(0.0, args.tmax, args.n)
+    pct = _parse_percentile(args.percentile)
     cmp = compare_models(ds, drug=args.drug, patient=patient,
-                         schedule=_default_schedule_for(args.drug), t=t)
+                         schedule=_default_schedule_for(args.drug), t=t,
+                         bands=args.bands, percentile=pct, samples=args.samples,
+                         seed=args.seed if args.bands else None)
     cu = cmp.concentration_unit
+    cf = cmp.conc_factor
     print(f"drug: {cmp.drug}   patient: {patient}   (concentrations in {cu})")
     print(f"included ({len(cmp.included)}):")
     for r in cmp.included:
         peak = r.ce_peak_display if r.ce_peak > 0 else r.cp_peak_display
         kind = "Ce" if r.ce_peak > 0 else "Cp"
         acc = _mdape_str(ds[r.model_id])
-        print(f"  - {r.model_id:42s} tier {r.tier}  {kind} peak {peak:.3f} {cu}   {acc}")
+        bt = ""
+        if args.bands:
+            q = r.ce_quantiles if r.ce_peak > 0 else r.cp_quantiles
+            if q is not None:
+                lo, hi = r.band_percentile
+                pk = float(np.max(q[50]))
+                bt = (f"  band-tier {r.band_tier}  {kind} {pk*cf:.2f} "
+                      f"[{float(np.max(q[lo]))*cf:.2f}, {float(np.max(q[hi]))*cf:.2f}]")
+            else:
+                bt = "  band-tier — (no published BSV; line only)"
+        print(f"  - {r.model_id:42s} tier {r.tier}  {kind} peak {peak:.3f} {cu}   {acc}{bt}")
     if cmp.excluded:
         print(f"excluded for envelope ({len(cmp.excluded)}):")
         for e in cmp.excluded:
@@ -131,7 +153,6 @@ def cmd_compare(args) -> int:
         print(f"unavailable ({len(cmp.unavailable)}):")
         for u in cmp.unavailable:
             print(f"  - {u['model_id']:42s} ({u['reason']})")
-    cf = cmp.conc_factor
     for key, label in [("cp", "plasma"), ("ce", "effect-site")]:
         d = cmp.divergence.get(key) or {}
         if not d:
@@ -142,6 +163,19 @@ def cmd_compare(args) -> int:
         if drv:
             line += (f"  (driver: {drv['high'].split('.')[-1]} vs {drv['low'].split('.')[-1]})")
         print(line)
+        sep = d.get("separation")
+        if sep is not None:
+            disj = "DISJOINT" if sep["bands_disjoint_at_tstar"] else "overlapping"
+            print(f"  separation@t* {sep['value']:+g} (bands {disj}); "
+                  f"{100*sep['fraction_trajectory_disjoint']:.0f}% of trajectory disjoint "
+                  f"[{sep['percentile'][0]}-{sep['percentile'][1]}%, band-tier {sep['band_tier']}]")
+        vs = d.get("variance_share")
+        if vs is not None:
+            print(f"  variance share @ t*={vs['t_star_min']:g} min: "
+                  f"structural {vs['structural']:.2f} | BSV {vs['bsv']:.2f} | residual {vs['residual']:.2f}")
+    if args.bands and cmp.excluded_from_bands:
+        for e in cmp.excluded_from_bands:
+            print(f"  note: {e['model_id'].split('.')[-1]} excluded from band metrics ({e['reason']})")
     return 0
 
 
@@ -442,6 +476,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     cp = sub.add_parser("compare", help="model-divergence comparison")
     cp.add_argument("--drug", required=True)
+    cp.add_argument("--bands", action="store_true",
+                    help="draw seeded prediction bands + uncertainty-aware divergence (v0.2)")
+    cp.add_argument("--percentile", default="5,95", help="band percentile pair, e.g. '5,95'")
+    cp.add_argument("--samples", type=int, default=2000, help="Monte-Carlo draws per model")
+    cp.add_argument("--seed", type=int, default=7, help="RNG seed (bands are byte-reproducible)")
     _add_patient_args(cp)
     cp.set_defaults(func=cmd_compare)
 

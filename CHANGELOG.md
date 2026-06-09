@@ -8,6 +8,60 @@ version is pinned in `dataset/VERSION` and stamped into every export as
 
 ## [Unreleased]
 
+### v0.2 — the population-variability layer (V0–V2; V3 partial) (2026-06-09)
+Curate the **random-effects** structure of population models — between-subject
+variability (η / Ω) and residual error (ε / Σ) — alongside the typical-value
+parameters Hypnos already curates, propagate it as seeded Monte-Carlo prediction
+bands, and upgrade the divergence view from "the point estimates differ by *X*"
+to the sharper question *do the models disagree beyond their own stated
+uncertainty?* Full design in [`docs/specs/v0.2/variability.md`](docs/specs/v0.2/variability.md).
+Dataset/schema bump **0.1.0 → 0.2.0**; additive and backward-compatible (every
+v0.1 record stays valid; the variability block is optional).
+
+- **Schema (V0).** New optional `parameters[].variability` (per-parameter `bsv.omega2`
+  — the canonical η-scale variance, the NONMEM `$OMEGA` diagonal entry — plus a
+  checked-consistent `cv_percent`, optional `shrinkage_percent`/`iov`, its own tier
+  and extraction), model-root `residual_error` (Σ: `proportional`/`additive`/`log`,
+  scale labeled in the key name), `omega_block` (off-diagonal Ω), and a
+  `variability_status` rollup (`none|partial|diagonal|full`). `required` lists
+  unchanged; `additionalProperties:false` preserved.
+- **Curation (V0).** **Eleveld 2018 propofol** carries the full Ω diagonal (ω² on
+  V1/V2/V3/CL/Q2/Q3/ke0) + the log-additive Σ (σ=0.191), cross-checked against the
+  `tci` R package (the same source Hypnos already cross-checks its kernels against),
+  curated **`unverified`** with the §4-trap checklist in each `tier_rationale`.
+  The variability layer carries its **own tier** (B), so the band is honestly
+  labeled below the Tier-A median line it surrounds.
+- **`hypnos validate` (V0).** Three new consistency checks (spec §9): `cv_percent`
+  recomputes from `omega2` within tolerance (catches the variance/SD/CV% confusion,
+  Trap 1); every variability/residual/omega-block citation resolves; and
+  `variability_status` matches the curated contents (no `full` without an
+  `omega_block`, no `none` hiding a curated ω²).
+- **Bands (V1).** New `reference.sample_individual` draws a virtual individual
+  (`P_i = P_typ·exp(η)`, seeded) + `residual_std`/`apply_residual` for the Σ layer.
+  `simulate(..., bands=True, percentile=(5,95), samples=2000, seed=…)` returns
+  byte-reproducible `cp_quantiles`/`ce_quantiles` and a propagated `band_tier`.
+  The **never-synthesize rule** is enforced: a model with no published BSV (Marsh,
+  Schnider, the pediatric pair) draws **no band** and says why — a missing band is
+  a true statement; a borrowed one is a lie with error bars.
+- **Uncertainty-aware divergence (V2).** `compare(..., bands=True, seed=…)` adds two
+  machine-readable readouts to `divergence["cp"]`/`["ce"]`: a **separation index**
+  (at the instant of peak median spread, are the driver models' bands disjoint? —
+  the share of the trajectory where they separate is model-selection risk you cannot
+  variability-away) and a **variance decomposition** (structural vs BSV vs residual
+  share of the total predictive variance). Models with no BSV are **named** in
+  `excluded_from_bands`, never silently dropped. Surfaced in `hypnos compare --bands
+  --percentile 5,95 --samples … --seed …`. New `variability.png` figure.
+- **Exports (V3, partial).** **NONMEM** now emits the real `$OMEGA` diagonal (with
+  `EXP(ETA(.))` wired into `$PK` and CV annotations) and `$SIGMA` from the residual
+  model — the single most natural upgrade from v0.1's `$OMEGA 0 FIX` placeholder;
+  models with no BSV keep `0 FIX` and name the missing component. **TCI-JSON** carries
+  the `variability` block losslessly. Remaining: `$OMEGA BLOCK`, PharmML/nlmixr2/Pumas
+  random effects, and BSV backfill for the other models.
+- **Safety.** Unchanged and tightened in proportion: bands describe a *given* forward
+  dose history and never invert one (no quantile-targeting), and every band is labeled
+  a statement about the *model's stated uncertainty*, not a claim about a real patient.
+  `clinicalUse = "PROHIBITED"` remains universal. 26 new tests; suite 215 green.
+
 ### Inhalational wash-out (FA/FA₀ emergence) — the offset mirror of wash-in (2026-06-09)
 - **`hypnos.washout` / `washout_comparison` + `hypnos washout` CLI** — the
   emergence (offset) companion to wash-in, completing the volatile onset→offset

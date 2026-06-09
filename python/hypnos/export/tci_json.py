@@ -30,6 +30,21 @@ def build_dict(model, ds=None, patient: Optional[Dict[str, Any]] = None) -> Dict
         "instantiated_for": pat,
         "provenance": annotate.provenance(model, ds),
     }
+    # v0.2 population-variability layer — lossless passthrough (it is JSON). A
+    # consumer can pin reproducibility AND know how much of the NLME object is
+    # curated; the never-synthesize rule means absence is a true "not curated".
+    if model.has_published_variability:
+        doc["variability"] = {
+            "variability_status": model.variability_status,
+            "band_tier": model.band_tier,
+            "bsv": {p.symbol: {"omega2": p.variability.omega2, "cv_percent": p.variability.cv_percent}
+                    for p in model.parameters if p.variability and p.variability.omega2 is not None},
+            "residual_error": model.raw.get("residual_error"),
+            "omega_block": model.raw.get("omega_block"),
+        }
+    else:
+        doc["variability"] = {"variability_status": "none",
+                              "note": "no published between-subject variability (no band)"}
     if model.kernel_implemented and model.kernel_function in KERNELS:
         params = KERNELS[model.kernel_function](pat)
         doc["instantiated_parameters"] = {

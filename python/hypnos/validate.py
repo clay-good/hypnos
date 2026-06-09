@@ -108,6 +108,79 @@ def validate_dataset(ds: Optional[Dataset] = None) -> List[str]:
         if m.id.split(".")[0] != m.subsystem:
             problems.append(f"[id] {m.id}: id prefix does not match subsystem '{m.subsystem}'")
 
+        # --- variability layer (v0.2 spec §9) -----------------------------
+        problems.extend(_check_variability(m, known_citations))
+
+    return problems
+
+
+# cv_percent vs omega2 consistency tolerance: the stored convenience value is
+# rounded for human display, so allow ~1 CV-percentage-point of slack.
+_CV_TOL = 1.0
+
+
+def _check_variability(m, known_citations) -> List[str]:
+    """Variability-layer consistency checks (spec §9): cv<->omega2, citations
+    resolve, and variability_status matches the curated contents."""
+    problems: List[str] = []
+
+    has_bsv = False
+    for p in m.parameters:
+        v = p.variability
+        if v is None:
+            continue
+        if v.omega2 is not None:
+            has_bsv = True
+        # (1) cv_percent recomputes from omega2 within tolerance (Trap 1)
+        if v.cv_percent is not None and v.cv_from_omega2 is not None:
+            if abs(v.cv_percent - v.cv_from_omega2) > _CV_TOL:
+                problems.append(
+                    f"[variability] {m.id}: parameter {p.symbol} cv_percent "
+                    f"{v.cv_percent:g} disagrees with omega2-derived "
+                    f"{v.cv_from_omega2:.1f} (>{_CV_TOL} pp — variance/SD/CV confusion?)"
+                )
+        # (2) variability citations resolve
+        if v.primary_citation and v.primary_citation not in known_citations:
+            problems.append(
+                f"[cite] {m.id}: parameter {p.symbol} variability cites unknown "
+                f"'{v.primary_citation}'"
+            )
+
+    re_ = m.residual_error
+    if re_ is not None and re_.primary_citation and re_.primary_citation not in known_citations:
+        problems.append(f"[cite] {m.id}: residual_error cites unknown '{re_.primary_citation}'")
+
+    ob = m.omega_block
+    if ob is not None and ob.primary_citation and ob.primary_citation not in known_citations:
+        problems.append(f"[cite] {m.id}: omega_block cites unknown '{ob.primary_citation}'")
+
+    # (3) variability_status matches the actual contents
+    status = m.variability_status
+    if status == "none":
+        if has_bsv or re_ is not None or ob is not None:
+            problems.append(
+                f"[variability] {m.id}: variability_status 'none' but curated "
+                "BSV/residual/omega_block is present"
+            )
+    elif status == "full":
+        if ob is None:
+            problems.append(
+                f"[variability] {m.id}: variability_status 'full' requires an omega_block"
+            )
+        if not has_bsv:
+            problems.append(f"[variability] {m.id}: variability_status 'full' requires BSV")
+    elif status in ("partial", "diagonal"):
+        if not has_bsv:
+            problems.append(
+                f"[variability] {m.id}: variability_status '{status}' requires at least "
+                "one parameter carrying BSV"
+            )
+        if status == "diagonal" and ob is not None and ob.complete:
+            problems.append(
+                f"[variability] {m.id}: variability_status 'diagonal' but a complete "
+                "omega_block is present (should be 'full')"
+            )
+
     return problems
 
 

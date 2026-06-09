@@ -76,6 +76,31 @@ def test_compare_groups_and_divergence(ds):
     assert cmp.divergence["ce"]["max_abs"] > 0.5  # the models genuinely disagree
 
 
+def test_divergence_names_the_driver_pair(ds):
+    # the spread says how much; the driver says which model is the outlier.
+    patient = dict(age=72, weight=60, height=162, sex="F")
+    cmp = hypnos.compare(ds, drug="propofol", patient=patient, schedule=SCHED, t=T)
+    drv = cmp.divergence["ce"]["driver"]
+    # Schnider's small fixed V1 + fast ke0 make it the effect-site outlier here
+    assert SCHNIDER in (drv["high"], drv["low"])
+    assert drv["high"] != drv["low"]
+    # the named gap equals the reported peak absolute spread
+    assert abs(drv["gap"] - cmp.divergence["ce"]["max_abs"]) < 1e-9
+
+
+def test_plasma_divergence_spans_pk_only_models(ds):
+    # a pediatric compare: Kataria & Paedfusor are PK-only (no ce), so the effect-site
+    # spread can't see them — but the plasma spread must, and name the pair.
+    child = dict(age=6, weight=20, height=115, sex="M")
+    cmp = hypnos.compare(ds, drug="propofol", patient=child, schedule=SCHED, t=T)
+    cp = cmp.divergence["cp"]
+    assert cp and cp["max_abs"] > 0 and "driver" in cp
+    # at least the two pediatric models contribute to the plasma comparison
+    ids = {r.model_id for r in cmp.included}
+    assert "hypnotics_iv.propofol.kataria_1994" in ids
+    assert "hypnotics_iv.propofol.paedfusor_2005" in ids
+
+
 def test_compare_greys_out_envelope_violator(ds):
     obese = dict(age=40, weight=140, height=172, sex="M")
     cmp = hypnos.compare(ds, drug="propofol", patient=obese, schedule=SCHED, t=T)

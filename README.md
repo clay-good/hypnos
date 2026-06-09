@@ -27,7 +27,7 @@ The field has said so in print: *the availability of multiple PK/PD models for a
 
 ## The headline feature: the model-divergence view
 
-Pick a virtual patient and a dose schedule. Hypnos overlays the predicted plasma and effect-site curves from *every eligible model*, **greys out** the ones whose envelope the patient violates, and reports the **quantitative divergence** between them. This makes model-selection risk *visible and measurable*.
+Pick a virtual patient and a dose schedule. Hypnos overlays the predicted plasma and effect-site curves from *every eligible model*, **greys out** the ones whose envelope the patient violates, and reports the **quantitative divergence** between them — both the pooled peak spread (*how much* they disagree) and the **driver pair**, the two models furthest apart at the instant of peak disagreement (*which* model is the outlier). This makes model-selection risk *visible and measurable*.
 
 ![Hypnos model-divergence view](docs/images/divergence.png)
 
@@ -171,7 +171,7 @@ res.tier, res.warnings          # propagated tier + envelope/failure-mode warnin
 
 # Model-divergence comparison — the headline feature
 cmp = hypnos.compare(ds, drug="propofol", patient=patient, schedule=schedule, t=t)
-cmp.divergence["ce"]            # {'max_abs': 5.62, 'max_rel': 1.36, ...}
+cmp.divergence["ce"]            # {'max_abs': 5.62, 'max_rel': 1.69, 'driver': {'high': '...schnider_1998', 'low': '...marsh_1991', 'gap': 5.62}}
 cmp.excluded                    # models greyed out for envelope violation, with reasons
 ```
 
@@ -182,9 +182,9 @@ The **dataset is the single source of truth.** Everything else — simulation, e
 ```mermaid
 flowchart TD
     DS["<b>dataset/</b> — source of truth<br/>JSON model records + JSON Schema + JSON-LD context<br/>drugs · models · covariate eqs · envelopes · tiers · citations"]
-    DS --> PKG["<b>hypnos</b> Python package<br/>load · filter · validate · simulate · compare"]
-    PKG --> CLI["<b>hypnos</b> CLI<br/>version · validate · info · simulate · compare · export"]
-    PKG --> DASH["Streamlit dashboard<br/>browse + model-divergence view"]
+    DS --> PKG["<b>hypnos</b> Python package<br/>load · filter · validate<br/>simulate · compare (PK/PD + divergence)<br/>simulate_interaction (synergy surface)<br/>analysis (tpeak · decrement)<br/>inhalational (MAC · wash-in)<br/>verification (checklists, never promotes)"]
+    PKG --> CLI["<b>hypnos</b> CLI<br/>validate · info · models · status · verify<br/>simulate · compare · interact<br/>tpeak · decrement · mac · washin<br/>performance · export"]
+    PKG --> DASH["Streamlit dashboard<br/>drug-aware divergence + accuracy<br/>onset table · synergy"]
     PKG --> EXP["<b>hypnos.export</b><br/>format builders"]
     EXP --> NM["NONMEM control stream"]
     EXP --> PHARMML["PharmML projection"]
@@ -344,12 +344,12 @@ Hypnos ships tooling to *support* that work without doing it for you:
 
 ```text
 $ hypnos status
-verification coverage: 0/15 verified (0%)   unverified 15   contested 0
+verification coverage: 0/19 verified (0%)   unverified 19   contested 0
 
 start here (highest-leverage unverified models — implemented kernel + best tier first):
-  - alpha2_agonists.dexmedetomidine.hannivoort_2015  tier B  kernel   cite hannivoort-2015-dexmedetomidine
-  - hypnotics_iv.propofol.marsh_1991                 tier B  kernel   cite marsh-1991-propofol-pk
-  - hypnotics_iv.propofol.schnider_1998              tier B  kernel   cite schnider-1998-propofol-pk
+  - hypnotics_iv.propofol.eleveld_2018               tier A  kernel   cite eleveld-2018-propofol
+  - opioids.remifentanil.eleveld_2017                tier A  kernel   cite eleveld-2017-remifentanil
+  - opioids.remifentanil.kim_2017                    tier A  kernel   cite kim-2017-remifentanil
   ...
 
 $ hypnos verify hypnotics_iv.propofol.schnider_1998 --markdown   # copy-pasteable PR checklist

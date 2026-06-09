@@ -305,18 +305,30 @@ class Comparison:
         return concentration_factor(self.concentration_unit)
 
 
-def _divergence(results: List[SimulationResult], key: str) -> Dict[str, float]:
-    """Pointwise spread across models for cp or ce. Reports peak absolute and relative spread."""
+def _divergence(results: List[SimulationResult], key: str) -> Dict[str, Any]:
+    """Pointwise spread across models for cp or ce. Reports peak absolute and
+    relative spread, plus the **driver pair** — the two models furthest apart at the
+    instant of peak disagreement. The pooled spread says *how much* the models
+    disagree; the driver says *which* model is the outlier (e.g. Schnider vs the
+    rest), the actionable half of model-selection risk."""
     if len(results) < 2:
         return {}
     stack = np.vstack([getattr(r, key) for r in results])  # (n_models, n_t)
     spread = stack.max(axis=0) - stack.min(axis=0)
     mean = stack.mean(axis=0)
     rel = np.divide(spread, mean, out=np.zeros_like(spread), where=mean > 1e-9)
+    t_star = int(np.argmax(spread))               # the instant of widest disagreement
+    col = stack[:, t_star]
+    hi, lo = int(np.argmax(col)), int(np.argmin(col))
     return {
         "max_abs": float(spread.max()),
         "max_rel": float(rel.max()),
         "mean_rel": float(rel.mean()),
+        "driver": {
+            "high": results[hi].model_id,
+            "low": results[lo].model_id,
+            "gap": float(col[hi] - col[lo]),       # == max_abs, in internal ug/mL
+        },
     }
 
 

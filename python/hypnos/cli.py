@@ -131,10 +131,17 @@ def cmd_compare(args) -> int:
         print(f"unavailable ({len(cmp.unavailable)}):")
         for u in cmp.unavailable:
             print(f"  - {u['model_id']:42s} ({u['reason']})")
-    d = cmp.divergence.get("ce", {})
-    if d:
-        print(f"effect-site divergence across included models: "
-              f"peak abs {d['max_abs'] * cmp.conc_factor:.3f} {cu}, peak rel {100*d['max_rel']:.0f}%")
+    cf = cmp.conc_factor
+    for key, label in [("cp", "plasma"), ("ce", "effect-site")]:
+        d = cmp.divergence.get(key) or {}
+        if not d:
+            continue
+        line = (f"{label} divergence across included models: "
+                f"peak abs {d['max_abs'] * cf:.3f} {cu}, peak rel {100*d['max_rel']:.0f}%")
+        drv = d.get("driver")
+        if drv:
+            line += (f"  (driver: {drv['high'].split('.')[-1]} vs {drv['low'].split('.')[-1]})")
+        print(line)
     return 0
 
 

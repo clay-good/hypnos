@@ -103,6 +103,10 @@ with col2:
     if d:
         st.metric("Peak divergence across models", f"{d['max_abs'] * f:.2f} {unit}",
                   f"{100 * d['max_rel']:.0f}% peak relative spread")
+        drv = d.get("driver")
+        if drv:
+            st.caption(f"Driver of the disagreement: **{drv['high'].split('.')[-1]}** vs "
+                       f"**{drv['low'].split('.')[-1]}** (furthest apart at the peak instant).")
 
     # Onset (time-to-peak-effect) for models with a ke0 link
     onset = []

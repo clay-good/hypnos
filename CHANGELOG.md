@@ -8,6 +8,23 @@ version is pinned in `dataset/VERSION` and stamped into every export as
 
 ## [Unreleased]
 
+### Divergence quantification: name the driver + show plasma spread (2026-06-09)
+- The divergence metric now names the **driver pair** — the two models furthest
+  apart at the instant of peak disagreement — so the view reports not just *how
+  much* the models disagree but *which* one is the outlier (e.g. propofol elderly:
+  `driver: schnider_1998 vs marsh_1991`). `compare().divergence[...]` gains a
+  `driver` field; surfaced in `hypnos compare` and the dashboard.
+- **Fixed a real gap:** `hypnos compare` printed only the *effect-site* spread, so a
+  comparison whose included models are PK-only (the pediatric Kataria/Paedfusor pair,
+  or remifentanil with the PK-only Kim) showed *no* divergence line at all — hiding
+  the plasma divergence that is the whole point there. It now reports plasma and
+  effect-site spread separately, each with its driver.
+- **Housekeeping:** refreshed the stale `hypnos status` example in the README
+  (0/15 → 0/19, tier-A models now lead the verify-next list) and completed the
+  architecture diagram (it omitted the analysis, inhalational, and verification
+  modules and most CLI subcommands). Tests cover the driver and the PK-only plasma
+  spread.
+
 ### Kataria 1994 pediatric propofol — a live Kataria-vs-Paedfusor divergence (2026-06-09)
 - **`hypnotics_iv.propofol.kataria_1994`** executable kernel completes the spec's
   named pediatric pair (Kataria/Paedfusor, spec §1). Weight-proportional

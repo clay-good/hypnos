@@ -1,0 +1,97 @@
+{
+  "id": "hypnotics_iv.propofol.marsh_1991",
+  "subsystem": "hypnotics_iv",
+  "drug": { "name": "propofol", "unii": "YI7VU623SF", "atc": "N01AX10" },
+  "purpose": "pk",
+  "label": "Propofol PK — Marsh (1991)",
+  "structure": {
+    "compartments": 3,
+    "parameterization": "micro_rate_constants",
+    "elimination": "linear",
+    "effect_compartment": true
+  },
+  "kernel": { "implemented": true, "function": "propofol_marsh_1991" },
+  "parameters": [
+    {
+      "symbol": "V1", "label": "central volume",
+      "value": { "central": 15.96, "low": null, "high": null, "units": "L" },
+      "covariate_model": "V1 = 0.228 * WGT",
+      "tier": "B",
+      "extraction": { "review_status": "unverified", "tier_rationale": "Weight-proportional central volume; fixed micro-rate constants. Widely deployed (Diprifusor) but no age covariate.", "source_locator": "Marsh 1991, model constants" },
+      "primary_citation": "marsh-1991-propofol-pk"
+    },
+    {
+      "symbol": "k10", "label": "elimination rate constant",
+      "value": { "central": 0.119, "low": null, "high": null, "units": "1/min" },
+      "covariate_model": "k10 = 0.119",
+      "tier": "B",
+      "extraction": { "review_status": "unverified", "source_locator": "Marsh 1991" },
+      "primary_citation": "marsh-1991-propofol-pk"
+    },
+    {
+      "symbol": "k12",
+      "value": { "central": 0.112, "low": null, "high": null, "units": "1/min" },
+      "covariate_model": "k12 = 0.112",
+      "tier": "B",
+      "extraction": { "review_status": "unverified" },
+      "primary_citation": "marsh-1991-propofol-pk"
+    },
+    {
+      "symbol": "k13",
+      "value": { "central": 0.0419, "low": null, "high": null, "units": "1/min" },
+      "covariate_model": "k13 = 0.0419",
+      "tier": "B",
+      "extraction": { "review_status": "unverified" },
+      "primary_citation": "marsh-1991-propofol-pk"
+    },
+    {
+      "symbol": "k21",
+      "value": { "central": 0.055, "low": null, "high": null, "units": "1/min" },
+      "covariate_model": "k21 = 0.055",
+      "tier": "B",
+      "extraction": { "review_status": "unverified" },
+      "primary_citation": "marsh-1991-propofol-pk"
+    },
+    {
+      "symbol": "k31",
+      "value": { "central": 0.0033, "low": null, "high": null, "units": "1/min" },
+      "covariate_model": "k31 = 0.0033",
+      "tier": "B",
+      "extraction": { "review_status": "unverified" },
+      "primary_citation": "marsh-1991-propofol-pk"
+    },
+    {
+      "symbol": "ke0", "label": "effect-site equilibration rate constant",
+      "value": { "central": 0.26, "low": null, "high": null, "units": "1/min" },
+      "covariate_model": "ke0 = 0.26 (original Marsh; 'modified Marsh' uses 1.21)",
+      "tier": "B",
+      "extraction": { "review_status": "unverified", "tier_rationale": "Original Marsh ke0 (published value). The 'modified Marsh' (ke0=1.21) is a separate, widely-used variant captured in notes — a model-selection risk within a model family, represented as a documented variant rather than a confidence downgrade of the published value." },
+      "primary_citation": "marsh-1991-propofol-pk"
+    }
+  ],
+  "covariates": { "required": ["weight"], "optional": [], "lbm_equation": null },
+  "applicability_envelope": {
+    "weight_kg": { "min": 30, "max": 150 },
+    "age_years": { "min": 16, "max": null },
+    "populations": ["adult", "elective_surgery"],
+    "derivation_n": null
+  },
+  "known_failure_modes": [
+    {
+      "condition": "elderly patients (age not a model covariate)",
+      "predicate": "age > 65",
+      "behavior": "Weight-only structure ignores age-related reductions in clearance and increased sensitivity; tends to overshoot in the elderly.",
+      "action": "warn",
+      "citation": "absalom-2009-schnider-obese"
+    }
+  ],
+  "predictive_performance": [],
+  "tier": "B",
+  "extraction": {
+    "review_status": "unverified",
+    "tier_rationale": "Robust, decades of clinical deployment via the Diprifusor TCI system; weight-only covariate model limits accuracy outside mid-range adults. Record awaits human PDF verification of every constant.",
+    "source_locator": "Marsh 1991"
+  },
+  "primary_citation": "marsh-1991-propofol-pk",
+  "notes": "Micro-rate-constant parameterization. V2 = V1*k12/k21, V3 = V1*k13/k31 derived. The 'modified Marsh' variant differs only in ke0 (1.21 vs 0.26)."
+}

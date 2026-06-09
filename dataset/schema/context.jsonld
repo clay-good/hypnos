@@ -1,0 +1,24 @@
+{
+  "@context": {
+    "hypnos": "https://w3id.org/hypnos/terms#",
+    "bqbiol": "http://biomodels.net/biology-qualifiers/",
+    "bqmodel": "http://biomodels.net/model-qualifiers/",
+    "dcterms": "http://purl.org/dc/terms/",
+    "schema": "http://schema.org/",
+
+    "id": "@id",
+    "drug": "hypnos:drug",
+    "name": "schema:name",
+    "unii": "hypnos:unii",
+    "atc": "hypnos:atc",
+    "purpose": "hypnos:purpose",
+    "tier": "hypnos:confidenceTier",
+    "applicability_envelope": "hypnos:applicabilityEnvelope",
+    "known_failure_modes": "hypnos:knownFailureMode",
+    "predictive_performance": "hypnos:predictivePerformance",
+    "primary_citation": { "@id": "bqmodel:isDerivedFrom", "@type": "@id" },
+    "clinicalUse": "hypnos:clinicalUse",
+    "datasetVersion": "hypnos:datasetVersion",
+    "isDescribedBy": { "@id": "bqbiol:isDescribedBy", "@type": "@id" }
+  }
+}

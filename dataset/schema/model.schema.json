@@ -1,0 +1,157 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/clay-good/hypnos/dataset/schema/model.schema.json",
+  "title": "Hypnos model record",
+  "description": "One population PK/PD model of one drug for one purpose. The unit of curation.",
+  "type": "object",
+  "required": ["id", "drug", "purpose", "structure", "parameters", "tier", "extraction", "primary_citation"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Dotted identifier: <subsystem>.<drug>.<model_slug>.",
+      "pattern": "^[a-z0-9_]+\\.[a-z0-9_]+\\.[a-z0-9_]+$"
+    },
+    "subsystem": {
+      "type": "string",
+      "enum": ["hypnotics_iv", "dissociatives", "alpha2_agonists", "opioids", "volatiles", "nmb_agents", "effect_link", "pd_effect", "interactions", "reversal", "local_anesthetics"]
+    },
+    "drug": {
+      "type": "object",
+      "required": ["name"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "unii": { "type": ["string", "null"] },
+        "atc": { "type": ["string", "null"] }
+      }
+    },
+    "purpose": { "type": "string", "enum": ["pk", "pd", "link", "interaction", "physicochemical"] },
+    "label": { "type": "string" },
+    "structure": {
+      "type": "object",
+      "required": ["compartments", "parameterization"],
+      "additionalProperties": false,
+      "properties": {
+        "compartments": { "type": "integer", "minimum": 0, "maximum": 4 },
+        "parameterization": { "type": "string", "enum": ["volumes_clearances", "micro_rate_constants"] },
+        "elimination": { "type": "string", "enum": ["linear", "michaelis_menten"], "default": "linear" },
+        "effect_compartment": { "type": "boolean", "default": false }
+      }
+    },
+    "kernel": {
+      "type": "object",
+      "description": "Binding to the pure-Python reference kernel that instantiates this model from covariates.",
+      "additionalProperties": false,
+      "properties": {
+        "implemented": { "type": "boolean", "default": false },
+        "function": { "type": ["string", "null"], "description": "registry key of the covariate->parameters function" }
+      }
+    },
+    "parameters": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["symbol", "value", "tier", "extraction"],
+        "additionalProperties": false,
+        "properties": {
+          "symbol": { "type": "string" },
+          "label": { "type": "string" },
+          "value": {
+            "type": "object",
+            "required": ["central", "units"],
+            "additionalProperties": false,
+            "properties": {
+              "central": { "type": ["number", "null"] },
+              "low": { "type": ["number", "null"] },
+              "high": { "type": ["number", "null"] },
+              "units": { "type": "string" }
+            }
+          },
+          "covariate_model": { "type": "string", "description": "Verbatim published equation, for human verification and export." },
+          "tier": { "type": "string", "enum": ["A", "B", "C", "D"] },
+          "extraction": { "$ref": "#/$defs/extraction" },
+          "primary_citation": { "type": "string" }
+        }
+      }
+    },
+    "covariates": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "required": { "type": "array", "items": { "type": "string" } },
+        "optional": { "type": "array", "items": { "type": "string" } },
+        "lbm_equation": { "type": ["string", "null"], "description": "Named lean-body-mass / fat-free-mass equation (choice has documented failure modes)." }
+      }
+    },
+    "applicability_envelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "age_years": { "$ref": "#/$defs/range" },
+        "weight_kg": { "$ref": "#/$defs/range" },
+        "height_cm": { "$ref": "#/$defs/range" },
+        "bmi_kg_m2": { "$ref": "#/$defs/range" },
+        "populations": { "type": "array", "items": { "type": "string" } },
+        "derivation_n": { "type": ["integer", "null"] }
+      }
+    },
+    "known_failure_modes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["condition", "behavior", "action"],
+        "additionalProperties": false,
+        "properties": {
+          "condition": { "type": "string", "description": "Machine-evaluable predicate (subset DSL) or prose." },
+          "predicate": { "type": ["string", "null"], "description": "Evaluable expression over covariates, e.g. 'bmi > 42'." },
+          "behavior": { "type": "string" },
+          "action": { "type": "string", "enum": ["tier_down_to_D", "warn", "exclude"] },
+          "citation": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "predictive_performance": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["metric", "value", "units"],
+        "additionalProperties": false,
+        "properties": {
+          "metric": { "type": "string", "enum": ["MDPE", "MDAPE", "wobble", "divergence", "RMSE", "other"] },
+          "value": { "type": "number" },
+          "units": { "type": "string" },
+          "population": { "type": ["string", "null"] },
+          "citation": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "tier": { "type": "string", "enum": ["A", "B", "C", "D"] },
+    "extraction": { "$ref": "#/$defs/extraction" },
+    "primary_citation": { "type": "string" },
+    "notes": { "type": "string" }
+  },
+  "$defs": {
+    "range": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "min": { "type": ["number", "null"] },
+        "max": { "type": ["number", "null"] }
+      }
+    },
+    "extraction": {
+      "type": "object",
+      "required": ["review_status"],
+      "additionalProperties": false,
+      "properties": {
+        "review_status": { "type": "string", "enum": ["unverified", "verified", "contested"] },
+        "tier_rationale": { "type": "string" },
+        "source_locator": { "type": "string" },
+        "verified_by": { "type": ["string", "null"] },
+        "verified_date": { "type": ["string", "null"] }
+      }
+    }
+  }
+}

@@ -1,0 +1,102 @@
+{
+  "id": "hypnotics_iv.propofol.schnider_1998",
+  "subsystem": "hypnotics_iv",
+  "drug": { "name": "propofol", "unii": "YI7VU623SF", "atc": "N01AX10" },
+  "purpose": "pk",
+  "label": "Propofol PK — Schnider (1998)",
+  "structure": {
+    "compartments": 3,
+    "parameterization": "volumes_clearances",
+    "elimination": "linear",
+    "effect_compartment": true
+  },
+  "kernel": { "implemented": true, "function": "propofol_schnider_1998" },
+  "parameters": [
+    {
+      "symbol": "V1", "label": "central volume",
+      "value": { "central": 4.27, "low": null, "high": null, "units": "L" },
+      "covariate_model": "V1 = 4.27",
+      "tier": "B",
+      "extraction": { "review_status": "unverified", "tier_rationale": "Fixed central volume from a single derivation cohort (n=24, healthy adult volunteers); widely used and externally validated.", "source_locator": "Schnider 1998, Table 2" },
+      "primary_citation": "schnider-1998-propofol-pk"
+    },
+    {
+      "symbol": "V2", "label": "rapid peripheral volume",
+      "value": { "central": 18.9, "low": null, "high": null, "units": "L" },
+      "covariate_model": "V2 = 18.9 - 0.391 * (AGE - 53)",
+      "tier": "B",
+      "extraction": { "review_status": "unverified", "source_locator": "Schnider 1998, Table 2" },
+      "primary_citation": "schnider-1998-propofol-pk"
+    },
+    {
+      "symbol": "V3", "label": "slow peripheral volume",
+      "value": { "central": 238.0, "low": null, "high": null, "units": "L" },
+      "covariate_model": "V3 = 238",
+      "tier": "B",
+      "extraction": { "review_status": "unverified", "source_locator": "Schnider 1998, Table 2" },
+      "primary_citation": "schnider-1998-propofol-pk"
+    },
+    {
+      "symbol": "Cl1", "label": "metabolic clearance",
+      "value": { "central": 1.89, "low": null, "high": null, "units": "L/min" },
+      "covariate_model": "Cl1 = 1.89 + 0.0456*(WGT-77) - 0.0681*(LBM-59) + 0.0264*(HGT-177)",
+      "tier": "B",
+      "extraction": { "review_status": "unverified", "tier_rationale": "Clearance carries the LBM (James 1976) covariate term whose sign drives the high-BMI failure mode.", "source_locator": "Schnider 1998, Table 2" },
+      "primary_citation": "schnider-1998-propofol-pk"
+    },
+    {
+      "symbol": "Cl2", "label": "rapid intercompartmental clearance",
+      "value": { "central": 1.29, "low": null, "high": null, "units": "L/min" },
+      "covariate_model": "Cl2 = 1.29 - 0.024*(AGE-53)",
+      "tier": "B",
+      "extraction": { "review_status": "unverified", "source_locator": "Schnider 1998, Table 2" },
+      "primary_citation": "schnider-1998-propofol-pk"
+    },
+    {
+      "symbol": "Cl3", "label": "slow intercompartmental clearance",
+      "value": { "central": 0.836, "low": null, "high": null, "units": "L/min" },
+      "covariate_model": "Cl3 = 0.836",
+      "tier": "B",
+      "extraction": { "review_status": "unverified", "source_locator": "Schnider 1998, Table 2" },
+      "primary_citation": "schnider-1998-propofol-pk"
+    },
+    {
+      "symbol": "ke0", "label": "effect-site equilibration rate constant",
+      "value": { "central": 0.456, "low": null, "high": null, "units": "1/min" },
+      "covariate_model": "ke0 = 0.456",
+      "tier": "B",
+      "extraction": { "review_status": "unverified", "tier_rationale": "Schnider effect-site ke0 from the companion PD analysis.", "source_locator": "Schnider 1999 (PD companion)" },
+      "primary_citation": "schnider-1999-propofol-pd"
+    }
+  ],
+  "covariates": { "required": ["age", "weight", "height", "sex"], "optional": [], "lbm_equation": "james_1976" },
+  "applicability_envelope": {
+    "age_years": { "min": 25, "max": 81 },
+    "weight_kg": { "min": 44, "max": 123 },
+    "height_cm": { "min": 155, "max": 196 },
+    "bmi_kg_m2": { "min": 20, "max": 42 },
+    "populations": ["healthy_adult", "elective_surgery"],
+    "derivation_n": 24
+  },
+  "known_failure_modes": [
+    {
+      "condition": "bmi_kg_m2 > 42 (approx, via James LBM)",
+      "predicate": "bmi > 42",
+      "behavior": "James lean-body-mass term peaks then decreases with rising weight; combined with the negative LBM coefficient in Cl1 this inflates predicted clearance non-physically in obese patients.",
+      "action": "tier_down_to_D",
+      "citation": "absalom-2009-schnider-obese"
+    }
+  ],
+  "predictive_performance": [
+    { "metric": "MDPE", "value": -7.0, "units": "%", "population": "elective surgical adults (representative literature range)", "citation": "absalom-2009-schnider-obese" },
+    { "metric": "MDAPE", "value": 18.0, "units": "%", "population": "elective surgical adults (representative literature range)", "citation": "absalom-2009-schnider-obese" }
+  ],
+  "tier": "B",
+  "extraction": {
+    "review_status": "unverified",
+    "tier_rationale": "Single robust derivation cohort with extensive external validation; covariate (age/weight/height/LBM) structure broadly recommended. Worst contributing parameter tier is B. Awaits human PDF verification of every covariate equation, especially the James LBM term.",
+    "source_locator": "Schnider 1998, Table 2; Schnider 1999 for ke0"
+  },
+  "primary_citation": "schnider-1998-propofol-pk",
+  "notes": "Micro-rate constants derived as k10=Cl1/V1, k12=Cl2/V1, k21=Cl2/V2, k13=Cl3/V1, k31=Cl3/V3. LBM via James 1976: male 1.1*W-128*(W/H)^2, female 1.07*W-148*(W/H)^2 (H in cm)."
+}

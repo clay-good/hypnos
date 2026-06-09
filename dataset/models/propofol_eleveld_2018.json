@@ -1,0 +1,90 @@
+{
+  "id": "hypnotics_iv.propofol.eleveld_2018",
+  "subsystem": "hypnotics_iv",
+  "drug": { "name": "propofol", "unii": "YI7VU623SF", "atc": "N01AX10" },
+  "purpose": "pk",
+  "label": "Propofol PK — Eleveld (2018, general-purpose)",
+  "structure": {
+    "compartments": 3,
+    "parameterization": "volumes_clearances",
+    "elimination": "linear",
+    "effect_compartment": true
+  },
+  "kernel": { "implemented": false, "function": null },
+  "parameters": [
+    {
+      "symbol": "V1", "label": "central volume (reference individual)",
+      "value": { "central": 6.28, "low": null, "high": null, "units": "L" },
+      "covariate_model": "V1 = V1ref * f(WGT, AGE, ...); see Eleveld 2018 Appendix (transcription pending verification)",
+      "tier": "A",
+      "extraction": { "review_status": "unverified", "tier_rationale": "Reference-individual value (35 y, 70 kg, 170 cm, male). Full covariate structure (allometric weight, post-menstrual-age maturation, BMI/age sigmoids) is intricate and pending verified transcription.", "source_locator": "Eleveld 2018, Table 2 / Appendix" },
+      "primary_citation": "eleveld-2018-propofol"
+    },
+    {
+      "symbol": "V2", "label": "rapid peripheral volume (reference)",
+      "value": { "central": 25.5, "low": null, "high": null, "units": "L" },
+      "covariate_model": "V2 = V2ref * f(WGT) * exp(age effect); see Eleveld 2018 Appendix",
+      "tier": "A",
+      "extraction": { "review_status": "unverified", "source_locator": "Eleveld 2018, Table 2" },
+      "primary_citation": "eleveld-2018-propofol"
+    },
+    {
+      "symbol": "V3", "label": "slow peripheral volume (reference)",
+      "value": { "central": 273.0, "low": null, "high": null, "units": "L" },
+      "covariate_model": "V3 = V3ref * f(WGT) * f(opiate); see Eleveld 2018 Appendix",
+      "tier": "A",
+      "extraction": { "review_status": "unverified", "source_locator": "Eleveld 2018, Table 2" },
+      "primary_citation": "eleveld-2018-propofol"
+    },
+    {
+      "symbol": "Cl1", "label": "metabolic clearance (reference)",
+      "value": { "central": 1.79, "low": null, "high": null, "units": "L/min" },
+      "covariate_model": "Cl = Clref * (WGT/70)^0.75 * maturation(PMA) ...; see Eleveld 2018 Appendix",
+      "tier": "A",
+      "extraction": { "review_status": "unverified", "source_locator": "Eleveld 2018, Table 2" },
+      "primary_citation": "eleveld-2018-propofol"
+    },
+    {
+      "symbol": "Cl2", "label": "rapid intercompartmental clearance (reference)",
+      "value": { "central": 1.75, "low": null, "high": null, "units": "L/min" },
+      "covariate_model": "Q2 = Q2ref * f(WGT, opiate); see Eleveld 2018 Appendix",
+      "tier": "A",
+      "extraction": { "review_status": "unverified", "source_locator": "Eleveld 2018, Table 2" },
+      "primary_citation": "eleveld-2018-propofol"
+    },
+    {
+      "symbol": "Cl3", "label": "slow intercompartmental clearance (reference)",
+      "value": { "central": 1.11, "low": null, "high": null, "units": "L/min" },
+      "covariate_model": "Q3 = Q3ref * f(WGT); see Eleveld 2018 Appendix",
+      "tier": "A",
+      "extraction": { "review_status": "unverified", "source_locator": "Eleveld 2018, Table 2" },
+      "primary_citation": "eleveld-2018-propofol"
+    },
+    {
+      "symbol": "ke0", "label": "effect-site equilibration rate constant (reference)",
+      "value": { "central": 0.146, "low": null, "high": null, "units": "1/min" },
+      "covariate_model": "ke0 = 0.146 * (WGT/70)^(-0.25); see Eleveld 2018 Appendix",
+      "tier": "A",
+      "extraction": { "review_status": "unverified", "source_locator": "Eleveld 2018 (PD)" },
+      "primary_citation": "eleveld-2018-propofol"
+    }
+  ],
+  "covariates": { "required": ["age", "weight", "height", "sex"], "optional": ["opiate_coadministration", "postmenstrual_age"], "lbm_equation": "al_sallami_2015" },
+  "applicability_envelope": {
+    "age_years": { "min": 0, "max": 88 },
+    "weight_kg": { "min": 5, "max": 160 },
+    "bmi_kg_m2": { "min": 12, "max": 52 },
+    "populations": ["neonate", "child", "adult", "elderly", "obese"],
+    "derivation_n": 1033
+  },
+  "known_failure_modes": [],
+  "predictive_performance": [],
+  "tier": "A",
+  "extraction": {
+    "review_status": "unverified",
+    "tier_rationale": "Externally validated across multiple independent populations spanning neonates to the obese elderly; the broadest-envelope general-purpose propofol model. Listed at Tier A on data confidence. Reference values only; the executable kernel is DEFERRED until its full covariate structure is transcribed and human-verified (the maturation/allometry terms are exactly where transcription errors hide).",
+    "source_locator": "Eleveld 2018"
+  },
+  "primary_citation": "eleveld-2018-propofol",
+  "notes": "KERNEL PENDING. Parameters shown are reference-individual values (35 y, 70 kg, 170 cm, male). simulate() will refuse this model until kernel.implemented becomes true, rather than risk a mis-transcribed covariate equation. This is the project's honesty stance made operational."
+}

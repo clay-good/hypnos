@@ -1,0 +1,35 @@
+Hypnos dataset — Creative Commons Attribution 4.0 International (CC-BY-4.0)
+========================================================================
+
+The contents of the `dataset/` directory (model records, drug metadata,
+citation records, schema, and JSON-LD context) are licensed under the Creative
+Commons Attribution 4.0 International License (CC-BY-4.0).
+
+You are free to:
+
+  * Share — copy and redistribute the material in any medium or format.
+  * Adapt — remix, transform, and build upon the material for any purpose,
+    even commercially.
+
+Under the following terms:
+
+  * Attribution — You must give appropriate credit to "Hypnos" (cite the
+    project and its Zenodo DOI when released), provide a link to the license,
+    and indicate if changes were made. When you use a specific model record,
+    you must ALSO cite that record's original primary source (available via
+    `model.primary_citation`).
+
+  * No additional restrictions — You may not apply legal terms or technological
+    measures that legally restrict others from doing anything the license
+    permits.
+
+The full legal text is available at:
+https://creativecommons.org/licenses/by/4.0/legalcode
+
+NOTE ON SCOPE: The dataset describes published population PK/PD models for
+research, education, and simulation. It is NOT a clinical decision-support
+tool, NOT a dosing calculator, and NOT validated for any decision affecting a
+real patient. See `docs/specs/v0.1/spec.md` §10.
+
+The software in `python/` is separately licensed under the MIT License (see
+`LICENSE`).

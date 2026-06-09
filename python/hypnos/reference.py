@@ -294,6 +294,49 @@ def mac_fraction(end_tidal_pct: float, mac40: float, age: float) -> float:
     return end_tidal_pct / mac_age_corrected(mac40, age)
 
 
+def alveolar_washin(
+    blood_gas: float,
+    t: np.ndarray,
+    *,
+    alveolar_ventilation: float = 4.0,
+    frc: float = 2.5,
+    cardiac_output: float = 5.0,
+):
+    """Single-compartment alveolar wash-in of an inhaled agent: FA/FI(t).
+
+    Mass balance on the lung (the functional residual capacity, FRC), with the
+    inspired fraction FI held constant and the early, pre-recirculation assumption
+    that the mixed-venous partial pressure is still ≈ 0 (so uptake into blood is
+    ``λ·Q̇·FA``, where ``λ`` is the blood:gas partition coefficient and ``Q̇`` is
+    cardiac output):
+
+        FRC · dFA/dt = V̇_A·(FI − FA) − λ·Q̇·FA
+
+    which integrates (FA(0)=0) to
+
+        FA/FI(t) = plateau · (1 − e^(−t/τ)),
+        plateau  = V̇_A / (V̇_A + λ·Q̇),     τ = FRC / (V̇_A + λ·Q̇)
+
+    The discriminating, solubility-driven quantity is the **early plateau** — the
+    FA/FI "knee" reached in the first few minutes before tissue uptake dominates.
+    A less soluble agent (smaller ``λ``) has a *higher* plateau and rises toward it
+    faster, i.e. washes in faster — the canonical ordering (desflurane / nitrous
+    oxide fast, isoflurane slow). This is a comparative, education-grade kernel
+    with stated standard 70-kg-adult ventilation constants (V̇_A ≈ 4 L/min, FRC ≈
+    2.5 L, Q̇ ≈ 5 L/min, all overridable); it is **not** a per-patient FA/FI
+    predictor, and full multi-compartment tissue uptake (Mapleson) is out of scope.
+
+    Returns ``(fa_fi, plateau, tau)`` — the FA/FI array over ``t`` (minutes), the
+    early plateau (dimensionless), and the time constant ``τ`` (minutes).
+    """
+    t = np.asarray(t, dtype=float)
+    denom = alveolar_ventilation + blood_gas * cardiac_output
+    plateau = alveolar_ventilation / denom
+    tau = frc / denom
+    fa_fi = plateau * (1.0 - np.exp(-t / tau))
+    return fa_fi, plateau, tau
+
+
 def sigmoid_emax_twoslope(
     ce: np.ndarray, E0: float, Emax: float, Ce50: float, gamma_low: float, gamma_high: float
 ) -> np.ndarray:

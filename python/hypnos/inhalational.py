@@ -15,9 +15,11 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
+import numpy as np
+
 from .load import Dataset
 from .models import worst_tier
-from .reference import mac_age_corrected
+from .reference import alveolar_washin, mac_age_corrected
 from .reference import mac_fraction as _mac_fraction
 
 
@@ -37,8 +39,70 @@ class MacResult:
     combined_mac_fraction: Optional[float] = None  # incl. nitrous oxide additivity
 
 
+@dataclass
+class WashinResult:
+    agent_id: str
+    blood_gas: float               # λ, blood:gas partition coefficient
+    plateau: float                 # early FA/FI "knee" = V̇_A / (V̇_A + λ·Q̇)
+    tau_min: float                 # time constant τ = FRC / (V̇_A + λ·Q̇)
+    t_min: float                   # the time point reported below
+    fa_fi: float                   # FA/FI at t_min
+    tier: str
+    # the (stated, overridable) ventilation assumptions this result rests on
+    alveolar_ventilation: float
+    frc: float
+    cardiac_output: float
+
+
 def _params(model) -> Dict[str, float]:
     return {p.symbol: p.central for p in model.parameters}
+
+
+def washin(
+    ds: Dataset,
+    agent_id: str,
+    *,
+    t_min: float = 3.0,
+    alveolar_ventilation: float = 4.0,
+    frc: float = 2.5,
+    cardiac_output: float = 5.0,
+) -> WashinResult:
+    """Single-compartment alveolar wash-in (FA/FI) for one volatile agent.
+
+    A comparative, solubility-driven characterization of inhalational *uptake*
+    (spec §6) from the curated blood:gas partition coefficient. Reports the early
+    FA/FI plateau (the wash-in "knee"), the time constant τ, and FA/FI at ``t_min``
+    minutes. Lower blood:gas solubility → higher plateau → faster wash-in. Standard
+    70-kg-adult ventilation constants, all overridable; NOT a per-patient predictor.
+    """
+    model = ds[agent_id]
+    if model.purpose != "physicochemical":
+        raise ValueError(f"{agent_id} has purpose '{model.purpose}', expected 'physicochemical'")
+    lam = _params(model).get("blood_gas")
+    if lam is None:
+        raise ValueError(f"{agent_id} has no blood_gas partition coefficient")
+    fa_fi, plateau, tau = alveolar_washin(
+        lam, np.array([t_min]), alveolar_ventilation=alveolar_ventilation,
+        frc=frc, cardiac_output=cardiac_output,
+    )
+    return WashinResult(
+        agent_id=agent_id, blood_gas=lam, plateau=plateau, tau_min=tau,
+        t_min=t_min, fa_fi=float(fa_fi[0]), tier=model.tier,
+        alveolar_ventilation=alveolar_ventilation, frc=frc, cardiac_output=cardiac_output,
+    )
+
+
+def washin_comparison(ds: Dataset, agents: Optional[List[str]] = None, **kwargs) -> List[WashinResult]:
+    """Wash-in for every volatile agent, sorted fastest-first (highest plateau).
+
+    The honest counterpart to the model-divergence view, for inhalational uptake:
+    it makes the textbook solubility ordering (desflurane / nitrous oxide fast,
+    isoflurane slow) computable from the curated partition coefficients.
+    """
+    if agents is None:
+        agents = [m.id for m in ds if m.purpose == "physicochemical"]
+    results = [washin(ds, a, **kwargs) for a in agents]
+    return sorted(results, key=lambda r: r.plateau, reverse=True)
 
 
 def mac(

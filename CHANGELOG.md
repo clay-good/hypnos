@@ -8,6 +8,22 @@ version is pinned in `dataset/VERSION` and stamped into every export as
 
 ## [Unreleased]
 
+### Inhalational wash-in (FA/FI uptake) (2026-06-09)
+- **`hypnos.washin` / `washin_comparison` + `hypnos washin` CLI** — the volatile
+  *uptake* relation the spec names (§3/§6, Phase D) but that was the one Phase-D item
+  not yet implemented. A single-compartment alveolar mass balance turns the curated
+  blood:gas partition coefficient into the FA/FI wash-in: the early plateau
+  `V̇_A/(V̇_A+λ·Q̇)` (the wash-in "knee") and time constant `τ = FRC/(V̇_A+λ·Q̇)`.
+- Reproduces the canonical solubility ordering straight from the data — desflurane
+  (λ 0.42) and nitrous oxide (0.47) wash in fast, isoflurane (1.4) slowly; the less
+  soluble agent has the higher early plateau. New `alveolar_washin` reference kernel.
+- **Honesty boundary (same stance as the Greco surface):** the math is exact but
+  rests on *stated, standard 70-kg-adult* ventilation constants (V̇_A 4 L/min, FRC
+  2.5 L, Q̇ 5 L/min, all overridable). Comparative/education-grade, **not** a
+  per-patient FA/FI predictor; full multi-compartment tissue uptake (Mapleson) stays
+  out of v0.1 scope. Tests assert FA/FI(0)=0, monotonicity, the plateau bound, the
+  one-time-constant 63.2% point, and the solubility ordering.
+
 ### Predictive-performance: extend coverage + citation guardrail (2026-06-09)
 - **Dexmedetomidine (Hannivoort)** gains its first metrics — best of nine published
   models in a spinal-anesthesia external validation (Obara 2018, *J Anesth*: MDPE

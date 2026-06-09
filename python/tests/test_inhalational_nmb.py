@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 
 import hypnos
-from hypnos.reference import mac_age_corrected, mac_fraction, sigmoid_emax
+from hypnos.reference import alveolar_washin, mac_age_corrected, mac_fraction, sigmoid_emax
 
 SEVO = "volatiles.sevoflurane.mac"
 DES = "volatiles.desflurane.mac"
@@ -64,6 +64,52 @@ def test_solubility_ordering(ds):
     sevo = hypnos.mac(ds, SEVO, age=40).blood_gas
     iso = hypnos.mac(ds, ISO, age=40).blood_gas
     assert des < sevo < iso
+
+
+def test_alveolar_washin_kernel_math():
+    # FA/FI(0) == 0; monotonic increasing; bounded by the plateau = V̇_A/(V̇_A+λQ̇)
+    t = np.linspace(0, 10, 101)
+    fa_fi, plateau, tau = alveolar_washin(0.65, t, alveolar_ventilation=4.0, frc=2.5, cardiac_output=5.0)
+    assert abs(fa_fi[0]) < 1e-12
+    assert np.all(np.diff(fa_fi) >= -1e-15)            # monotonic non-decreasing
+    assert np.all(fa_fi <= plateau + 1e-12)            # never exceeds the plateau
+    assert abs(plateau - 4.0 / (4.0 + 0.65 * 5.0)) < 1e-12
+    assert abs(tau - 2.5 / (4.0 + 0.65 * 5.0)) < 1e-12
+    # one time constant -> ~63.2% of the plateau
+    one_tau, p, _ = alveolar_washin(0.65, np.array([tau]))
+    assert abs(one_tau[0] / p - (1 - np.exp(-1))) < 1e-9
+
+
+def test_washin_lower_solubility_is_faster(ds):
+    # less soluble -> higher early FA/FI plateau (the discriminating, monotonic quantity)
+    des = hypnos.washin(ds, DES).plateau
+    n2o = hypnos.washin(ds, N2O).plateau
+    sevo = hypnos.washin(ds, SEVO).plateau
+    iso = hypnos.washin(ds, ISO).plateau
+    assert des > n2o > sevo > iso          # exactly the blood:gas ordering, inverted
+
+
+def test_washin_comparison_sorted_fastest_first(ds):
+    rows = hypnos.washin_comparison(ds)
+    assert [r.agent_id.split(".")[1] for r in rows][0] == "desflurane"
+    assert rows[-1].agent_id.split(".")[1] == "isoflurane"
+    plateaus = [r.plateau for r in rows]
+    assert plateaus == sorted(plateaus, reverse=True)
+    assert all(0.0 < r.plateau < 1.0 for r in rows)
+
+
+def test_washin_rejects_non_physicochemical(ds):
+    with pytest.raises(ValueError):
+        hypnos.washin(ds, "hypnotics_iv.propofol.schnider_1998")
+
+
+def test_cli_washin(capsys):
+    from hypnos.cli import main
+    assert main(["washin"]) == 0
+    out = capsys.readouterr().out
+    assert "desflurane" in out and "isoflurane" in out
+    assert main(["washin", "--agent", "sevoflurane"]) == 0
+    assert "plateau" in capsys.readouterr().out
 
 
 def test_train_of_four_sigmoid_shape():

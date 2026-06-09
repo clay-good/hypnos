@@ -24,6 +24,7 @@ from .analysis import decrement_time, time_to_peak_effect
 from .export import FORMATS, bibtex, combine, csv_flat, export_model
 from .filter import performance_table, pk_drugs, select, summary
 from .inhalational import mac as mac_eval
+from .inhalational import washin, washin_comparison
 from .load import load
 from .presets import default_schedule_for
 from .simulate import compare as compare_models
@@ -288,6 +289,34 @@ def cmd_mac(args) -> int:
     return 0
 
 
+def cmd_washin(args) -> int:
+    ds = load()
+    vent = dict(t_min=args.t, alveolar_ventilation=args.valv, frc=args.frc, cardiac_output=args.co)
+    if args.agent:
+        agent = args.agent if "." in args.agent else f"volatiles.{args.agent.replace(' ', '_')}.mac"
+        try:
+            r = washin(ds, agent, **vent)
+        except (KeyError, ValueError) as e:
+            print(str(e), file=sys.stderr)
+            return 2
+        print(f"agent: {r.agent_id}   tier {r.tier}   blood:gas lambda = {r.blood_gas:g}")
+        print(f"single-compartment alveolar wash-in (V_A {r.alveolar_ventilation:g}, "
+              f"FRC {r.frc:g}, Q {r.cardiac_output:g} L/min):")
+        print(f"  early FA/FI plateau (the wash-in knee): {r.plateau:.3f}")
+        print(f"  time constant tau: {r.tau_min:.2f} min")
+        print(f"  FA/FI at {r.t_min:g} min: {r.fa_fi:.3f}")
+        print("comparative/education-grade; lower lambda -> faster wash-in. NOT a per-patient predictor.")
+        return 0
+    rows = washin_comparison(ds, **vent)
+    print("Inhalational wash-in (FA/FI) -- single-compartment alveolar model, sorted fastest-first.")
+    print(f"{'agent':14s} {'blood:gas':>10s} {'plateau':>8s} {'tau(min)':>9s} {f'FA/FI@{args.t:g}min':>12s}")
+    for r in rows:
+        name = r.agent_id.split(".")[1]
+        print(f"{name:14s} {r.blood_gas:10g} {r.plateau:8.3f} {r.tau_min:9.2f} {r.fa_fi:12.3f}")
+    print("Lower blood:gas solubility -> higher plateau -> faster wash-in (des/N2O fast, iso slow).")
+    return 0
+
+
 def cmd_export(args) -> int:
     ds = load()
     if args.format not in FORMATS:
@@ -397,6 +426,14 @@ def build_parser() -> argparse.ArgumentParser:
                     help="end-tidal concentration (vol%%) -> MAC fraction")
     mp.add_argument("--n2o", type=float, default=None, help="nitrous oxide end-tidal (vol%%), additive")
     mp.set_defaults(func=cmd_mac)
+
+    wp = sub.add_parser("washin", help="inhalational wash-in (FA/FI) — solubility-driven uptake")
+    wp.add_argument("--agent", default=None, help="agent name or model id (omit for a comparison table)")
+    wp.add_argument("--t", type=float, default=3.0, help="time point for FA/FI (min)")
+    wp.add_argument("--valv", type=float, default=4.0, help="alveolar ventilation (L/min)")
+    wp.add_argument("--frc", type=float, default=2.5, help="functional residual capacity (L)")
+    wp.add_argument("--co", type=float, default=5.0, help="cardiac output (L/min)")
+    wp.set_defaults(func=cmd_washin)
 
     ep = sub.add_parser("export", help="export models to a pharmacometric format")
     ep.add_argument("--format", required=True, choices=FORMATS)

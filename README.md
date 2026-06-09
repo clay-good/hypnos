@@ -110,6 +110,23 @@ end-tidal 1.2 vol% -> MAC fraction 0.83
 hypnos.mac(ds, "volatiles.sevoflurane.mac", age=75, end_tidal_pct=1.2, n2o_end_tidal_pct=50).combined_mac_fraction
 ```
 
+**Uptake — the solubility-driven wash-in.** The other half of volatile pharmacology is *uptake*: how fast the alveolar fraction `FA` rises toward the inspired `FI`. It is governed by the **blood:gas partition coefficient** `λ` already in each record — and Hypnos computes it with a single-compartment alveolar mass balance (`hypnos washin`):
+
+```text
+FA/FI(t) = plateau · (1 − e^(−t/τ)),   plateau = V̇_A/(V̇_A + λ·Q̇),   τ = FRC/(V̇_A + λ·Q̇)
+```
+
+```text
+$ hypnos washin
+agent             λ(blood:gas)  plateau  τ(min)   FA/FI@3min
+desflurane                0.42    0.656    0.41        0.655
+nitrous_oxide             0.47    0.630    0.39        0.630
+sevoflurane               0.65    0.552    0.34        0.552
+isoflurane                 1.4    0.364    0.23        0.364
+```
+
+The discriminating quantity is the **early FA/FI plateau** (the wash-in "knee" reached before tissue uptake dominates): a *less* soluble agent has a *higher* plateau and rises toward it faster, reproducing the canonical ordering — desflurane and nitrous oxide wash in fast, isoflurane slowly — straight from the curated coefficients. Honesty boundary, same stance as the Greco surface: the math is exact, but it rests on **stated, standard 70-kg-adult ventilation constants** (V̇_A ≈ 4 L/min, FRC ≈ 2.5 L, Q̇ ≈ 5 L/min, all overridable). It is a comparative, education-grade characterization, **not** a per-patient FA/FI predictor; full multi-compartment tissue uptake (Mapleson) is out of v0.1 scope.
+
 **Neuromuscular blockers** are seeded: a **train-of-four (T1 twitch) sigmoid** PD record (the NMB convention — a steep Hill curve on a twitch-height scale, Ce50 ≈ 0.82 µg/mL at the adductor pollicis) composes onto a rocuronium PK model that is curated but **kernel-pending** (the Wierda 1991 compartmental parameters aren't openly reconcilable, so `simulate()` refuses it). Sugammadex reversal (1:1 encapsulation binding kinetics) is deferred — it needs its own model type, like the deferred local-anesthetics subsystem.
 
 ## Install & quickstart
@@ -218,7 +235,7 @@ Every model with `kernel.implemented = true` binds to a **pure-NumPy/SciPy refer
 - the effect-compartment first-order `ke0` link;
 - the sigmoid E_max / Hill PD transform (propofol→BIS, rocuronium→train-of-four), single-slope and the Eleveld two-slope variant (asymmetric Hill about Ce50);
 - the two-drug Greco response surface;
-- the volatile MAC age-correction (Mapleson/Nickalls) — a non-compartmental, physicochemical kernel.
+- the volatile MAC age-correction (Mapleson/Nickalls) and the single-compartment alveolar wash-in (FA/FI) — non-compartmental, physicochemical kernels.
 
 Validation, run in CI ([test suite](python/tests)):
 
@@ -360,7 +377,7 @@ hypnos/
 │   ├── load.py · filter.py · validate.py · models.py
 │   ├── reference.py             # pure-NumPy/SciPy PK/PD kernels
 │   ├── simulate.py              # forward simulation + compare + interaction (no inverse control)
-│   ├── inhalational.py          # volatile MAC API (age correction, fraction, N2O additivity)
+│   ├── inhalational.py          # volatile MAC API (age correction, fraction, N2O additivity) + wash-in (FA/FI)
 │   ├── analysis.py              # derived characterizations (time-to-peak-effect; forward-only)
 │   ├── verification.py          # verification checklists + coverage (guides humans; never promotes)
 │   ├── cli.py
@@ -389,6 +406,7 @@ hypnos simulate <model_id> --age .. --weight .. --height .. --sex .. [--pd <pd_i
 hypnos compare  --drug propofol --age .. --weight .. --height .. --sex ..
 hypnos interact --age .. --weight .. --height .. --sex ..             # propofol+remifentanil synergy
 hypnos mac --agent sevoflurane --age 75 [--end-tidal 1.2] [--n2o 50]  # age-corrected MAC + fraction
+hypnos washin [--agent sevoflurane]                                  # inhalational wash-in (FA/FI), solubility-driven
 hypnos tpeak <model_id> --age .. --weight .. --height .. --sex ..    # time to peak effect (onset)
 hypnos decrement <model_id> --duration 240 [--infusion '6 mg/kg/h']  # plasma decrement time (offset)
 hypnos export   --format {nonmem,pharmml,sbml,tci_json,rxode2,pumas,bibtex,csv,omex} --output exports/ [--model <id>]
@@ -405,6 +423,7 @@ hypnos.simulate(ds, model_id, patient=..., schedule=..., t=...)       # forward 
 hypnos.compare(ds, drug=..., patient=..., schedule=..., t=...)        # divergence view
 hypnos.simulate_interaction(ds, surface_id, pk_a=.., pk_b=.., ...)    # two-drug response surface
 hypnos.mac(ds, agent_id, age=.., end_tidal_pct=.., n2o_end_tidal_pct=..)  # volatile MAC + fraction
+hypnos.washin_comparison(ds)                                         # inhalational wash-in (FA/FI) across agents
 hypnos.time_to_peak_effect(ds, model_id, patient=..)                 # onset: tpeak after a bolus
 hypnos.decrement_time(ds, model_id, patient=.., infusion=.., duration=..)  # offset: plasma decrement
 res.cp_peak_display, res.concentration_unit                          # conventional units (ng/mL for opioids)
@@ -426,7 +445,7 @@ hypnos.validate_dataset(ds)                                           # -> list 
 | **A — Propofol spine** | Marsh/Schnider/Eleveld PK + `ke0` + propofol→BIS; reference kernels; NONMEM/PharmML/SBML/TCI-JSON; round-trip validation; divergence view | ✅ complete (Marsh + Schnider + Eleveld all executable; 3-way divergence view live) |
 | **B — Opioids + interaction** | remifentanil (Minto, Eleveld, Kim); propofol–remifentanil response surface; nlmixr2/rxode2 + Pumas export | ✅ complete (Minto + Eleveld + Kim all executable; propofol×remifentanil Greco surface; R + Julia export round-tripped) |
 | **C — Breadth** | dexmedetomidine, ketamine, midazolam, fentanyl family; pediatric models with explicit Tier-D labeling | ✅ core shipped (dexmedetomidine + Paedfusor executable with explicit pediatric/geriatric extrapolation labeling; fentanyl curated, kernel pending; ketamine/midazolam roadmap) |
-| **D — Inhalational + NMB** | volatile MAC/partition/uptake; neuromuscular blockers + train-of-four; sugammadex reversal | ✅ core shipped (4 volatiles with MAC age-correction + additivity executable; rocuronium seeded with TOF PD; rocuronium PK kernel + sugammadex binding kinetics pending) |
+| **D — Inhalational + NMB** | volatile MAC/partition/uptake; neuromuscular blockers + train-of-four; sugammadex reversal | ✅ core shipped (4 volatiles with MAC age-correction + additivity + solubility-driven wash-in (FA/FI) all executable; rocuronium seeded with TOF PD; rocuronium PK kernel + sugammadex binding kinetics pending) |
 | **E — Hardening** | external-validation MDPE/MDAPE backfill; COMBINE `.omex`; Zenodo DOI | ✅ core shipped (deterministic `.omex` + BibTeX exporters; `scripts/regenerate.py`; `.zenodo.json` + `CHANGELOG.md`; external-validation MDPE/MDAPE backfilled across both headline drugs + dexmedetomidine, citation-integrity-checked and surfaced via `hypnos performance`; minted DOI on first tagged release) |
 
 ---

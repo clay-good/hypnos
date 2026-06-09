@@ -18,10 +18,12 @@ from typing import Any, Dict, Optional
 
 from . import annotate
 from ._common import resolve_patient, safe_name
+from ._variability import contiguous_block, residual_spec
 from .registry import KERNELS
 
 # $PK / $THETA structural order (TRANS4), paired with the dataset symbol whose
-# omega2 supplies the matching ETA's between-subject variance.
+# omega2 supplies the matching ETA's between-subject variance. The sym sequence
+# matches _variability.VC_ORDER, so ETA(k) corresponds to VC_ORDER[k-1].
 _ETA_ORDER = [
     ("CL", "Cl1"), ("V1", "V1"), ("Q2", "Cl2"), ("V2", "V2"),
     ("Q3", "Cl3"), ("V3", "V3"), ("KE0", "ke0"),
@@ -36,46 +38,23 @@ def _residual_sigma(model) -> Optional[Dict[str, Any]]:
     """Translate a curated residual_error into $ERROR lines + $SIGMA variances.
 
     Returns ``{"error": [lines], "sigma": [variances], "label": str}`` or None.
+    NONMEM's $SIGMA carries variances, so SD-scale terms are squared here.
     """
-    re_ = model.residual_error
-    if re_ is None:
+    spec = residual_spec(model)
+    if spec is None:
         return None
-    m = re_.model
-    if m == "log":
-        sd = (re_.log or {}).get("sd")
-        var = (re_.log or {}).get("variance")
-        v = var if var is not None else (sd ** 2 if sd is not None else None)
-        if v is None:
-            return None
+    if spec.model == "log":
         return {"error": ["  Y = IPRED*EXP(EPS(1))  ; log-additive residual"],
-                "sigma": [v], "label": "log-additive (proportional on natural scale)"}
-    if m == "proportional":
-        v = (re_.proportional or {}).get("variance")
-        if v is None and (re_.proportional or {}).get("cv_percent") is not None:
-            v = (re_.proportional["cv_percent"] / 100.0) ** 2
-        if v is None:
-            return None
+                "sigma": [spec.log_sd ** 2], "label": spec.label}
+    if spec.model == "proportional":
         return {"error": ["  Y = IPRED*(1 + EPS(1))  ; proportional residual"],
-                "sigma": [v], "label": "proportional"}
-    if m == "additive":
-        sd = (re_.additive or {}).get("sd")
-        var = (re_.additive or {}).get("variance")
-        v = var if var is not None else (sd ** 2 if sd is not None else None)
-        if v is None:
-            return None
+                "sigma": [spec.prop_var], "label": spec.label}
+    if spec.model == "additive":
         return {"error": ["  Y = IPRED + EPS(1)  ; additive residual"],
-                "sigma": [v], "label": "additive"}
-    if m == "combined":
-        pv = (re_.proportional or {}).get("variance")
-        if pv is None and (re_.proportional or {}).get("cv_percent") is not None:
-            pv = (re_.proportional["cv_percent"] / 100.0) ** 2
-        asd = (re_.additive or {}).get("sd")
-        av = (re_.additive or {}).get("variance")
-        av = av if av is not None else (asd ** 2 if asd is not None else None)
-        if pv is None or av is None:
-            return None
+                "sigma": [spec.add_sd ** 2], "label": spec.label}
+    if spec.model == "combined":
         return {"error": ["  Y = IPRED*(1 + EPS(1)) + EPS(2)  ; combined residual"],
-                "sigma": [pv, av], "label": "combined (proportional + additive)"}
+                "sigma": [spec.prop_var, spec.add_sd ** 2], "label": spec.label}
     return None
 
 
@@ -129,17 +108,31 @@ def build(model, ds=None, patient: Optional[Dict[str, Any]] = None) -> str:
     lines.append(f"  {vc['ke0']:.6g}   ; 7 KE0 (1/min)")
     if omegas:
         lines.append(f"; $OMEGA — between-subject variance (eta-scale); band-tier {model.band_tier}")
-        lines.append("$OMEGA")
+        block = contiguous_block(model)
+        block_n = len(block[0]) if block else 0
+        if block:
+            syms, cov = block
+            lines.append(f"$OMEGA BLOCK({block_n})  ; correlated BSV (off-diagonal Omega, "
+                         "covariance scale = r*sqrt(om_i*om_j))")
+            for i, sym in enumerate(syms):
+                nm = _ETA_ORDER[i][0]
+                row = "  ".join(f"{cov[i][j]:.6g}" for j in range(i + 1))
+                lines.append(f"  {row}       ; ETA({i + 1}) {nm}")
+        if block_n < len(_ETA_ORDER):
+            lines.append("$OMEGA  ; diagonal BSV" if block else "$OMEGA")
         for k, (nm, sym) in enumerate(_ETA_ORDER, start=1):
+            if k <= block_n:
+                continue  # already carried by the $OMEGA BLOCK above
             om2 = omegas.get(sym)
             if om2 is not None:
                 cv = 100.0 * math.sqrt(math.exp(om2) - 1.0)
                 lines.append(f"  {om2:.6g}       ; ETA({k}) {nm}  (BSV, CV~{cv:.0f}%)")
             else:
                 lines.append(f"  0 FIX        ; ETA({k}) {nm}  (no published BSV — fixed)")
-        if model.omega_block is not None:
-            lines.append("; NOTE: off-diagonal Omega correlations are curated but emitted as a "
-                         "diagonal here; see omega_block in the source record.")
+        if model.omega_block is not None and block is None:
+            lines.append("; NOTE: off-diagonal Omega correlations are curated but not emitted as a "
+                         "$OMEGA BLOCK here (incomplete or non-contiguous); see omega_block in the "
+                         "source record. The diagonal above assumes independence (with that caveat).")
     else:
         lines.append("$OMEGA 0 FIX  ; no published between-subject variability (variability_status: "
                      f"{model.variability_status})")

@@ -6,6 +6,7 @@ variance decomposition), and V3 (NONMEM $OMEGA/$SIGMA + tci_json passthrough).
 """
 import json
 import math
+import re
 
 import numpy as np
 import pytest
@@ -297,3 +298,137 @@ def test_tci_json_no_variability_for_marsh(ds):
     _, text = export_model("tci_json", ds[MARSH], ds)
     doc = json.loads(text)
     assert doc["variability"]["variability_status"] == "none"
+
+
+# --------------------------------------------------------------------------- #
+# V3 — random-effects projection across the pharmacometric formats
+# --------------------------------------------------------------------------- #
+def test_omega_diagonal_is_canonically_ordered(ds):
+    from hypnos.export._variability import VC_ORDER, omega_diagonal
+
+    syms = [s for s, _, _ in omega_diagonal(ds[ELEVELD])]
+    assert syms == VC_ORDER  # all seven, clearances/volumes interleaved then ke0
+
+
+def test_residual_spec_normalizes_log(ds):
+    from hypnos.export._variability import residual_spec
+
+    spec = residual_spec(ds[ELEVELD])
+    assert spec.model == "log"
+    assert spec.log_sd == pytest.approx(0.191)
+    assert residual_spec(ds[MARSH]) is None  # Marsh curates no residual error
+
+
+def test_rxode2_emits_population_block(ds):
+    _, text = export_model("rxode2", ds[ELEVELD], ds)
+    assert "_pop <- rxode2(" in text          # the population companion model
+    assert "Cl1 <- 1.922638103 * exp(eta.Cl1)" in text
+    assert "_omega <- lotri(" in text
+    assert "eta.Cl1 ~ 0.265" in text
+    assert "cp ~ lnorm(0.191)" in text        # log residual endpoint
+
+
+def test_rxode2_population_block_round_trips_micro_constants(ds):
+    # the V/Cl population block must derive the SAME typical micro-constants the
+    # typical-value model emits (so a population sim collapses to the line at eta=0).
+    _, text = export_model("rxode2", ds[ELEVELD], ds)
+    # parse the "# hypnos.params:" k=v line (the typical micro-constants)
+    kv = dict(tok.split("=") for tok in
+              re.search(r"# hypnos\.params: (.+)", text).group(1).split())
+    # recover Cl/V reference values from the population block and recompute k10
+    cl1 = float(re.search(r"Cl1 <- ([\d.eE+-]+) \* exp", text).group(1))
+    v1 = float(re.search(r"V1  <- ([\d.eE+-]+) \* exp", text).group(1))
+    assert cl1 / v1 == pytest.approx(float(kv["k10"]), rel=1e-9)
+
+
+def test_rxode2_no_population_block_for_marsh(ds):
+    _, text = export_model("rxode2", ds[MARSH], ds)
+    assert "_pop <- rxode2(" not in text
+    assert "lotri(" not in text
+
+
+def test_pumas_emits_random_block(ds):
+    _, text = export_model("pumas", ds[ELEVELD], ds)
+    assert "_pop = @model begin" in text
+    assert "@random begin" in text
+    assert "η_Cl1 ~ Normal(0.0, sqrt(ω²_Cl1))" in text
+    assert "Cl1 = 1.922638103 * exp(η_Cl1)" in text
+    assert "LogNormal(log(cp), 0.191)" in text
+
+
+def test_pumas_no_random_block_for_marsh(ds):
+    _, text = export_model("pumas", ds[MARSH], ds)
+    assert "@random begin" not in text
+
+
+def test_pharmml_emits_random_effects(ds):
+    import xml.dom.minidom as minidom
+
+    _, text = export_model("pharmml", ds[ELEVELD], ds)
+    minidom.parseString(text)  # well-formed
+    assert '<VariabilityModel bandTier="B" variabilityStatus="diagonal">' in text
+    assert 'parameter="Cl1"' in text and 'variance="0.265"' in text
+    assert '<ResidualError model="log"' in text and 'logSd="0.191"' in text
+
+
+def test_pharmml_no_variability_for_marsh(ds):
+    _, text = export_model("pharmml", ds[MARSH], ds)
+    assert "<VariabilityModel" not in text
+
+
+# --------------------------------------------------------------------------- #
+# V3 — NONMEM $OMEGA BLOCK (off-diagonal Omega), exercised with a curated block
+# --------------------------------------------------------------------------- #
+def _eleveld_with_block(ds, between, correlation, complete=True):
+    """Deep-copy the real Eleveld record and inject an omega_block (no dataset edit)."""
+    import copy
+
+    raw = copy.deepcopy(ds[ELEVELD].raw)
+    raw["variability_status"] = "full"
+    raw["omega_block"] = {
+        "correlations": [{"between": list(between), "correlation": correlation,
+                          "citation": "eleveld-2018-propofol"}],
+        "complete": complete, "tier": "C",
+        "extraction": {"review_status": "unverified"},
+    }
+    return Model(raw)
+
+
+def test_contiguous_block_builds_front_anchored_covariance(ds):
+    from hypnos.export._variability import contiguous_block
+
+    m = _eleveld_with_block(ds, ("Cl1", "V1"), 0.6)
+    syms, cov = contiguous_block(m)
+    assert syms == ["Cl1", "V1"]
+    assert cov[0][0] == pytest.approx(0.265)
+    assert cov[1][1] == pytest.approx(0.610)
+    assert cov[0][1] == pytest.approx(0.6 * math.sqrt(0.265 * 0.610))  # r*sqrt(om_i*om_j)
+
+
+def test_contiguous_block_rejects_incomplete(ds):
+    from hypnos.export._variability import contiguous_block
+
+    assert contiguous_block(_eleveld_with_block(ds, ("Cl1", "V1"), 0.6, complete=False)) is None
+
+
+def test_contiguous_block_rejects_non_front_anchored(ds):
+    from hypnos.export._variability import contiguous_block
+
+    # V1–Cl2 occupy eta positions 1–2, not anchored at eta 1 → no valid BLOCK
+    assert contiguous_block(_eleveld_with_block(ds, ("V1", "Cl2"), 0.5)) is None
+
+
+def test_nonmem_emits_omega_block_when_curated(ds):
+    m = _eleveld_with_block(ds, ("Cl1", "V1"), 0.6)
+    text = __import__("hypnos.export.nonmem", fromlist=["build"]).build(m, ds)
+    assert "$OMEGA BLOCK(2)" in text
+    cov = 0.6 * math.sqrt(0.265 * 0.610)
+    assert f"{cov:.6g}" in text          # off-diagonal covariance emitted
+    assert "$OMEGA  ; diagonal BSV" in text   # remaining five etas stay diagonal
+
+
+def test_nonmem_diagonal_when_block_non_contiguous(ds):
+    m = _eleveld_with_block(ds, ("V1", "Cl2"), 0.5)  # not front-anchored → fall back
+    text = __import__("hypnos.export.nonmem", fromlist=["build"]).build(m, ds)
+    assert "$OMEGA BLOCK(" not in text  # no BLOCK directive emitted
+    assert "not emitted as a $OMEGA BLOCK" in text

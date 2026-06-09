@@ -15,9 +15,47 @@ from xml.sax.saxutils import escape
 
 from . import annotate
 from ._common import resolve_patient, safe_name
+from ._variability import omega_correlations, omega_diagonal, residual_spec
 from .registry import KERNELS
 
 _NS = 'xmlns:pharmml="http://www.pharmml.org/pharmml/0.8/PharmML"'
+
+
+def _variability_xml(model) -> str:
+    """First-class NLME random effects (spec §8): η → RandomEffect / VariabilityLevel,
+    ε → the residual-error model. Empty when the model publishes no variability."""
+    if not model.has_published_variability:
+        return ""
+    parts = [
+        f'    <VariabilityModel bandTier="{model.band_tier}" '
+        f'variabilityStatus="{escape(model.variability_status)}">',
+        '      <VariabilityLevel symbol="indiv" type="betweenSubject"/>',
+    ]
+    for sym, om2, cv in omega_diagonal(model):
+        parts.append(
+            f'      <RandomEffect symbol="eta_{escape(sym)}" parameter="{escape(sym)}" '
+            f'level="indiv" distribution="Normal" transformation="log" '
+            f'variance="{om2:.10g}" cvPercent="{cv:.4g}"/>'
+        )
+    for a, b, r in omega_correlations(model):
+        parts.append(
+            f'      <Correlation between="{escape(a)} {escape(b)}" coefficient="{r:.6g}"/>'
+        )
+    spec = residual_spec(model)
+    if spec is not None:
+        terms = ""
+        if spec.log_sd is not None:
+            terms += f' logSd="{spec.log_sd:.10g}"'
+        if spec.prop_var is not None:
+            terms += f' proportionalVariance="{spec.prop_var:.10g}"'
+        if spec.add_sd is not None:
+            terms += f' additiveSd="{spec.add_sd:.10g}"'
+        parts.append(
+            f'      <ResidualError model="{escape(spec.model)}" '
+            f'description="{escape(spec.label)}"{terms}/>'
+        )
+    parts.append('    </VariabilityModel>')
+    return "\n" + "\n".join(parts)
 
 
 def build(model, ds=None, patient: Optional[Dict[str, Any]] = None) -> str:
@@ -67,6 +105,7 @@ def build(model, ds=None, patient: Optional[Dict[str, Any]] = None) -> str:
         f'height="{pat.get("height")}" sex="{pat.get("sex")}"/>\n'
         '    <PopulationParameters>\n' + param_lines + '\n    </PopulationParameters>\n'
         '    <CovariateModel>\n' + cov_lines + '\n    </CovariateModel>'
+        + _variability_xml(model)
         + kernel_note + '\n'
         + prov_xml + '\n'
         '  </pharmml:ModelDefinition>\n'

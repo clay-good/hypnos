@@ -8,7 +8,7 @@ version is pinned in `dataset/VERSION` and stamped into every export as
 
 ## [Unreleased]
 
-### v0.2 — the population-variability layer (V0–V2; V3 partial) (2026-06-09)
+### v0.2 — the population-variability layer (V0–V3 export code complete) (2026-06-09)
 Curate the **random-effects** structure of population models — between-subject
 variability (η / Ω) and residual error (ε / Σ) — alongside the typical-value
 parameters Hypnos already curates, propagate it as seeded Monte-Carlo prediction
@@ -51,16 +51,31 @@ v0.1 record stays valid; the variability block is optional).
   share of the total predictive variance). Models with no BSV are **named** in
   `excluded_from_bands`, never silently dropped. Surfaced in `hypnos compare --bands
   --percentile 5,95 --samples … --seed …`. New `variability.png` figure.
-- **Exports (V3, partial).** **NONMEM** now emits the real `$OMEGA` diagonal (with
-  `EXP(ETA(.))` wired into `$PK` and CV annotations) and `$SIGMA` from the residual
-  model — the single most natural upgrade from v0.1's `$OMEGA 0 FIX` placeholder;
-  models with no BSV keep `0 FIX` and name the missing component. **TCI-JSON** carries
-  the `variability` block losslessly. Remaining: `$OMEGA BLOCK`, PharmML/nlmixr2/Pumas
-  random effects, and BSV backfill for the other models.
+- **Exports (V3 — the random-effects layer now round-trips through *every* population
+  format).** A shared `export/_variability.py` projects the curated Ω/Σ once; each
+  exporter renders it in its own idiom:
+  - **NONMEM** emits the real `$OMEGA` diagonal (with `EXP(ETA(.))` wired into `$PK`
+    and CV annotations) and `$SIGMA`, and now a real **`$OMEGA BLOCK`** when a
+    `complete` `omega_block` spans a contiguous, front-anchored η run (covariance
+    `r·√(ωᵢ²ωⱼ²)`); non-block/incomplete correlations fall back to a diagonal `$OMEGA`
+    plus a named caveat; no-BSV models keep `0 FIX` and name the missing component.
+  - **PharmML** gains a first-class `VariabilityModel`: each η → `RandomEffect`/
+    `VariabilityLevel` (log transform, variance + CV%), correlations → `Correlation`,
+    ε → `ResidualError`. The interop anchor now carries the whole NLME object.
+  - **nlmixr2/rxode2** gains a runnable `<id>_pop` companion (V/Cl re-parameterized
+    with `exp(eta.X)`, micro-constants derived, `cp ~ lnorm/prop/add` residual) plus
+    the Ω as a `lotri` matrix — round-trips to the same typical micro-constants at η=0.
+  - **Pumas** gains a `<id>_pop` `@model` with `@param` ω² + `@random` η, the V/Cl
+    `@pre` with `exp(η)`, and the residual `dv ~` distribution in `@derived`.
+  - **TCI-JSON** carries the `variability` block losslessly (unchanged).
+  Remaining for V3 is **data, not code**: BSV backfill for Schnider, the remifentanil
+  trio, and dexmedetomidine awaits source-table confirmation (the common-toolchain
+  Schnider CV%s look like RSEs, not BSV), per the never-invent rule — the exporters
+  above will carry it the moment it is curated.
 - **Safety.** Unchanged and tightened in proportion: bands describe a *given* forward
   dose history and never invert one (no quantile-targeting), and every band is labeled
   a statement about the *model's stated uncertainty*, not a claim about a real patient.
-  `clinicalUse = "PROHIBITED"` remains universal. 26 new tests; suite 215 green.
+  `clinicalUse = "PROHIBITED"` remains universal. 40 variability tests; suite 229 green.
 
 ### Inhalational wash-out (FA/FA₀ emergence) — the offset mirror of wash-in (2026-06-09)
 - **`hypnos.washout` / `washout_comparison` + `hypnos washout` CLI** — the

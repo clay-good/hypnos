@@ -314,7 +314,7 @@ Validation, run in CI ([test suite](python/tests)):
 
 - **Analytic vs. independent numeric** — the matrix-exponential solver is checked against a separate `scipy.solve_ivp` integration (≤ 1e-4 relative) and against the closed-form one-compartment bolus solution (≤ 1e-7).
 - **Export round-trip** — each SBML / TCI-JSON / rxode2 / Pumas export is parsed back, re-simulated, and compared to the kernel (≤ 1e-6 algebraic). An export bug cannot ship silently.
-- **NONMEM `$THETA` fidelity** — emitted thetas are asserted equal to the instantiated parameters; the **v0.2** `$OMEGA`/`$SIGMA` are emitted from the curated `omega2`/residual model with `EXP(ETA(.))` wired into `$PK`, and a no-BSV model keeps `0 FIX` with the missing component named.
+- **NONMEM `$THETA` fidelity** — emitted thetas are asserted equal to the instantiated parameters; the **v0.2** `$OMEGA`/`$SIGMA` are emitted from the curated `omega2`/residual model with `EXP(ETA(.))` wired into `$PK`, and a no-BSV model keeps `0 FIX` with the missing component named. The off-diagonal `$OMEGA BLOCK` path is exercised against a synthetic complete block (front-anchored covariance, non-contiguous fall-back), and the rxode2/Pumas population blocks are asserted to derive the **same** typical micro-constants the median model emits (η=0 collapses the band to the line).
 - **`.omex` determinism** — the COMBINE archive is byte-identical across runs (fixed timestamps); CI rebuilds it and validates the manifest, so an archive bug cannot ship silently.
 - **effect-site divergence is computed only over models that carry a `ke0` link** — a PK-only model (e.g. Kim remifentanil, Paedfusor) has `ce = 0` and is excluded from the effect-site spread so it cannot manufacture a spurious divergence; plasma divergence still spans every model.
 
@@ -324,12 +324,12 @@ Exports are generated artifacts, never hand-edited (CI regenerates them), each i
 
 | Format | Role | Status |
 | --- | --- | --- |
-| **NONMEM** control stream (`$PK`/`$THETA`/`$OMEGA`/`$SIGMA`) | Lingua franca of population PK | ✅ ADVAN11/TRANS4; **v0.2** emits the real `$OMEGA` diagonal + `$SIGMA` where BSV is curated (else `0 FIX`) |
-| **SBML** L3v2 | Compartmental ODE → COPASI/Tellurium; continuity with Nidus | ✅ rate-rule form, round-tripped |
-| **TCI-sim JSON** | Clean ingestable JSON for the open-TCI/simulator community | ✅ round-tripped |
-| **PharmML** (projection) | The "SBML of PK/PD"; durable interop anchor | ✅ structural + params + provenance |
-| **nlmixr2 / rxode2** (R) | Open-source pharmacometric estimation & simulation | ✅ round-tripped |
-| **Pumas** (Julia) | Modern open pharmacometric simulation | ✅ round-tripped |
+| **NONMEM** control stream (`$PK`/`$THETA`/`$OMEGA`/`$SIGMA`) | Lingua franca of population PK | ✅ ADVAN11/TRANS4; **v0.2** emits the real `$OMEGA` diagonal + `$SIGMA` where BSV is curated (and `$OMEGA BLOCK` for a complete off-diagonal block; else `0 FIX`) |
+| **SBML** L3v2 | Compartmental ODE → COPASI/Tellurium; continuity with Nidus | ✅ rate-rule form, round-tripped (typical-value only — SBML core cannot express population random effects) |
+| **TCI-sim JSON** | Clean ingestable JSON for the open-TCI/simulator community | ✅ round-tripped; **v0.2** carries the `variability` block losslessly |
+| **PharmML** (projection) | The "SBML of PK/PD"; durable interop anchor | ✅ structural + params + provenance; **v0.2** first-class `VariabilityModel` (η→`RandomEffect`, ε→`ResidualError`) |
+| **nlmixr2 / rxode2** (R) | Open-source pharmacometric estimation & simulation | ✅ round-tripped; **v0.2** runnable `<id>_pop` companion (`lotri` Ω + `cp ~ lnorm/prop/add` Σ) |
+| **Pumas** (Julia) | Modern open pharmacometric simulation | ✅ round-tripped; **v0.2** `<id>_pop` `@param`/`@random`/`@derived` NLME block |
 | **COMBINE `.omex`** | Provenance-bundled archive (SBML+PharmML+TCI-JSON+RDF+BibTeX) | ✅ deterministic, manifest-validated |
 | **BibTeX** | Citation export (cite Hypnos *and* the source) | ✅ per-model + dataset |
 | **CSV** | Flat parameter export (one row per parameter, DOI/PMID joined) | ✅ per-model + dataset |
@@ -347,6 +347,36 @@ $THETA
   ...
 ; bqmodel:isDerivedFrom = https://doi.org/10.1097/00000542-199805000-00006
 ```
+
+**The v0.2 random-effects layer projects to every population format** (here Eleveld propofol, the one model carrying a curated Ω/Σ). A single shared projection (`export/_variability.py`) renders the η-scale Ω diagonal and the Σ residual model in each ecosystem's native idiom — so the *population* model, not just its typical patient, round-trips:
+
+```r
+# nlmixr2 / rxode2 — a runnable population companion (eta=0 collapses to the median line)
+hypnotics_iv_propofol_eleveld_2018_pop <- rxode2({
+  Cl1 <- 1.922638103 * exp(eta.Cl1)      # log-normal BSV on each disposition parameter
+  V1  <- 6.47078481  * exp(eta.V1)
+  ...
+  k10 <- Cl1 / V1 ; k12 <- Cl2 / V1 ; ...   # micro-constants derived → round-trip exact
+  cp = A1 / V1
+  cp ~ lnorm(0.191)                       # Σ: log-additive residual
+})
+hypnotics_iv_propofol_eleveld_2018_omega <- lotri({
+  eta.Cl1 ~ 0.265   # CV~55%     eta.V1 ~ 0.61   # CV~92%   ...   eta.ke0 ~ 0.702  # CV~101%
+})
+```
+
+```xml
+<!-- PharmML — random effects are first-class -->
+<VariabilityModel bandTier="B" variabilityStatus="diagonal">
+  <VariabilityLevel symbol="indiv" type="betweenSubject"/>
+  <RandomEffect symbol="eta_Cl1" parameter="Cl1" level="indiv" distribution="Normal"
+                transformation="log" variance="0.265" cvPercent="55.08"/>
+  ...
+  <ResidualError model="log" description="log-additive (≈ proportional on natural scale)" logSd="0.191"/>
+</VariabilityModel>
+```
+
+NONMEM emits the matching `$OMEGA` diagonal (and a real `$OMEGA BLOCK` when a *complete* off-diagonal block is curated — covariance `r·√(ωᵢ²ωⱼ²)` over a contiguous η run, honest diagonal-plus-caveat otherwise); Pumas emits a `@param`/`@random`/`@derived` NLME block; TCI-JSON carries the block verbatim. A model with **no** published BSV (Marsh, Schnider) emits none of this and names the missing component — the never-synthesize rule, all the way through the export layer.
 
 ### The COMBINE `.omex` archive — the distribution unit
 
@@ -376,9 +406,9 @@ hypnos export --format bibtex --output exports/               # citations.bib
 python scripts/regenerate.py                                  # regenerate every export + figures
 ```
 
-## Current coverage (v0.2.0 — v0.1 A–E complete · v0.2 variability V0–V2)
+## Current coverage (v0.2.0 — v0.1 A–E complete · v0.2 variability V0–V3 export code)
 
-Honest status. A is the propofol spine; B adds the dominant opioid and the interaction surface; C widens to a new drug class and pediatrics; D brings in the non-IV families; E hardens for release (COMBINE `.omex`, BibTeX, reproducibility, verified MDPE/MDAPE) ([v0.1 roadmap](docs/specs/v0.1/spec.md#11-phased-roadmap)). **v0.2** adds the [population-variability layer](docs/specs/v0.2/variability.md) — Ω/Σ random effects, seeded prediction bands, and uncertainty-aware divergence (Eleveld propofol curated; bands + separation index + variance decomposition live; NONMEM `$OMEGA`/`$SIGMA` and TCI-JSON exports carry it). **19 models · 9 drugs · 7 subsystems · 17 executable kernels · 9 export formats · 1 model with a curated random-effects layer.**
+Honest status. A is the propofol spine; B adds the dominant opioid and the interaction surface; C widens to a new drug class and pediatrics; D brings in the non-IV families; E hardens for release (COMBINE `.omex`, BibTeX, reproducibility, verified MDPE/MDAPE) ([v0.1 roadmap](docs/specs/v0.1/spec.md#11-phased-roadmap)). **v0.2** adds the [population-variability layer](docs/specs/v0.2/variability.md) — Ω/Σ random effects, seeded prediction bands, and uncertainty-aware divergence (Eleveld propofol curated; bands + separation index + variance decomposition live; **all five population exports — NONMEM `$OMEGA`/`$OMEGA BLOCK`/`$SIGMA`, PharmML, nlmixr2/rxode2, Pumas, TCI-JSON — carry the random-effects layer**). The only V3 item left is the never-invent BSV *data* backfill for the other models, blocked on source-table confirmation. **19 models · 9 drugs · 7 subsystems · 17 executable kernels · 9 export formats · 1 model with a curated random-effects layer.**
 
 | Model | Record | Kernel | Tier | Notes |
 | --- | --- | --- | --- | --- |
@@ -455,7 +485,7 @@ hypnos/
 │   ├── analysis.py              # derived characterizations (time-to-peak-effect; forward-only)
 │   ├── verification.py          # verification checklists + coverage (guides humans; never promotes)
 │   ├── cli.py
-│   └── export/                  # registry · annotate · nonmem · pharmml · sbml · tci_json · rxode2 · pumas · bibtex · csv_flat · combine(.omex)
+│   └── export/                  # registry · annotate · _variability(Ω/Σ projection) · nonmem · pharmml · sbml · tci_json · rxode2 · pumas · bibtex · csv_flat · combine(.omex)
 ├── scripts/regenerate.py        # deterministically regenerate all exports + figures
 ├── notebooks/                   # reference notebooks executed in CI (nbmake)
 ├── CHANGELOG.md · .zenodo.json   # release metadata (Zenodo DOI on first tagged release)
@@ -528,7 +558,7 @@ hypnos.validate_dataset(ds)                                           # -> list 
 | **C — Breadth** | dexmedetomidine, ketamine, midazolam, fentanyl family; pediatric models with explicit Tier-D labeling | ✅ core shipped (dexmedetomidine + the pediatric pair Kataria & Paedfusor executable with explicit pediatric/geriatric extrapolation labeling and a live pediatric model-divergence; fentanyl curated, kernel pending; ketamine/midazolam roadmap) |
 | **D — Inhalational + NMB** | volatile MAC/partition/uptake; neuromuscular blockers + train-of-four; sugammadex reversal | ✅ core shipped (4 volatiles with MAC age-correction + additivity + solubility-driven wash-in (FA/FI uptake) and wash-out (FA/FA₀ emergence) all executable; rocuronium seeded with TOF PD; rocuronium PK kernel + sugammadex binding kinetics pending) |
 | **E — Hardening** | external-validation MDPE/MDAPE backfill; COMBINE `.omex`; Zenodo DOI | ✅ core shipped (deterministic `.omex` + BibTeX exporters; `scripts/regenerate.py`; `.zenodo.json` + `CHANGELOG.md`; external-validation MDPE/MDAPE backfilled across both headline drugs + dexmedetomidine, citation-integrity-checked and surfaced via `hypnos performance`; minted DOI on first tagged release) |
-| **v0.2 — Population-variability layer** | curate Ω/Σ random effects; seeded prediction bands; uncertainty-aware divergence (separation index + variance decomposition); export the NLME object ([spec](docs/specs/v0.2/variability.md)) | 🟢 V0–V2 shipped + V3 partial (Eleveld propofol Ω-diagonal + Σ curated `unverified` with the §4-trap validate checks; `simulate`/`compare --bands` draw seeded, reproducible bands with the never-synthesize rule; NONMEM `$OMEGA`/`$SIGMA` + TCI-JSON carry it). **Remaining:** `$OMEGA BLOCK` + PharmML/nlmixr2/Pumas random effects; BSV backfill for Schnider/opioids/dexmedetomidine; PD random effects; dashboard ribbons |
+| **v0.2 — Population-variability layer** | curate Ω/Σ random effects; seeded prediction bands; uncertainty-aware divergence (separation index + variance decomposition); export the NLME object ([spec](docs/specs/v0.2/variability.md)) | 🟢 V0–V3 export code shipped (Eleveld propofol Ω-diagonal + Σ curated `unverified` with the §4-trap validate checks; `simulate`/`compare --bands` draw seeded, reproducible bands with the never-synthesize rule; **all five population exports carry the random-effects layer** — NONMEM `$OMEGA`/`$OMEGA BLOCK`/`$SIGMA`, PharmML `VariabilityModel`, nlmixr2/rxode2 + Pumas NLME companions, TCI-JSON). **Remaining (data, not code):** BSV backfill for Schnider/opioids/dexmedetomidine (awaits source-table confirmation, per never-invent); PD random effects; dashboard ribbons |
 
 ---
 

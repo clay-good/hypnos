@@ -176,7 +176,23 @@ cv.population.mdpe      # 20.0   (bias)        cv.population.ci95["mdpe"]   # se
 cv.population.mdape     # 20.0   (inaccuracy)  cv.to_record()               # schema external_validation[] entry
 ```
 
-The design's load-bearing decision: the **computed** metrics live in a new `external_validation[]` block, kept strictly separate from the human-curated, publisher-reported `predictive_performance` — so the two can be *reconciled*, never *conflated* (spec §4.1). `hypnos validate` enforces the separation's invariants (a BIS validation can never be filed as a concentration validation). The source-specific adapters (Open-TCI for plasma concentration, VitalDB for BIS) and the reproducible cross-model leaderboard sit *on top of* this engine and are the next phases (VE1–VE3); they need credentialed data, which CI never touches.
+The engine is also a **CLI command** — the "separately-invoked, locally-run" external validation the spec describes (§9). Point it at your own cohort CSV (long format: `subject,time_min,observed,kind` + covariates + dose specs; the generic `subjects_from_csv` adapter maps it to `SubjectRecord`s), or run the no-data known-answer fixture:
+
+```text
+$ hypnos validate-cohort --model hypnotics_iv.propofol.eleveld_2018 --self-consistency --offset 20
+external validation — hypnotics_iv.propofol.eleveld_2018 vs self-consistency (+20% offset known-answer fixture)
+  mode pk_concentration · target cp · 3 subject(s) · seed 0
+  metric          value   95% CI (seeded bootstrap)
+  MDPE           20.00%  [20.00, 20.00]      ← a +20% offset recovers MDPE = 20% exactly
+  MDAPE          20.00%  [20.00, 20.00]
+  wobble          0.00%  [0.00, 0.00]
+  divergence     -0.00%/h  [-0.00, -0.00]
+
+$ hypnos validate-cohort --model hypnotics_iv.propofol.schnider_1998 --observations my_cohort.csv --json
+# → the schema external_validation[] record (reproducible; computed_by=hypnos)
+```
+
+`--self-consistency` needs no external data and is exercised in CI; the `--observations` path is the locally-run command a researcher points at Open-TCI / VitalDB / their own study export. The design's load-bearing decision: the **computed** metrics live in a new `external_validation[]` block, kept strictly separate from the human-curated, publisher-reported `predictive_performance` — so the two can be *reconciled*, never *conflated* (spec §4.1). `hypnos validate` enforces the separation's invariants (a BIS validation can never be filed as a concentration validation). The source-specific adapters (Open-TCI for plasma concentration, VitalDB for BIS) and the reproducible cross-model leaderboard sit *on top of* this engine and are the next phases (VE1–VE3); they need credentialed data, which CI never touches.
 
 ## Drug–drug interaction: the propofol–remifentanil synergy surface
 
@@ -448,7 +464,7 @@ The **dataset is the single source of truth.** Everything else — simulation, e
 flowchart TD
     DS["<b>dataset/</b> — source of truth<br/>JSON model records + JSON Schema + JSON-LD context<br/>drugs · models · covariate eqs · envelopes · tiers · citations"]
     DS --> PKG["<b>hypnos</b> Python package<br/>load · filter · validate<br/>simulate · compare (PK/PD + divergence + bands + organ envelope)<br/>sample_individual (seeded BSV draws)<br/>simulate_interaction (synergy surface)<br/>analysis (tpeak · decrement · Varvel MDPE/MDAPE)<br/>inhalational (MAC · wash-in/out)<br/>la (LA absorption · double-uncertainty · cardiotoxicity · free-fraction)<br/>verification (checklists, never promotes)"]
-    PKG --> CLI["<b>hypnos</b> CLI<br/>validate · info · models · status · verify<br/>simulate · compare · interact<br/>tpeak · decrement · mac · washin · washout · la<br/>performance · export"]
+    PKG --> CLI["<b>hypnos</b> CLI<br/>validate · info · models · status · verify<br/>simulate · compare · interact · validate-cohort (Varvel)<br/>tpeak · decrement · mac · washin · washout · la<br/>performance · export"]
     PKG --> DASH["Streamlit dashboard<br/>drug-aware divergence + accuracy + driver<br/>seeded prediction-band ribbons + separation/variance readout<br/>PD effect (BIS) band · onset table · synergy<br/>volatiles (MAC + wash-in/out) · local anesthetics (v0.6)"]
     PKG --> EXP["<b>hypnos.export</b><br/>format builders"]
     EXP --> NM["NONMEM control stream"]
@@ -724,6 +740,8 @@ hypnos la --drug bupivacaine --dose 100 --site lumbar_epidural       # v0.6 LA1:
 hypnos la --agents                                                   # v0.6 LA2: cross-agent cardiotoxicity comparison (CNS-to-CVS margin by stereochemistry)
 hypnos tpeak <model_id> --age .. --weight .. --height .. --sex ..    # time to peak effect (onset)
 hypnos decrement <model_id> --duration 240 [--infusion '6 mg/kg/h']  # plasma decrement time (offset)
+hypnos validate-cohort --model <id> --self-consistency --offset 20   # v0.4: Varvel MDPE/MDAPE/wobble (known-answer fixture, no data)
+hypnos validate-cohort --model <id> --observations cohort.csv [--json]  # v0.4: external validation vs a cohort CSV (locally-run)
 hypnos export   --format {nonmem,pharmml,sbml,tci_json,rxode2,pumas,bibtex,csv,omex} --output exports/ [--model <id>]
 python scripts/regenerate.py                                          # regenerate all exports + figures
 streamlit run dashboard/app.py
@@ -748,6 +766,7 @@ hypnos.decrement_time(ds, model_id, patient=.., infusion=.., duration=..)  # off
 hypnos.performance_error(c_obs, c_pred)                              # v0.4: Varvel PE% (pred is the denominator)
 hypnos.varvel_metrics(pe, times)                                    # v0.4: MDPE / MDAPE / wobble / divergence
 hypnos.validate_against_cohort(ds, model_id, subjects, target="cp", seed=7)  # v0.4: forward-validate on a cohort
+hypnos.subjects_from_csv(rows)                                      # v0.4: long-format cohort CSV -> SubjectRecord[] (generic adapter)
 res.cp_peak_display, res.concentration_unit                          # conventional units (ng/mL for opioids)
 hypnos.verification_summary(ds)                                       # coverage + next-to-verify
 hypnos.model_verification(ds, model_id)                              # field-by-field checklist object

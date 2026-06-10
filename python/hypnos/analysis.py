@@ -445,3 +445,90 @@ def validate_against_cohort(
         model_id=model_id, dataset=dataset, mode=_TARGET_MODE[target], target=target,
         n_subjects=len(per_subject), population=pop, per_subject=per_subject, seed=seed,
     )
+
+
+# Covariate columns recognized by the generic CSV adapter (numeric unless noted).
+_CSV_COVARIATES = ("age", "weight", "height", "crcl_ml_min", "albumin_g_dl",
+                   "ejection_fraction_pct")
+
+
+def subjects_from_csv(rows: Sequence[Dict[str, str]]) -> List[SubjectRecord]:
+    """Generic long-format cohort CSV -> :class:`SubjectRecord`\\ s (v0.4 §A adapter).
+
+    Each row is **one observation**; rows are grouped by ``subject`` and the
+    covariates + dose history are read (constant) from each subject's first row.
+    This is the adapter-agnostic, source-neutral entry point — a researcher points
+    it at their own observed concentrations (or an Open-TCI / VitalDB export mapped
+    to these columns) and feeds the result to :func:`validate_against_cohort`. It
+    never invents data: a row missing ``time_min``/``observed``/``kind`` is skipped.
+
+    Recognized columns (others are ignored):
+
+    * ``subject`` — subject id (defaults to ``"all"`` if absent, i.e. one cohort).
+    * ``time_min``, ``observed``, ``kind`` — the observation (``kind`` ∈ cp/ce/bis/tof).
+    * ``age``/``weight``/``height``/``crcl_ml_min``/``albumin_g_dl``/``ejection_fraction_pct``
+      (numeric) and ``sex``/``child_pugh`` (string) — covariates.
+    * ``bolus``/``infusion`` — dose specs (e.g. ``"2 mg/kg"`` / ``"6 mg/kg/h"``) applied at t=0.
+    """
+    grouped: Dict[str, Dict[str, Any]] = {}
+    order: List[str] = []
+    for row in rows:
+        sid = (row.get("subject") or "all").strip()
+        try:
+            t = float(row["time_min"])
+            v = float(row["observed"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        kind = (row.get("kind") or "cp").strip()
+        if sid not in grouped:
+            order.append(sid)
+            cov: Dict[str, Any] = {}
+            for c in _CSV_COVARIATES:
+                if str(row.get(c, "")).strip():
+                    cov[c] = float(row[c])
+            for c in ("sex", "child_pugh"):
+                if str(row.get(c, "")).strip():
+                    cov[c] = row[c].strip()
+            schedule: List[Tuple[str, float, str]] = []
+            for kind_col in ("bolus", "infusion"):
+                spec = str(row.get(kind_col, "")).strip()
+                if spec:
+                    schedule.append((kind_col, 0.0, spec))
+            grouped[sid] = {"covariates": cov, "schedule": schedule, "obs": []}
+        grouped[sid]["obs"].append((t, v, kind))
+    return [SubjectRecord(covariates=grouped[s]["covariates"], schedule=grouped[s]["schedule"],
+                          observations=grouped[s]["obs"], subject_id=s) for s in order]
+
+
+def subjects_from_cohort_self_consistency(
+    ds: Dataset, model_id: str, *, target: str = "cp", pd_model: Optional[str] = None,
+    offset_pct: float = 20.0, n_subjects: int = 3,
+) -> List[SubjectRecord]:
+    """A KNOWN-ANSWER cohort built from the model's OWN predictions (v0.4 §6 / §8).
+
+    Observed = predicted·(1 + offset/100), so :func:`validate_against_cohort` must
+    recover ``MDPE ≈ offset_pct`` and ``MDAPE ≈ |offset_pct|`` — a CI-runnable
+    correctness check on the metric engine that needs **no external data**. This is
+    explicitly *not* a clinical cohort; it is the self-consistency fixture the v0.4
+    spec validates the engine with before any real-cohort run."""
+    from .presets import default_schedule_for
+    from .simulate import simulate as _simulate
+
+    schedule = list(default_schedule_for(ds[model_id].drug_name))
+    obs_t = np.array([5.0, 10.0, 20.0, 30.0, 45.0, 60.0])
+    base = [dict(age=45, weight=70, height=170, sex="M"),
+            dict(age=60, weight=85, height=178, sex="M"),
+            dict(age=35, weight=60, height=162, sex="F")]
+    grid = np.union1d(np.linspace(0.0, float(obs_t.max()), 200), obs_t)
+    out: List[SubjectRecord] = []
+    for i, cov in enumerate(base[:max(1, n_subjects)]):
+        res = _simulate(ds, model_id, patient=cov, schedule=schedule, t=grid, pd_model=pd_model)
+        curve = {"cp": res.cp, "ce": res.ce, "bis": res.effect, "tof": res.effect}.get(target)
+        if curve is None:
+            raise ValueError(f"target={target!r} unavailable (pass pd_model for an effect target)")
+        pred = np.interp(obs_t, grid, curve)
+        obs = [(float(t), float(p * (1.0 + offset_pct / 100.0)), target)
+               for t, p in zip(obs_t, pred) if p > 0]
+        out.append(SubjectRecord(covariates=cov, schedule=schedule,
+                                 observations=obs, subject_id=f"sc{i + 1}"))
+    return out

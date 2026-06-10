@@ -287,3 +287,55 @@ def test_check_external_validation_flags_ci_inversion():
 def test_full_dataset_still_validates():
     # no curated model carries the new block yet; the dataset stays clean.
     assert hypnos.validate_dataset() == []
+
+
+# --------------------------------------------------------------------------- #
+# the generic CSV adapter + the self-consistency cohort (the CLI-exposed surface)
+# --------------------------------------------------------------------------- #
+from hypnos.analysis import (  # noqa: E402
+    subjects_from_cohort_self_consistency,
+    subjects_from_csv,
+)
+
+
+def test_subjects_from_csv_groups_and_parses():
+    rows = [
+        {"subject": "s1", "time_min": "5", "observed": "3.1", "kind": "cp",
+         "age": "50", "weight": "70", "height": "170", "sex": "M",
+         "bolus": "2 mg/kg", "infusion": "6 mg/kg/h"},
+        {"subject": "s1", "time_min": "15", "observed": "2.4", "kind": "cp",
+         "age": "50", "weight": "70", "height": "170", "sex": "M"},
+        {"subject": "s2", "time_min": "5", "observed": "2.8", "kind": "cp",
+         "age": "68", "weight": "60", "height": "165", "sex": "F", "bolus": "2 mg/kg"},
+    ]
+    subjects = subjects_from_csv(rows)
+    assert [s.subject_id for s in subjects] == ["s1", "s2"]          # order preserved
+    assert len(subjects[0].observations) == 2                        # grouped by subject
+    assert subjects[0].covariates == {"age": 50.0, "weight": 70.0, "height": 170.0, "sex": "M"}
+    assert ("bolus", 0.0, "2 mg/kg") in subjects[0].schedule
+    assert ("infusion", 0.0, "6 mg/kg/h") in subjects[0].schedule
+    assert subjects[1].schedule == [("bolus", 0.0, "2 mg/kg")]       # infusion blank -> omitted
+
+
+def test_subjects_from_csv_skips_malformed_rows():
+    rows = [
+        {"subject": "s1", "time_min": "5", "observed": "3.1", "kind": "cp"},
+        {"subject": "s1", "time_min": "", "observed": "x", "kind": "cp"},   # malformed -> skipped
+        {"subject": "s1", "observed": "2.0", "kind": "cp"},                 # no time -> skipped
+    ]
+    subjects = subjects_from_csv(rows)
+    assert len(subjects) == 1 and len(subjects[0].observations) == 1
+
+
+def test_self_consistency_recovers_the_known_offset():
+    # a +X% offset of the model's own prediction MUST recover MDPE ≈ +X% and
+    # MDAPE ≈ |X|% — the engine's known-answer check, no external data (v0.4 §8).
+    ds = hypnos.load()
+    for offset in (20.0, -12.0):
+        subs = subjects_from_cohort_self_consistency(
+            ds, "hypnotics_iv.propofol.eleveld_2018", target="cp", offset_pct=offset)
+        cv = validate_against_cohort(ds, "hypnotics_iv.propofol.eleveld_2018", subs,
+                                     target="cp", seed=0)
+        assert cv.population.mdpe == pytest.approx(offset, abs=1e-6)
+        assert cv.population.mdape == pytest.approx(abs(offset), abs=1e-6)
+        assert cv.population.wobble == pytest.approx(0.0, abs=1e-6)   # no intra-subject scatter

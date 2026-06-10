@@ -85,3 +85,44 @@ def test_export_cli(tmp_path, capsys):
     files = list(tmp_path.glob("*.sbml.xml"))
     assert len(files) == 1
     assert "PROHIBITED" in files[0].read_text()
+
+
+def test_validate_cohort_self_consistency(capsys):
+    # the known-answer fixture: a +20% offset must recover MDPE ≈ 20% from the CLI
+    rc = main(["validate-cohort", "--model", "hypnotics_iv.propofol.eleveld_2018",
+               "--self-consistency", "--offset", "20"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "external validation" in out and "MDPE" in out
+    m = re.search(r"MDPE\s+([0-9.\-]+)%", out)
+    assert m and float(m.group(1)) == pytest.approx(20.0, abs=0.01)
+
+
+def test_validate_cohort_json_record(capsys):
+    rc = main(["validate-cohort", "--model", "hypnotics_iv.propofol.eleveld_2018",
+               "--self-consistency", "--offset", "10", "--json"])
+    assert rc == 0
+    rec = json.loads(capsys.readouterr().out)
+    assert rec["reproducible"] is True and rec["mode"] == "pk_concentration"
+    mdpe = next(m for m in rec["metrics"] if m["name"] == "MDPE")
+    assert mdpe["value"] == pytest.approx(10.0, abs=0.01)
+
+
+def test_validate_cohort_from_csv(tmp_path, capsys):
+    csv = tmp_path / "cohort.csv"
+    csv.write_text(
+        "subject,time_min,observed,kind,age,weight,height,sex,bolus,infusion\n"
+        "s1,5,3.1,cp,50,70,170,M,2 mg/kg,6 mg/kg/h\n"
+        "s1,15,2.4,cp,50,70,170,M,2 mg/kg,6 mg/kg/h\n"
+        "s1,30,2.0,cp,50,70,170,M,2 mg/kg,6 mg/kg/h\n", encoding="utf-8")
+    rc = main(["validate-cohort", "--model", "hypnotics_iv.propofol.schnider_1998",
+               "--observations", str(csv)])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "1 subject(s)" in out and "MDAPE" in out
+
+
+def test_validate_cohort_requires_a_source(capsys):
+    rc = main(["validate-cohort", "--model", "hypnotics_iv.propofol.eleveld_2018"])
+    assert rc == 2
+    assert "self-consistency" in capsys.readouterr().err

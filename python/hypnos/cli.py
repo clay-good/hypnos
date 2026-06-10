@@ -90,6 +90,66 @@ def cmd_info(args) -> int:
     return 0
 
 
+def cmd_validate_cohort(args) -> int:
+    """Run the Varvel external-validation engine (v0.4 §6) from the CLI — the
+    'separately-invoked, locally-run command' the spec describes (§9). Forward-only:
+    it simulates each subject's RECORDED dose history and scores predicted-vs-observed;
+    it never tunes a dose. Observations are supplied at invocation (CI never touches
+    credentialed data), or `--self-consistency` builds a known-answer fixture from the
+    model's own predictions offset by a known bias (a +X% offset must recover MDPE ≈ +X%).
+    """
+    import csv as _csv
+
+    from .analysis import subjects_from_cohort_self_consistency  # local helper, below
+    from .analysis import subjects_from_csv, validate_against_cohort
+
+    ds = load()
+    if args.model not in ds:
+        print(f"unknown model {args.model!r}", file=sys.stderr)
+        return 2
+    target = args.target
+    if args.self_consistency:
+        subjects = subjects_from_cohort_self_consistency(
+            ds, args.model, target=target, pd_model=args.pd_model, offset_pct=args.offset)
+        source = f"self-consistency (+{args.offset:g}% offset known-answer fixture)"
+    elif args.observations:
+        try:
+            with open(args.observations, newline="", encoding="utf-8") as fh:
+                rows = list(_csv.DictReader(fh))
+        except OSError as e:
+            print(str(e), file=sys.stderr)
+            return 2
+        subjects = subjects_from_csv(rows)
+        source = args.observations
+    else:
+        print("provide --observations <csv> or --self-consistency", file=sys.stderr)
+        return 2
+    if not subjects:
+        print("no subjects with scorable observations (check the CSV columns/kind)", file=sys.stderr)
+        return 2
+    try:
+        cv = validate_against_cohort(ds, args.model, subjects, target=target,
+                                     pd_model=args.pd_model, dataset=source, seed=args.seed)
+    except (ValueError, NotImplementedError) as e:
+        print(str(e), file=sys.stderr)
+        return 2
+    if args.json:
+        print(json.dumps(cv.to_record(), indent=2))
+        return 0
+    p = cv.population
+    print(f"external validation — {cv.model_id} vs {source}")
+    print(f"  mode {cv.mode} · target {cv.target} · {cv.n_subjects} subject(s) · seed {cv.seed}")
+    print(f"  {'metric':10s} {'value':>10s}   95% CI (seeded bootstrap)")
+    for name, val, units in (("MDPE", p.mdpe, "%"), ("MDAPE", p.mdape, "%"),
+                             ("wobble", p.wobble, "%"), ("divergence", p.divergence, "%/h")):
+        lo, hi = p.ci95.get(name.lower(), (float("nan"), float("nan")))
+        ci = f"[{lo:.2f}, {hi:.2f}]" if lo == lo else "n/a"
+        print(f"  {name:10s} {val:>9.2f}{units:1s}  {ci}")
+    print("  Hypnos-COMPUTED (reproducible), distinct from any publisher-reported predictive_performance. "
+          "NOT a dosing tool.")
+    return 0
+
+
 def _run_sim(args):
     ds = load()
     patient = _patient_from_args(args)
@@ -600,6 +660,23 @@ def build_parser() -> argparse.ArgumentParser:
     pp = sub.add_parser("performance", help="published predictive-performance metrics (MDPE/MDAPE/…)")
     pp.add_argument("--drug", default=None)
     pp.set_defaults(func=cmd_performance)
+
+    vcp = sub.add_parser("validate-cohort", help="Hypnos-COMPUTED Varvel metrics (MDPE/MDAPE/wobble/"
+                         "divergence) for a model vs a cohort of observations (v0.4 §6) — the "
+                         "separately-invoked, locally-run external-validation command")
+    vcp.add_argument("--model", required=True, help="model id to validate")
+    vcp.add_argument("--observations", default=None, help="long-format cohort CSV "
+                     "(columns: subject,time_min,observed,kind[,age,weight,height,sex,bolus,infusion])")
+    vcp.add_argument("--self-consistency", dest="self_consistency", action="store_true",
+                     help="no external data: build a known-answer fixture from the model's own "
+                          "predictions offset by --offset (a +X%% offset must recover MDPE ≈ +X%%)")
+    vcp.add_argument("--offset", type=float, default=20.0, help="self-consistency bias %% (default 20)")
+    vcp.add_argument("--target", default="cp", choices=["cp", "ce", "bis", "tof"],
+                     help="predicted quantity to score (bis/tof need --pd-model)")
+    vcp.add_argument("--pd-model", dest="pd_model", default=None, help="PD model id for an effect target")
+    vcp.add_argument("--seed", type=int, default=0, help="bootstrap-CI seed (reproducible)")
+    vcp.add_argument("--json", action="store_true", help="emit the external_validation[] record (JSON)")
+    vcp.set_defaults(func=cmd_validate_cohort)
 
     vp = sub.add_parser("verify", help="field-by-field verification checklist for a model")
     vp.add_argument("model")

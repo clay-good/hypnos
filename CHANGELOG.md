@@ -8,6 +8,27 @@ version is pinned in `dataset/VERSION` and stamped into every export as
 
 ## [Unreleased]
 
+### v0.4 external validation reaches the CLI — `hypnos validate-cohort` (2026-06-10)
+- **The Varvel external-validation engine is now a command.** VE0 shipped the metric engine
+  (`performance_error` / `varvel_metrics` / `validate_against_cohort`) as a tested *library*, but the
+  v0.4 spec frames external validation as a "separately-invoked, locally-run command" (§9) — and that
+  surface was missing. `hypnos validate-cohort` exposes the engine: it simulates each subject's
+  RECORDED dose history and scores predicted-vs-observed (MDPE / MDAPE / wobble / divergence with a
+  seeded-bootstrap CI), forward-only, never tuning a dose.
+- **Two modes, both honest.** `--observations <csv>` runs a researcher's own cohort (a long-format
+  CSV: `subject,time_min,observed,kind` + covariates + dose specs), mapped to `SubjectRecord`s by a new
+  generic `subjects_from_csv` adapter — the source-neutral entry point the Open-TCI / VitalDB adapters
+  (VE1) will sit beside. `--self-consistency [--offset X]` needs **no external data**: it builds a
+  known-answer fixture from the model's own predictions biased by a known offset, so a +X% offset must
+  recover `MDPE ≈ +X%` — a CI-runnable correctness check on the engine (the fixture the spec validates
+  the engine with). `--json` emits the schema `external_validation[]` record.
+- New `analysis.subjects_from_csv` + `analysis.subjects_from_cohort_self_consistency`, exported from the
+  top-level package; tests cover the CSV grouping/parse/skip-malformed, the known-answer recovery
+  (offset → MDPE/MDAPE, wobble = 0), and the CLI (both modes + the source-required guard).
+- README v0.4 section + cheat sheet + the CLI architecture-diagram node document the command. No
+  dataset/schema change (still `0.6.0`); this exposes existing tested machinery, never touches
+  credentialed data, and keeps the computed metrics strictly separate from publisher-reported ones.
+
 ### v0.5 organ-function reference notebook + architecture-diagram accuracy (2026-06-10) — housekeeping/docs
 - **A CI-executed v0.5 reference notebook** (`notebooks/04_organ_function.ipynb`, built
   deterministically by `scripts/build_organ_notebook.py`) reproduces the organ-function envelope —

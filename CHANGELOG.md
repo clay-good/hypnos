@@ -8,6 +8,37 @@ version is pinned in `dataset/VERSION` and stamped into every export as
 
 ## [Unreleased]
 
+### v0.7 C2 — the covariate-value band + the fifth variance component (2026-06-10)
+- **The other half of the covariate uncertainty: how well do we know the covariate?** C1 answered
+  *which equation* (a structural choice); C2 answers *how well do we even know the input* — a weight is
+  often estimated, a height rounded, and v0.1–v0.3 treat the covariate vector as exact. Supply a covariate
+  as a distribution (`weight={"mean":130,"sd":13}`) and `simulate(..., bands=["covariate"], seed=7)`
+  propagates it as a **seeded, reproducible covariate band**, framed always as *"how much does
+  not-knowing-the-weight move the prediction?"* — never *"what weight should I enter?"*. ([Spec §6/§7.2/§7.3.](docs/specs/v0.7/covariate_uncertainty.md))
+- **`covariates.sample_covariate_vector` + `point_patient`** — the seeded primitive draws a perturbed
+  covariate vector from `{mean, sd, dist}` marginals (independent, no covariance assumed absent a caller's —
+  the honest default of v0.2's `omega_block.complete=false`); scalars are held fixed. A distribution-valued
+  covariate is **collapsed to its mean for every deterministic path** (kernel, envelope, PD link), so
+  scalar-covariate calls remain byte-identical — a tested backward-compatibility invariant. The
+  never-invent rule is load-bearing: **no distribution → no value band** (Hypnos curates no patient's weight).
+- **`bands` now accepts band kinds** (`True` still means the v0.2 prediction band; `["prediction","covariate"]`
+  opts into both) across `simulate`/`compare`. The covariate band carries its own tier and an honest caveat
+  (the dose schedule is held fixed at the point weight, isolating the covariate→PK effect).
+- **The fifth variance component.** `compare(..., bands=["prediction","covariate"])` extends the
+  reducible/irreducible decomposition: `variance_share` gains `covariate`, and `covariate_split` separates
+  its two halves — **equation-choice** (which body-size equation, reducible by *agreeing on the model*) and
+  **value-uncertainty** (the input distribution, reducible by *measuring better*) — with a refined
+  `reducibility` rollup (`reducible = structural + covariate`). **Gated** on the covariate band being
+  requested, so the legacy `bands=True` path keeps its exact 3-way decomposition (tested).
+- Reaches the **CLI** (`hypnos simulate --covariate-band --weight-sd 12`; `hypnos compare --bands
+  --covariate-band --weight-sd 13`) and the **dashboard** (a weight-uncertainty slider + the covariate-split
+  readout). New `docs/images/covariate_band.png` (CI-regenerated): the covariate-value band nested inside the
+  wider BSV band, and the decomposition showing — honestly — that for Eleveld the between-subject variability
+  (~87%) dwarfs the weight-measurement uncertainty (~2%): *the patient is the uncertainty, not the weight*.
+- 13 new tests (covariate band reproducibility, never-invent, widening with SD, point-patient collapse, the
+  5-way decomposition + split, legacy-path invariance, the dashboard covariate readout). No dataset/schema
+  change (still `0.7.0`). C3 (covariate-aware exports — NONMEM `$PK` computing LBM the model's way) remains.
+
 ### v0.7 C1 — the equation-divergence view: model-selection risk inside one model (2026-06-10)
 - **Divergence *within* a model, over its covariate equations.** v0.1's `compare` overlays *different
   models* for one patient; C1 adds the orthogonal view — `covariate_divergence(ds, model_id, patient=...)`

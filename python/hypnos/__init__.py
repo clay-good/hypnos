@@ -33,6 +33,9 @@ from .covariates import (  # noqa: E402
     EquationResult,
     covariate_layer_tier,
     evaluate as evaluate_covariate,
+    has_covariate_distribution,
+    point_patient,
+    sample_covariate_vector,
 )
 from .filter import performance_table, select, summary  # noqa: E402
 from .inhalational import (  # noqa: E402
@@ -96,6 +99,9 @@ __all__ = [
     "DerivedInput",
     "evaluate_covariate",
     "covariate_layer_tier",
+    "sample_covariate_vector",
+    "point_patient",
+    "has_covariate_distribution",
     "EquationResult",
     "select",
     "summary",

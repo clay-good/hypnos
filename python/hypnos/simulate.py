@@ -38,7 +38,34 @@ from .reference import (
     simulate as _simulate_ref,
 )
 from .export.registry import INTERACTION_KERNELS, KERNELS, parse_amount, parse_rate
-from .covariates import evaluate as _cov_eval
+from .covariates import (
+    covariate_layer_tier as _cov_layer_tier,
+    distribution_keys as _cov_dist_keys,
+    evaluate as _cov_eval,
+    has_covariate_distribution as _has_cov_dist,
+    point_patient as _point_patient,
+    sample_covariate_vector as _sample_cov,
+)
+
+# Body-size equations a covariate slot can be substituted by (the C1 override set);
+# shared with covariate_divergence for the equation-choice variance component (§7.3).
+_BAND_KINDS = ("prediction", "covariate")
+
+
+def _normalize_bands(bands) -> set:
+    """Normalize the ``bands`` argument to a set of kinds.
+
+    Backward-compatible: ``True`` -> {"prediction"} (the v0.2 BSV band), ``False`` -> {},
+    a str -> {str}, a sequence -> set(sequence). So ``bands=True`` keeps its v0.2 meaning
+    while ``bands=["prediction","covariate"]`` opts into the v0.7 covariate band too.
+    """
+    if not bands:
+        return set()
+    if bands is True:
+        return {"prediction"}
+    if isinstance(bands, str):
+        return {bands}
+    return set(bands)
 
 Schedule = Sequence[Tuple[str, float, str]]
 
@@ -129,6 +156,21 @@ class SimulationResult:
     ce_bsv_var: Optional[np.ndarray] = None
     cp_resid_var: Optional[np.ndarray] = None
     ce_resid_var: Optional[np.ndarray] = None
+
+    # --- v0.7 C2 covariate band (None unless requested AND a covariate-value
+    # distribution is supplied — the never-invent rule) --------------------------
+    cp_covariate_band: Optional[Dict[int, np.ndarray]] = None
+    ce_covariate_band: Optional[Dict[int, np.ndarray]] = None
+    effect_covariate_band: Optional[Dict[int, np.ndarray]] = None
+    covariate_band_tier: Optional[str] = None
+    covariate_warnings: List[str] = field(default_factory=list)
+    # per-time covariate variance components for the §7.3 fifth-component decomposition:
+    # value uncertainty (the supplied input distribution) and equation choice (which
+    # body-size equation), kept distinct — the two halves of §1.
+    cp_cov_value_var: Optional[np.ndarray] = None
+    ce_cov_value_var: Optional[np.ndarray] = None
+    cp_cov_equation_var: Optional[np.ndarray] = None
+    ce_cov_equation_var: Optional[np.ndarray] = None
 
     # convenience scalars — cp/ce arrays are always internal ug/mL (== mg/L)
     @property
@@ -433,6 +475,122 @@ def _attach_bands(
 
 
 # --------------------------------------------------------------------------- #
+# Covariate band — seeded draws over the covariate VALUE distribution (v0.7 C2 §7.2)
+# --------------------------------------------------------------------------- #
+def _equation_choice_variance(
+    ds: Dataset, model: Model, kernel, point: Dict[str, Any], dosing: Dosing, t: np.ndarray,
+) -> Tuple[Optional[np.ndarray], Optional[np.ndarray]]:
+    """Per-time variance across the model's admissible body-size equations (§7.3).
+
+    The *equation-choice* half of the covariate uncertainty: at a fixed (point) covariate
+    vector, how much does the prediction move purely because the body-size descriptor could
+    be computed by a different equation? Reuses the C1 override mechanism. ``None`` when the
+    model declares no covariate_model (covariate_sensitivity_status: none — no equation axis).
+    """
+    cm = model.covariate_model
+    if cm is None:
+        return None, None
+    di = cm.derived_inputs[0]
+    cand = [eid for eid, rec in ds.covariate_equations.items()
+            if rec.get("quantity") in ("lbm", "ffm", "nfm", "ibw")]
+    cand = [di.equation] + [c for c in cand if c != di.equation]
+    cp_curves, ce_curves = [], []
+    for eid in cand:
+        val = _cov_eval(eid, point, ds=ds).value
+        traj = _simulate_ref(kernel({**point, f"_{di.quantity}_override": val}), dosing, t)
+        cp_curves.append(traj.cp)
+        ce_curves.append(traj.ce)
+    return np.vstack(cp_curves).var(axis=0), np.vstack(ce_curves).var(axis=0)
+
+
+def _attach_covariate_band(
+    result: SimulationResult,
+    model: Model,
+    kernel,
+    dosing: Dosing,
+    t: np.ndarray,
+    *,
+    patient: Dict[str, Any],
+    point: Dict[str, Any],
+    percentile: Tuple[int, int],
+    samples: int,
+    seed: int,
+    pd_model: Optional[Model],
+    ds: Dataset,
+) -> None:
+    """Populate the covariate-band fields in place (v0.7 §7.2/§7.3).
+
+    Two distinct covariate uncertainties, kept separate (the two halves of §1):
+
+    * **equation choice** — the per-time variance across admissible body-size equations at
+      the fixed covariate vector (always computed for a covariate-scaled model);
+    * **value uncertainty** — the seeded band from a caller-supplied covariate-value
+      distribution (drawn only when one is supplied; the never-invent rule, §5).
+
+    The administered dose schedule is held fixed at the point weight, so the band isolates
+    the covariate -> PK effect (consistent with the v0.2 BSV band).
+    """
+    lo, hi = int(percentile[0]), int(percentile[1])
+    n = len(t)
+
+    # equation-choice variance (the "which equation" half) — always, if curated
+    cp_eqn, ce_eqn = _equation_choice_variance(ds, model, kernel, point, dosing, t)
+    result.cp_cov_equation_var = cp_eqn
+    result.ce_cov_equation_var = ce_eqn
+
+    # surface the model's own equation status at this patient (e.g. James inverted)
+    if model.covariate_model is not None:
+        di = model.covariate_model.derived_inputs[0]
+        ev = _cov_eval(di.equation, point, ds=ds)
+        result.covariate_warnings.extend(ev.warnings)
+
+    # covariate-value band — only when a distribution is supplied (never invent)
+    if not _has_cov_dist(patient):
+        result.cp_cov_value_var = np.zeros(n)
+        result.ce_cov_value_var = np.zeros(n)
+        if model.covariate_model is not None:
+            ltier = _cov_layer_tier(model, point, ds)
+            result.covariate_band_tier = worst_tier([model.tier, ltier]) if ltier else model.tier
+        result.warnings.append(
+            "COVARIATE BAND: no covariate-value distribution supplied — equation-choice "
+            "variance reported, but no value band drawn (never-invent rule, §5)"
+        )
+        return
+
+    varying = _cov_dist_keys(patient)
+    rng = np.random.default_rng(seed)
+    cp_draws = np.empty((samples, n))
+    ce_draws = np.empty((samples, n))
+    for i in range(samples):
+        pv = _sample_cov(patient, rng)
+        traj = _simulate_ref(kernel(pv), dosing, t)
+        cp_draws[i] = traj.cp
+        ce_draws[i] = traj.ce
+    result.cp_cov_value_var = cp_draws.var(axis=0)
+    result.ce_cov_value_var = ce_draws.var(axis=0)
+
+    qs = [lo, 50, hi]
+    result.cp_covariate_band = {q: np.percentile(cp_draws, q, axis=0) for q in qs}
+    result.ce_covariate_band = {q: np.percentile(ce_draws, q, axis=0) for q in qs}
+    if pd_model is not None:
+        eff_draws = _apply_pd(pd_model, ce_draws, point)
+        result.effect_covariate_band = {q: np.percentile(eff_draws, q, axis=0) for q in qs}
+
+    ltier = _cov_layer_tier(model, point, ds)
+    result.covariate_band_tier = worst_tier([model.tier, ltier]) if ltier else model.tier
+    result.band_percentile = result.band_percentile or (lo, hi)
+    if len(varying) > 1:
+        result.warnings.append(
+            "COVARIATE BAND: >1 covariate varies; perturbed INDEPENDENTLY (no covariance "
+            "assumed — recorded caveat, spec §14)"
+        )
+    result.warnings.append(
+        f"COVARIATE BAND: propagates supplied covariate-value uncertainty ({', '.join(varying)}); "
+        "the administered dose schedule is held fixed (covariate -> PK effect only)"
+    )
+
+
+# --------------------------------------------------------------------------- #
 # simulate
 # --------------------------------------------------------------------------- #
 def simulate(
@@ -443,7 +601,7 @@ def simulate(
     schedule: Schedule,
     t: np.ndarray,
     pd_model: Optional[str] = None,
-    bands: bool = False,
+    bands=False,
     percentile: Tuple[int, int] = (5, 95),
     samples: int = 2000,
     seed: Optional[int] = None,
@@ -455,7 +613,17 @@ def simulate(
     Monte-Carlo prediction band from the model's curated between-subject variability
     (v0.2 §6). A model that publishes no BSV draws no band — the never-synthesize
     rule (§5): a missing band is honest; a borrowed one is a lie with error bars.
+
+    ``bands`` may also be a list of kinds (v0.7 C2): ``["prediction", "covariate"]``
+    adds the covariate band — covariate-equation choice always, plus a covariate-VALUE
+    band when a covariate is supplied as a distribution (e.g. ``weight={"mean":70,"sd":6}``).
+    A distribution-valued covariate is collapsed to its mean for every deterministic path.
     """
+    kinds = _normalize_bands(bands)
+    # A covariate may be supplied as a distribution dict; collapse to the point (mean)
+    # vector for every deterministic path (kernel, envelope, PD). Scalar patients are
+    # byte-identical, so this is backward-compatible.
+    point = _point_patient(patient)
     model = ds[model_id]
     if model.purpose != "pk":
         raise ValueError(
@@ -475,20 +643,20 @@ def simulate(
             "absorption); volatiles: use hypnos.mac/washin/washout."
         )
     kernel = KERNELS[model.kernel_function]
-    params = kernel(patient)
+    params = kernel(point)
 
     t = np.asarray(t, dtype=float)
-    weight = float(patient.get("weight", 70.0))
+    weight = float(point.get("weight", 70.0))
     dosing = build_dosing(schedule, weight)
     traj: Trajectory = _simulate_ref(params, dosing, t)
 
     drug_meta = ds.drug(model.drug_name) or {}
-    tier_floor, warnings, excluded = evaluate_safety(model, patient, drug_meta)
+    tier_floor, warnings, excluded = evaluate_safety(model, point, drug_meta)
     tier = worst_tier([model.tier, tier_floor])
 
     result = SimulationResult(
         model_id=model_id, t=t, cp=traj.cp, ce=traj.ce, tier=tier,
-        warnings=warnings, excluded=excluded, params=params, patient=dict(patient),
+        warnings=warnings, excluded=excluded, params=params, patient=dict(point),
         concentration_unit=drug_meta.get("concentration_unit", "ug/mL"),
     )
     # whether this model carries curated estimation uncertainty (drives the v0.3 §7
@@ -500,25 +668,30 @@ def simulate(
         pdm = ds[pd_model]
         if not pdm.kernel_implemented:
             raise NotImplementedError(f"{pd_model}: PD kernel not implemented")
-        effect = _apply_pd(pdm, traj.ce, patient)
+        effect = _apply_pd(pdm, traj.ce, point)
         result.effect = effect
         result.effect_label = pdm.label
         result.pd_model_id = pd_model
         # composed simulation inherits the worst tier among PK, PD, and envelope floor
         result.tier = worst_tier([result.tier, pdm.tier])
-        pd_floor, pd_warn, _ = evaluate_safety(pdm, patient)
+        pd_floor, pd_warn, _ = evaluate_safety(pdm, point)
         result.tier = worst_tier([result.tier, pd_floor])
         result.warnings.extend(w for w in pd_warn if w not in result.warnings)
 
-    if bands:
+    if kinds:
         if seed is None:
             raise ValueError(
-                "simulate(bands=True) requires an explicit integer seed — every "
+                "simulate(bands=...) requires an explicit integer seed — every "
                 "band-producing call is seeded so quantiles are byte-reproducible (spec §6)."
             )
-        _attach_bands(result, model, params, dosing, t, percentile=percentile,
-                      samples=samples, seed=seed, residual=residual,
-                      pd_model=pdm, patient=patient)
+        if "prediction" in kinds:
+            _attach_bands(result, model, params, dosing, t, percentile=percentile,
+                          samples=samples, seed=seed, residual=residual,
+                          pd_model=pdm, patient=point)
+        if "covariate" in kinds:
+            _attach_covariate_band(result, model, kernel, dosing, t, patient=patient,
+                                   point=point, percentile=percentile, samples=samples,
+                                   seed=seed, pd_model=pdm, ds=ds)
 
     return result
 
@@ -600,32 +773,60 @@ def _band_divergence(results: List[SimulationResult], key: str) -> Dict[str, Any
     var_structural = float(med[:, t_star].var()) if med.shape[0] > 1 else 0.0
     bsv_var = np.mean([r.__dict__[f"{key}_bsv_var"][t_star] for r in eligible])
     resid_var = np.mean([r.__dict__[f"{key}_resid_var"][t_star] for r in eligible])
-    total = var_structural + bsv_var + resid_var
+
+    # v0.7 §7.3 — the fifth (covariate) component, present only when the covariate band
+    # was computed (kinds include "covariate"); the legacy bands=True path leaves these
+    # None, so the decomposition stays exactly 3-way (backward-compatible).
+    def _cov_mean(suffix: str) -> Optional[float]:
+        vals = [r.__dict__.get(f"{key}_{suffix}") for r in eligible]
+        present = [v[t_star] for v in vals if v is not None]
+        return float(np.mean(present)) if present else None
+
+    eqn_var = _cov_mean("cov_equation_var")
+    val_var = _cov_mean("cov_value_var")
+    has_cov = eqn_var is not None or val_var is not None
+    cov_var = (eqn_var or 0.0) + (val_var or 0.0)
+
+    total = var_structural + bsv_var + resid_var + cov_var
     if total > 0:
         struct_share = float(var_structural / total)
         bsv_share = float(bsv_var / total)
         resid_share = float(resid_var / total)
-        out["variance_share"] = {
+        cov_share = float(cov_var / total)
+        vs = {
             "structural": round(struct_share, 4),
             "bsv": round(bsv_share, 4),
             "residual": round(resid_share, 4),
             "t_star_min": float(eligible[0].t[t_star]),
         }
+        if has_cov:
+            vs["covariate"] = round(cov_share, 4)
+        out["variance_share"] = vs
         # The v0.3 §7 reducible/irreducible decomposition — split the same variance
         # along the axis that decides what to DO about it. Structural (between-model)
-        # is reducible by curating/validating more models; BSV and residual are
-        # irreducible (the population is the limit; the assay is noisy). The
-        # ESTIMATION (more-data) reducible component is not yet curated for any model
-        # (it needs per-θ SEs — v0.3 E0), so `reducible` here reflects structural
-        # uncertainty only; `estimation_curated` says so honestly, never silently.
+        # is reducible by curating/validating more models; the v0.7 covariate component
+        # is reducible too (agree on the equation / measure the covariate better); BSV
+        # and residual are irreducible (the population is the limit; the assay is noisy).
+        # The ESTIMATION (more-data) reducible component is not yet curated for any model
+        # (it needs per-θ SEs — v0.3 E0), so it contributes 0 here; `estimation_curated`
+        # says so honestly, never silently.
         any_estimation = any(getattr(r, "has_estimation", False) for r in eligible)
         out["reducibility"] = {
-            "reducible": round(struct_share, 4),
+            "reducible": round(struct_share + (cov_share if has_cov else 0.0), 4),
             "irreducible": round(bsv_share + resid_share, 4),
             "estimation_curated": bool(any_estimation),
-            "note": ("reducible = between-model (more models/curation); estimation "
-                     "(more data per model) not yet curated, so it contributes 0 here"),
+            "note": ("reducible = between-model (more models/curation)"
+                     + (" + covariate (agree on the equation / measure better)" if has_cov else "")
+                     + "; estimation (more data per model) not yet curated, so it contributes 0"),
         }
+        if has_cov:
+            # the two halves of §1, kept distinct: WHICH equation vs how well we know the value
+            out["covariate_split"] = {
+                "equation_choice": round(float((eqn_var or 0.0) / total), 4),
+                "value_uncertainty": round(float((val_var or 0.0) / total), 4),
+            }
+            ctiers = [r.covariate_band_tier for r in eligible if r.covariate_band_tier]
+            out["covariate_band_tier"] = worst_tier(ctiers) if ctiers else None
 
     # --- separation index (needs >= 2 band-eligible models) ----------------
     if len(eligible) >= 2:
@@ -662,7 +863,7 @@ def compare(
     t: np.ndarray,
     purpose: str = "pk",
     pd_model: Optional[str] = None,
-    bands: bool = False,
+    bands=False,
     percentile: Tuple[int, int] = (5, 95),
     samples: int = 2000,
     seed: Optional[int] = None,
@@ -676,14 +877,19 @@ def compare(
     (separation index) and *what dominates the uncertainty here?* (variance
     decomposition). Models that publish no BSV are named in ``excluded_from_bands``,
     never silently dropped.
+
+    ``bands`` accepts the v0.7 C2 kinds too (``["prediction","covariate"]``): the variance
+    decomposition then gains the **covariate** component, split into ``equation_choice`` and
+    ``value_uncertainty`` (the two halves of §1), with a refined reducible/irreducible rollup.
     """
     from .filter import select
 
-    if bands and seed is None:
-        raise ValueError("compare(bands=True) requires an explicit integer seed (spec §6).")
+    kinds = _normalize_bands(bands)
+    if kinds and seed is None:
+        raise ValueError("compare(bands=...) requires an explicit integer seed (spec §6).")
 
     t = np.asarray(t, dtype=float)
-    cmp = Comparison(drug=drug, purpose=purpose, t=t, bands=bands,
+    cmp = Comparison(drug=drug, purpose=purpose, t=t, bands=bool(kinds),
                      concentration_unit=(ds.drug(drug) or {}).get("concentration_unit", "ug/mL"))
     for m in select(ds, drug=drug, purpose=purpose):
         if not m.kernel_implemented:
@@ -703,7 +909,7 @@ def compare(
                                  "result": res})
         else:
             cmp.included.append(res)
-            if bands and not m.has_published_variability:
+            if "prediction" in kinds and not m.has_published_variability:
                 cmp.excluded_from_bands.append(
                     {"model_id": m.id, "tier": res.tier,
                      "reason": "variability_status: none — no published between-subject variability"})
@@ -717,7 +923,7 @@ def compare(
         "cp": _divergence(cmp.included, "cp"),
         "ce": _divergence(ce_results, "ce"),
     }
-    if bands:
+    if kinds:
         for k, rs in (("cp", cmp.included), ("ce", ce_results)):
             band_part = _band_divergence(rs, k)
             if band_part:
@@ -805,6 +1011,7 @@ def covariate_divergence(
     """
     from .presets import default_schedule_for
 
+    patient = _point_patient(patient)   # equation substitution is at a fixed covariate vector
     model = ds[model_id]
     cm = model.covariate_model
     if cm is None:

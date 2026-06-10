@@ -130,9 +130,20 @@ with st.sidebar:
     seed = st.number_input("Seed", 0, 99999, 7, disabled=not show_bands)
     samples = st.select_slider("Monte-Carlo samples", [500, 1000, 2000, 4000], 2000,
                                disabled=not show_bands)
+    st.header("Covariate uncertainty (v0.7 C2)")
+    weight_sd = st.slider(
+        "Weight uncertainty SD (kg)", 0.0, 25.0, 0.0, step=1.0,
+        help="If the weight is ESTIMATED, give its SD. Hypnos propagates the covariate-VALUE "
+             "uncertainty as a seeded band and adds the fifth (covariate) variance component, "
+             "split into equation-choice vs value-uncertainty. SD = 0 ⇒ exact weight, no band "
+             "(no distribution is ever invented). Describes input uncertainty — never 'what "
+             "weight should I enter?'.")
 
-patient = dict(age=age, weight=weight, height=height, sex=sex,
+show_cov = weight_sd > 0
+weight_arg = {"mean": float(weight), "sd": float(weight_sd)} if show_cov else weight
+patient = dict(age=age, weight=weight_arg, height=height, sex=sex,
                crcl_ml_min=crcl, albumin_g_dl=albumin, ejection_fraction_pct=ejection_fraction)
+band_kinds = (["prediction"] if show_bands else []) + (["covariate"] if show_cov else [])
 if child_pugh != "— none —":
     patient["child_pugh"] = child_pugh
 schedule = []
@@ -143,8 +154,8 @@ if infusion.strip():
 t = np.linspace(0, tmax, 6 * tmax + 1)
 
 cmp = hypnos.compare(ds, drug=drug, patient=patient, schedule=schedule, t=t,
-                     bands=bool(show_bands), percentile=(5, 95),
-                     samples=int(samples), seed=int(seed) if show_bands else None)
+                     bands=band_kinds, percentile=(5, 95),
+                     samples=int(samples), seed=int(seed) if band_kinds else None)
 unit = cmp.concentration_unit
 f = cmp.conc_factor
 
@@ -216,11 +227,20 @@ with col2:
         if vs:
             st.caption(f"**Variance decomposition @ t* = {vs['t_star_min']:.1f} min** — "
                        "what dominates the predictive uncertainty here?")
-            st.bar_chart(
-                pd.DataFrame({"share": [vs["structural"], vs["bsv"], vs["residual"]]},
-                             index=["structural (which model)", "BSV (which patient)",
-                                    "residual (Σ)"]),
-                horizontal=True)
+            shares = {"structural (which model)": vs["structural"],
+                      "BSV (which patient)": vs["bsv"], "residual (Σ)": vs["residual"]}
+            if "covariate" in vs:
+                shares["covariate (which equation / weight)"] = vs["covariate"]
+            st.bar_chart(pd.DataFrame({"share": list(shares.values())}, index=list(shares.keys())),
+                         horizontal=True)
+            split = d.get("covariate_split")
+            if split is not None:
+                st.caption(
+                    f"**Covariate split** (v0.7 §7.3): equation-choice {split['equation_choice']:.2f} · "
+                    f"value-uncertainty {split['value_uncertainty']:.2f} "
+                    f"(band-tier {d.get('covariate_band_tier')}). Both are *reducible* — agree on the "
+                    "body-size equation, or measure the weight better — distinct from the irreducible "
+                    "between-subject scatter.")
         for e in cmp.excluded_from_bands:
             st.warning(f"⬚ {e['model_id'].split('.')[-1]} — excluded from band math: {e['reason']}")
         if not any(getattr(r, "ce_quantiles", None) is not None

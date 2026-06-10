@@ -16,6 +16,7 @@ covariate. Nothing searches over covariates to hit a target.
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 
@@ -205,6 +206,69 @@ def evaluate(
 # --------------------------------------------------------------------------- #
 # Model-level helpers
 # --------------------------------------------------------------------------- #
+# --------------------------------------------------------------------------- #
+# Covariate-VALUE uncertainty — caller-supplied input distributions (v0.7 C2)
+# --------------------------------------------------------------------------- #
+# A covariate may be supplied as a scalar (exact) or as a distribution dict
+# {"mean": .., "sd": ..} (or {"central", "cv"}); a distribution is what the v0.7
+# covariate band propagates. Hypnos NEVER invents a distribution — absent one, the
+# covariate is treated as exact (spec §2.3/§5).
+_NONNEGATIVE = ("weight", "height", "age", "crcl_ml_min", "albumin_g_dl")
+
+
+def _is_distribution(v: Any) -> bool:
+    return isinstance(v, dict) and ("sd" in v or "cv" in v)
+
+
+def has_covariate_distribution(patient: Dict[str, Any]) -> bool:
+    """True when the patient supplies at least one covariate-value distribution."""
+    return any(_is_distribution(v) for v in patient.values())
+
+
+def distribution_keys(patient: Dict[str, Any]) -> List[str]:
+    """The covariate names carrying a value distribution (drives the §7.3 readout)."""
+    return [k for k, v in patient.items() if _is_distribution(v)]
+
+
+def point_patient(patient: Dict[str, Any]) -> Dict[str, Any]:
+    """Collapse any covariate distribution to its point (mean) value.
+
+    Scalars pass through unchanged, so a scalar-covariate patient is byte-identical —
+    every deterministic path (kernel, envelope, PD link) runs on this point vector."""
+    out: Dict[str, Any] = {}
+    for k, v in patient.items():
+        out[k] = v.get("mean", v.get("central")) if isinstance(v, dict) else v
+    return out
+
+
+def sample_covariate_vector(patient: Dict[str, Any], rng) -> Dict[str, Any]:
+    """Draw one perturbed covariate vector from caller-supplied ``{mean, sd, dist}`` marginals.
+
+    Covariates given as scalars are held fixed (never invented). Marginals are perturbed
+    **independently** — Hypnos assumes no covariate covariance absent a caller-supplied one,
+    the same honest default as v0.2's ``omega_block.complete = false`` (spec §14). Draws come
+    from the seeded ``rng`` so a covariate band is byte-reproducible (spec §6).
+    """
+    out: Dict[str, Any] = {}
+    for k, v in patient.items():
+        if _is_distribution(v):
+            mean = v.get("mean", v.get("central"))
+            sd = v.get("sd")
+            if sd is None and v.get("cv") is not None:
+                sd = abs(float(mean)) * float(v["cv"])
+            dist = v.get("dist", "normal")
+            if dist == "lognormal" and mean:
+                draw = float(mean) * math.exp(rng.normal(0.0, float(sd) / float(mean)))
+            else:
+                draw = rng.normal(float(mean), float(sd))
+            out[k] = max(float(draw), 1e-6) if k in _NONNEGATIVE else float(draw)
+        elif isinstance(v, dict):
+            out[k] = v.get("mean", v.get("central"))
+        else:
+            out[k] = v
+    return out
+
+
 def covariate_layer_tier(model, patient: Dict[str, Any], ds: Dataset) -> Optional[str]:
     """Worst tier the model's bound covariate equations contribute at this patient.
 

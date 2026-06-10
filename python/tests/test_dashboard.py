@@ -77,3 +77,16 @@ def test_dashboard_renders_with_prediction_bands():
     assert "PD effect band" in subheaders
     captions = " ".join(c.value for c in at.caption)
     assert "lower bound" in captions
+
+
+def test_dashboard_covariate_band():
+    # v0.7 C2: a non-zero weight-uncertainty SD adds the covariate band + the fifth
+    # variance component (equation-choice vs value-uncertainty) without crashing.
+    at = AppTest.from_file(APP, default_timeout=120).run()
+    bands_toggle = next(c for c in at.checkbox if c.label.startswith("Seeded"))
+    bands_toggle.set_value(True).run()
+    wsd = next(s for s in at.slider if "Weight uncertainty" in s.label)
+    wsd.set_value(12.0).run()
+    assert not at.exception
+    captions = " ".join(c.value for c in at.caption)
+    assert "Covariate split" in captions

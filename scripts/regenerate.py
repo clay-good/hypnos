@@ -676,6 +676,72 @@ def _fig_covariate_divergence(ds, plt) -> None:
     plt.close(fig)
 
 
+def _fig_covariate_band(ds, plt) -> None:
+    """v0.7 C2 — the covariate-VALUE band + the fifth variance component.
+
+    LEFT: an obese patient whose weight is *estimated* (130 ± 13 kg). The Eleveld
+    effect-site curve carries two seeded ribbons — the v0.2 between-subject (BSV) band
+    and the v0.7 covariate-value band — so their relative widths are directly comparable.
+    RIGHT: the time-resolved variance decomposition now with the covariate component
+    (value + equation-choice) beside BSV and residual. The honest reading for this model:
+    Eleveld's between-subject variability dwarfs the weight-measurement uncertainty — the
+    *patient* is the uncertainty here, not the weight (a genuinely informative null result).
+    """
+    t = np.linspace(0, 60, 361)
+    sched = [("bolus", 0.0, "2 mg/kg"), ("infusion", 0.0, "6 mg/kg/h")]
+    patient = dict(age=50, weight={"mean": 130, "sd": 13}, height=170, sex="M")
+    r = hypnos.simulate(ds, "hypnotics_iv.propofol.eleveld_2018", patient=patient,
+                        schedule=sched, t=t, bands=["prediction", "covariate"],
+                        percentile=(5, 95), samples=2000, seed=7)
+    lo, hi = r.band_percentile
+    cov = r.ce_covariate_band
+    pred = r.ce_quantiles
+
+    fig, (axL, axR) = plt.subplots(1, 2, figsize=(13, 4.8))
+
+    axL.fill_between(t, pred[lo], pred[hi], color="#2ca02c", alpha=0.16,
+                     label=f"BSV prediction band {lo}-{hi}% (band-tier {r.band_tier})")
+    axL.fill_between(t, cov[lo], cov[hi], color="#1f77b4", alpha=0.28,
+                     label=f"covariate-value band {lo}-{hi}% (weight 130±13 kg, tier {r.covariate_band_tier})")
+    axL.plot(t, r.ce, color="#333", lw=2.0, label="point estimate (weight = mean)")
+    axL.set_title("Eleveld effect-site — weight is ESTIMATED (130 ± 13 kg)\n"
+                  "covariate-value uncertainty vs between-subject variability", fontsize=11)
+    axL.set_xlabel("time (min)"); axL.set_ylabel("propofol Ce (µg/mL)")
+    axL.legend(fontsize=8.5); axL.grid(alpha=0.25)
+
+    # right — time-resolved within-model variance decomposition incl. covariate
+    val = r.ce_cov_value_var
+    eqn = r.ce_cov_equation_var if r.ce_cov_equation_var is not None else np.zeros_like(t)
+    bsv = r.ce_bsv_var
+    res = r.ce_resid_var
+    total = val + eqn + bsv + res
+    with np.errstate(divide="ignore", invalid="ignore"):
+        def sh(x):
+            return np.where(total > 0, x / total, 0.0)
+        f_val, f_eqn, f_bsv, f_res = sh(val), sh(eqn), sh(bsv), sh(res)
+    axR.stackplot(t, f_val, f_eqn, f_bsv, f_res,
+                  labels=["covariate — value (measure better)",
+                          "covariate — equation (agree on the equation)",
+                          "between-subject (η / Ω)", "residual (ε / Σ)"],
+                  colors=["#1f77b4", "#9467bd", "#2ca02c", "#bbbbbb"], alpha=0.85)
+    pk = int(np.argmax(r.ce))
+    axR.axvline(t[pk], color="#333", ls=":", lw=1)
+    axR.set_ylim(0, 1); axR.set_xlim(t.min(), t.max())
+    axR.set_title("Within-model variance decomposition (+ the 5th component)\n"
+                  f"at peak: covariate {100*(f_val[pk]+f_eqn[pk]):.0f}% vs BSV {100*f_bsv[pk]:.0f}% "
+                  "— the patient, not the weight", fontsize=11)
+    axR.set_xlabel("time (min)"); axR.set_ylabel("share of within-model predictive variance")
+    axR.legend(fontsize=8.5, loc="center right")
+
+    fig.suptitle("Hypnos v0.7 C2 — the covariate-value band + the fifth variance component "
+                 f"(reducible: measure better / agree on the equation)  ·  {_DISCLAIMER}", y=1.02, fontsize=10.5)
+    fig.text(0.5, -0.02, "RESEARCH / EDUCATION ONLY — a covariate band describes INPUT uncertainty, never "
+             "'what weight should I enter?'; no distribution is ever invented (v0.7 §10)",
+             ha="center", color="#c0392b", fontsize=9)
+    fig.tight_layout(); fig.savefig(IMAGES / "covariate_band.png", dpi=130, bbox_inches="tight")
+    plt.close(fig)
+
+
 def regenerate_figures(ds) -> bool:
     try:
         import matplotlib
@@ -698,9 +764,10 @@ def regenerate_figures(ds) -> bool:
     _fig_la_saturation(ds, plt)
     _fig_covariate_equations(ds, plt)
     _fig_covariate_divergence(ds, plt)
+    _fig_covariate_band(ds, plt)
     print(f"figures: regenerated divergence, synergy, pediatric, mac_age, washin, washout, "
           f"variability, effect_band, la_double_uncertainty, la_cardiotoxicity, la_saturation, "
-          f"covariate_equations, covariate_divergence -> {IMAGES}/")
+          f"covariate_equations, covariate_divergence, covariate_band -> {IMAGES}/")
     return True
 
 

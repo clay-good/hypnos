@@ -44,8 +44,22 @@ def _bmi_of(patient: dict):
     return None
 
 
+def _band_kinds(args) -> list:
+    """Assemble the v0.7 band-kinds list from the --bands / --covariate-band flags."""
+    kinds = []
+    if getattr(args, "bands", False):
+        kinds.append("prediction")
+    if getattr(args, "covariate_band", False) or getattr(args, "weight_sd", None) is not None:
+        kinds.append("covariate")
+    return kinds
+
+
 def _patient_from_args(args) -> dict:
     patient = {"age": args.age, "weight": args.weight, "height": args.height, "sex": args.sex}
+    # v0.7 C2: a supplied weight SD turns weight into a covariate-value distribution.
+    wsd = getattr(args, "weight_sd", None)
+    if wsd is not None:
+        patient["weight"] = {"mean": args.weight, "sd": wsd}
     # Organ-function covariates (v0.5 §B) — present only when supplied, so a normal
     # simulation is unaffected. Each one a model has no standing in greys it to Tier D.
     for key, attr in (("child_pugh", "child_pugh"), ("crcl_ml_min", "crcl"),
@@ -162,11 +176,11 @@ def _run_sim(args):
     patient = _patient_from_args(args)
     t = np.linspace(0.0, args.tmax, args.n)
     schedule = _default_schedule_for(ds[args.model].drug_name)
-    bands = bool(getattr(args, "bands", False))
+    kinds = _band_kinds(args)
     res = simulate(ds, args.model, patient=patient, schedule=schedule, t=t, pd_model=args.pd,
-                   bands=bands, percentile=_parse_percentile(getattr(args, "percentile", "5,95")),
+                   bands=kinds, percentile=_parse_percentile(getattr(args, "percentile", "5,95")),
                    samples=getattr(args, "samples", 2000),
-                   seed=getattr(args, "seed", 7) if bands else None)
+                   seed=getattr(args, "seed", 7) if kinds else None)
     return res
 
 
@@ -183,6 +197,13 @@ def cmd_simulate(args) -> int:
         i = int(np.argmax(q[50]))
         print(f"  band-tier {res.band_tier}  Ce peak {q[50][i] * cf:.3f} "
               f"[{q[lo][i] * cf:.3f}, {q[hi][i] * cf:.3f}] {u}  ({lo}-{hi}%, seeded)")
+    if res.ce_covariate_band is not None:
+        lo, hi = res.band_percentile
+        q = res.ce_covariate_band if res.ce_peak > 0 else res.cp_covariate_band
+        i = int(np.argmax(q[50]))
+        print(f"  covariate band (value uncertainty)  Ce peak {q[50][i] * cf:.3f} "
+              f"[{q[lo][i] * cf:.3f}, {q[hi][i] * cf:.3f}] {u}  "
+              f"(band-tier {res.covariate_band_tier}, {lo}-{hi}%, seeded)")
     if res.effect is not None:
         print(f"effect ({res.effect_label}): min {float(np.min(res.effect)):.1f}")
         if res.effect_quantiles is not None:
@@ -223,10 +244,11 @@ def cmd_compare(args) -> int:
     patient = _patient_from_args(args)
     t = np.linspace(0.0, args.tmax, args.n)
     pct = _parse_percentile(args.percentile)
+    kinds = _band_kinds(args)
     cmp = compare_models(ds, drug=args.drug, patient=patient,
                          schedule=_default_schedule_for(args.drug), t=t,
-                         bands=args.bands, percentile=pct, samples=args.samples,
-                         seed=args.seed if args.bands else None)
+                         bands=kinds, percentile=pct, samples=args.samples,
+                         seed=args.seed if kinds else None)
     cu = cmp.concentration_unit
     cf = cmp.conc_factor
     print(f"drug: {cmp.drug}   patient: {patient}   (concentrations in {cu})")
@@ -272,9 +294,21 @@ def cmd_compare(args) -> int:
                   f"[{sep['percentile'][0]}-{sep['percentile'][1]}%, band-tier {sep['band_tier']}]")
         vs = d.get("variance_share")
         if vs is not None:
+            cov_s = f" | covariate {vs['covariate']:.2f}" if "covariate" in vs else ""
             print(f"  variance share @ t*={vs['t_star_min']:g} min: "
-                  f"structural {vs['structural']:.2f} | BSV {vs['bsv']:.2f} | residual {vs['residual']:.2f}")
-    if args.bands and cmp.excluded_from_bands:
+                  f"structural {vs['structural']:.2f} | BSV {vs['bsv']:.2f} | "
+                  f"residual {vs['residual']:.2f}{cov_s}")
+            split = d.get("covariate_split")
+            if split is not None:
+                print(f"  covariate split: equation_choice {split['equation_choice']:.2f} | "
+                      f"value_uncertainty {split['value_uncertainty']:.2f}  "
+                      f"(band-tier {d.get('covariate_band_tier')})")
+            red = d.get("reducibility")
+            if red is not None and "covariate" in vs:
+                print(f"  reducibility: reducible {red['reducible']:.2f} | "
+                      f"irreducible {red['irreducible']:.2f}  "
+                      "(reducible = more models + agree on the covariate equation / measure better)")
+    if "prediction" in kinds and cmp.excluded_from_bands:
         for e in cmp.excluded_from_bands:
             print(f"  note: {e['model_id'].split('.')[-1]} excluded from band metrics ({e['reason']})")
     return 0
@@ -823,6 +857,10 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--pd", default=None, help="optional PD model id (e.g. pd_effect.propofol.bis_sigmoid)")
     sp.add_argument("--bands", action="store_true",
                     help="draw a seeded prediction band (Cp/Ce, and the effect band when --pd is set)")
+    sp.add_argument("--covariate-band", dest="covariate_band", action="store_true",
+                    help="v0.7 C2: draw the covariate band (covariate-value uncertainty via --weight-sd)")
+    sp.add_argument("--weight-sd", dest="weight_sd", type=float, default=None,
+                    help="v0.7 C2: weight uncertainty SD (kg) -> a covariate-value distribution")
     sp.add_argument("--percentile", default="5,95", help="band percentile pair, e.g. '5,95'")
     sp.add_argument("--samples", type=int, default=2000, help="Monte-Carlo draws")
     sp.add_argument("--seed", type=int, default=7, help="RNG seed (bands are byte-reproducible)")
@@ -833,6 +871,10 @@ def build_parser() -> argparse.ArgumentParser:
     cp.add_argument("--drug", required=True)
     cp.add_argument("--bands", action="store_true",
                     help="draw seeded prediction bands + uncertainty-aware divergence (v0.2)")
+    cp.add_argument("--covariate-band", dest="covariate_band", action="store_true",
+                    help="v0.7 C2: add the covariate variance component (equation-choice + value-uncertainty)")
+    cp.add_argument("--weight-sd", dest="weight_sd", type=float, default=None,
+                    help="v0.7 C2: weight uncertainty SD (kg) -> a covariate-value distribution")
     cp.add_argument("--percentile", default="5,95", help="band percentile pair, e.g. '5,95'")
     cp.add_argument("--samples", type=int, default=2000, help="Monte-Carlo draws per model")
     cp.add_argument("--seed", type=int, default=7, help="RNG seed (bands are byte-reproducible)")

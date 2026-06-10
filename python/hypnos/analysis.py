@@ -68,9 +68,11 @@ def time_to_peak_effect(
     compartment (ke0 > 0); raises for PK-only models (e.g. Kim remifentanil,
     Paedfusor) where effect-site onset is undefined.
     """
+    from .covariates import point_patient
     from .export.registry import KERNELS
     from .simulate import evaluate_safety
 
+    patient = point_patient(patient)   # collapse any covariate distribution to its mean (v0.7 C2)
     model = ds[model_id]
     if model.purpose != "pk":
         raise ValueError(f"time_to_peak_effect expects a PK model; {model_id} is '{model.purpose}'")
@@ -116,11 +118,13 @@ def decrement_time(
     accumulating drugs, and is near-flat for remifentanil) from a forward,
     constant-rate regimen.
     """
+    from .covariates import point_patient
     from .export.registry import instantiate
     from .simulate import build_dosing, evaluate_safety
 
     if not 0.0 < fraction < 1.0:
         raise ValueError("fraction must be in (0, 1)")
+    patient = point_patient(patient)   # collapse any covariate distribution to its mean (v0.7 C2)
     model = ds[model_id]
     if model.purpose != "pk":
         raise ValueError(f"decrement_time expects a PK model; {model_id} is '{model.purpose}'")

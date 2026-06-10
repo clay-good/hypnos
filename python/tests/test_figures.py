@@ -38,7 +38,7 @@ def test_all_figures_regenerate(tmp_path, monkeypatch):
     expected = {"divergence.png", "synergy.png", "pediatric.png", "mac_age.png",
                 "washin.png", "washout.png", "variability.png", "effect_band.png",
                 "la_double_uncertainty.png", "la_cardiotoxicity.png", "la_saturation.png",
-                "covariate_equations.png", "covariate_divergence.png"}
+                "covariate_equations.png", "covariate_divergence.png", "covariate_band.png"}
     produced = {p.name for p in tmp_path.glob("*.png")}
     assert expected <= produced
     # every figure is a non-trivial PNG (renders something, not an empty file)

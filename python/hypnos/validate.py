@@ -51,11 +51,13 @@ def validate_dataset(ds: Optional[Dataset] = None) -> List[str]:
     from .export.registry import (  # local import to avoid cycle
         INTERACTION_KERNELS,
         KERNELS,
+        LA_KERNELS,
         PD_KERNELS,
         VOLATILE_KERNELS,
     )
 
-    known_kernels = set(KERNELS) | set(PD_KERNELS) | set(INTERACTION_KERNELS) | set(VOLATILE_KERNELS)
+    known_kernels = (set(KERNELS) | set(PD_KERNELS) | set(INTERACTION_KERNELS)
+                     | set(VOLATILE_KERNELS) | set(LA_KERNELS))
 
     known_citations = set(ds.citations.keys())
     for m in ds:
@@ -113,6 +115,23 @@ def validate_dataset(ds: Optional[Dataset] = None) -> List[str]:
                 problems.append(
                     f"[cite] {m.id}: organ_tolerance ({ot.get('axis')}) cites unknown '{cid}'"
                 )
+
+        # local-anesthetic absorption citations resolve, and site ranks are unique
+        # (the rank is the robust, curated direction — duplicates would be a slip)
+        absn = m.absorption
+        if absn:
+            ac = absn.get("primary_citation")
+            if ac and ac not in known_citations:
+                problems.append(f"[cite] {m.id}: absorption cites unknown '{ac}'")
+            ranks = [s.get("rank") for s in absn.get("site_rates", [])]
+            for s in absn.get("site_rates", []):
+                sc = s.get("citation")
+                if sc and sc not in known_citations:
+                    problems.append(
+                        f"[cite] {m.id}: absorption site '{s.get('site')}' cites unknown '{sc}'"
+                    )
+            if len(ranks) != len(set(ranks)):
+                problems.append(f"[absorption] {m.id}: duplicate site_rates rank(s) {ranks}")
 
         # id prefix matches declared subsystem
         if m.id.split(".")[0] != m.subsystem:

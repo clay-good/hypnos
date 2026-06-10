@@ -1,0 +1,19 @@
+{
+  "name": "lidocaine",
+  "synonyms": ["lignocaine", "Xylocaine"],
+  "unii": null,
+  "atc": "N01BB02",
+  "cas": "137-58-6",
+  "drug_class": "amide local anesthetic",
+  "subsystem": "local_anesthetics",
+  "notes": "Prototypical amide LA; intermediate potency/duration. Systemic toxicity tracks FREE drug; binding is moderate (~65%). LA toxicity thresholds are deferred to v0.6 LA1 (safety framing). Concentrations in ug/mL.",
+  "concentration_unit": "ug/mL",
+  "protein_binding": {
+    "fraction_bound": 0.65,
+    "binding_protein": "alpha1_acid_glycoprotein_and_albumin",
+    "saturable": false,
+    "binding_sensitive": false,
+    "citation": "tucker-1979-la-pharmacokinetics",
+    "note": "~65% bound, principally to α1-acid glycoprotein (an acute-phase protein), not chiefly albumin — so the v0.5 hypoalbuminemia free-fraction caveat does NOT apply to LAs; LA-specific free-fraction handling is v0.6 LA1/LA3."
+  }
+}

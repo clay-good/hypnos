@@ -467,6 +467,12 @@ def simulate(
             "transcription). Hypnos refuses to simulate rather than risk a mis-transcribed "
             "covariate equation. See the record's notes field."
         )
+    if model.kernel_function not in KERNELS:
+        raise NotImplementedError(
+            f"{model_id} uses the '{model.kernel_function}' kernel, not an IV-disposition "
+            "kernel that simulate() drives. Local anesthetics: use hypnos.la (site "
+            "absorption); volatiles: use hypnos.mac/washin/washout."
+        )
     kernel = KERNELS[model.kernel_function]
     params = kernel(patient)
 
@@ -682,6 +688,11 @@ def compare(
         if not m.kernel_implemented:
             cmp.unavailable.append({"model_id": m.id, "tier": m.tier,
                                     "reason": "reference kernel pending verified transcription"})
+            continue
+        if m.kernel_function not in KERNELS:
+            # not an IV-disposition model (e.g. a local anesthetic — use hypnos.la)
+            cmp.unavailable.append({"model_id": m.id, "tier": m.tier,
+                                    "reason": "not an IV-disposition model (see hypnos.la / volatiles)"})
             continue
         res = simulate(ds, m.id, patient=patient, schedule=schedule, t=t, pd_model=pd_model,
                        bands=bands, percentile=percentile, samples=samples, seed=seed,

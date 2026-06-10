@@ -356,6 +356,11 @@ INTERACTION_KERNELS = {"greco_response_surface"}
 # correction + partition coefficients, read directly from the record.
 VOLATILE_KERNELS = {"volatile_mac"}
 
+# Local-anesthetic site-absorption kernels (subsystem == "local_anesthetics");
+# first-order absorption (site-set ka) + one-compartment disposition (Bateman),
+# read from the record by hypnos.la. A label, like VOLATILE_KERNELS.
+LA_KERNELS = {"la_absorption"}
+
 
 # --------------------------------------------------------------------------- #
 # Dose-schedule parsing (mg / mcg, per-kg, per-h / per-min)

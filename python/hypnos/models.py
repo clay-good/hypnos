@@ -485,6 +485,12 @@ class Model:
     def predictive_performance(self) -> List[Dict[str, Any]]:
         return self.raw.get("predictive_performance", [])
 
+    # --- local-anesthetic site absorption (v0.6 layer) --------------------
+    @property
+    def absorption(self) -> Optional[Dict[str, Any]]:
+        """Site-specific systemic-absorption block (v0.6 §3.1), or None."""
+        return self.raw.get("absorption")
+
     # --- external validation (v0.4 layer) ---------------------------------
     @property
     def external_validation(self) -> List[Dict[str, Any]]:

@@ -386,6 +386,31 @@ def cmd_mac(args) -> int:
     return 0
 
 
+def cmd_la(args) -> int:
+    from .la import site_comparison
+    ds = load()
+    mid = args.drug if "." in args.drug else f"local_anesthetics.{args.drug.replace(' ', '_')}.systemic"
+    try:
+        rows = site_comparison(ds, mid, dose_mg=args.dose, t_min=args.tmax)
+    except (KeyError, ValueError) as e:
+        print(str(e), file=sys.stderr)
+        return 2
+    if not rows:
+        print("no simulable sites (ranks curated but ka magnitudes absent)", file=sys.stderr)
+        return 2
+    print(f"{rows[0].drug} — systemic plasma concentration after {args.dose:g} mg, by injection site")
+    print(f"  tier {rows[0].tier}  (systemic concentration only — NOT block efficacy, and NO "
+          "toxicity threshold is drawn; v0.6 LA0)")
+    print(f"{'site':18s} {'rank':>4s} {'ka(1/min)':>9s} {'Cmax(ug/mL)':>12s} {'Tmax(min)':>10s}")
+    for r in rows:
+        print(f"{r.site:18s} {r.rank:>4d} {r.ka:>9.2f} {r.cmax:>12.3f} {r.tmax_min:>10.1f}")
+    hi, lo = rows[0], rows[-1]
+    print(f"site dominance: the SAME {args.dose:g} mg gives Cmax {hi.cmax:.2f} at {hi.site} vs "
+          f"{lo.cmax:.2f} ug/mL at {lo.site} ({hi.cmax / lo.cmax:.1f}x), peaking {lo.tmax_min - hi.tmax_min:.0f} "
+          "min later — so the mg/kg ceiling is the wrong mental model (absorption is site-driven).")
+    return 0
+
+
 def cmd_washin(args) -> int:
     ds = load()
     vent = dict(t_min=args.t, alveolar_ventilation=args.valv, frc=args.frc, cardiac_output=args.co)
@@ -569,6 +594,12 @@ def build_parser() -> argparse.ArgumentParser:
     wp.add_argument("--frc", type=float, default=2.5, help="functional residual capacity (L)")
     wp.add_argument("--co", type=float, default=5.0, help="cardiac output (L/min)")
     wp.set_defaults(func=cmd_washin)
+
+    lap = sub.add_parser("la", help="local-anesthetic systemic concentration by injection site (v0.6 LA0)")
+    lap.add_argument("--drug", required=True, help="lidocaine | bupivacaine | ropivacaine (or full model id)")
+    lap.add_argument("--dose", type=float, default=150.0, help="dose in mg")
+    lap.add_argument("--tmax", type=float, default=90.0, help="horizon (min)")
+    lap.set_defaults(func=cmd_la)
 
     op = sub.add_parser("washout", help="inhalational wash-out (FA/FA0) — solubility-driven emergence")
     op.add_argument("--agent", default=None, help="agent name or model id (omit for a comparison table)")

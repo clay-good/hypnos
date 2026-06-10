@@ -8,6 +8,39 @@ version is pinned in `dataset/VERSION` and stamped into every export as
 
 ## [Unreleased]
 
+### Local-anesthetic systemic-absorption subsystem (v0.6 LA0) (2026-06-11)
+- **A new `local_anesthetics` subsystem — and its safety message is its science.** The one
+  LA-specific fact that *is* the safety message: **systemic absorption is site-driven, not
+  milligram-driven.** The same dose produces wildly different peak plasma concentrations by
+  injection site (the documented rank intercostal > caudal/epidural > brachial plexus >
+  subcutaneous), so a single mg/kg ceiling is unreliable on its face — and saying so is the
+  point. LA0 curates **disposition + site absorption + binding ONLY — no toxicity thresholds**
+  (deferred to v0.6 LA1, which needs its own safety framing): the first release teaches that
+  the milligram ceiling is the wrong mental model without drawing a single threshold that
+  could be misread (v0.6 §10, §7).
+- **`hypnos.la` — a forward-only Bateman kernel** (`absorption_pk`: site-set first-order
+  absorption into one-compartment disposition, the closed form `C(t) = F·D·ka/(V(ka−k10))·
+  (e^−k10·t − e^−ka·t)`), plus `site_comparison` — the headline: the *same* dose of the *same*
+  drug at every curated site, sorted by peak. `hypnos la --drug bupivacaine --dose 100` shows
+  Cmax falling from intercostal to subcutaneous and peaking progressively later. No dose is
+  ever computed (v0.6 §7) — systemic concentration only, **not** block efficacy, **not** a
+  toxicity margin.
+- **Three LA models** (lidocaine, bupivacaine, ropivacaine) — reference-adult one-compartment
+  disposition + a site-absorption block whose `rank` is the robust curated direction even
+  where the absolute `ka` is Tier-C (the rank order is established; the magnitudes are old,
+  wide, method-dependent — Tier-C by design). All cited to **Tucker & Mather 1979** (the
+  canonical LA clinical-PK review), `unverified`. Schema gains an additive `absorption` block.
+- **Binding curated, and correctly separated from the v0.5 albumin axis.** LA protein binding
+  (lidocaine ~65%, bupivacaine ~95% *saturable*, ropivacaine ~94%) is α1-acid-glycoprotein-
+  driven, **not** albumin-driven — so `binding_sensitive` is `false` and the v0.5
+  hypoalbuminemia caveat correctly does *not* fire for LAs (their free-fraction story is the
+  saturation failure mode of v0.6 LA1/LA3, not the albumin one). `hypnos validate` resolves
+  every `absorption`/binding citation and rejects duplicate site ranks.
+- **Clean separation from the IV-disposition path.** LA models are `purpose: pk` but their
+  kernel is `la_absorption` (not an IV-disposition kernel), so `simulate()`/`compare()` now
+  give a clean *"use hypnos.la"* message instead of a `KeyError` (a latent crash this also
+  guards for the volatiles' kernel class). 15 new tests.
+
 ### The estimation-uncertainty layer + the reducible/irreducible split (v0.3 E0) (2026-06-11)
 - **Estimation uncertainty is now a first-class, *separate* layer from between-subject
   variability** — the conflation the field's parameter tables routinely commit (an RSE

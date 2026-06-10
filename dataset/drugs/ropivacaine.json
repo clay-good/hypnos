@@ -1,0 +1,19 @@
+{
+  "name": "ropivacaine",
+  "synonyms": ["Naropin"],
+  "unii": null,
+  "atc": "N01BB09",
+  "cas": "84057-95-4",
+  "drug_class": "amide local anesthetic (S-enantiomer)",
+  "subsystem": "local_anesthetics",
+  "notes": "Long-acting amide LA; the pure S-enantiomer, markedly LESS cardiotoxic than racemic bupivacaine at similar CNS potency (the agent-choice safety argument — v0.6 LA2). Highly bound (~94%). Lower lipid solubility and slightly higher clearance than bupivacaine. Concentrations in ug/mL.",
+  "concentration_unit": "ug/mL",
+  "protein_binding": {
+    "fraction_bound": 0.94,
+    "binding_protein": "alpha1_acid_glycoprotein_and_albumin",
+    "saturable": true,
+    "binding_sensitive": false,
+    "citation": "tucker-1979-la-pharmacokinetics",
+    "note": "~94% bound, principally to α1-acid glycoprotein. As with bupivacaine the binding saturates; the LA-specific free-fraction story is v0.6 LA1/LA3, distinct from the v0.5 albumin axis (binding_sensitive=false)."
+  }
+}

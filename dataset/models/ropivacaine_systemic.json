@@ -1,0 +1,56 @@
+{
+  "id": "local_anesthetics.ropivacaine.systemic",
+  "subsystem": "local_anesthetics",
+  "drug": { "name": "ropivacaine", "unii": null, "atc": "N01BB09" },
+  "purpose": "pk",
+  "label": "Ropivacaine — systemic disposition + site absorption",
+  "structure": { "compartments": 1, "parameterization": "volumes_clearances", "elimination": "linear", "effect_compartment": false },
+  "kernel": { "implemented": true, "function": "la_absorption" },
+  "parameters": [
+    {
+      "symbol": "V1", "label": "apparent volume of distribution (reference adult)",
+      "value": { "central": 59.0, "low": null, "high": null, "units": "L" },
+      "covariate_model": "reference-adult disposition (no covariate model in LA0; ~0.84 L/kg)",
+      "tier": "C",
+      "extraction": { "review_status": "unverified", "tier_rationale": "Standard reference-adult LA disposition value (Tier-C). Ropivacaine (S-enantiomer) has lower lipid solubility and slightly higher clearance than racemic bupivacaine, and is markedly less cardiotoxic (the v0.6 LA2 agent-choice argument).", "source_locator": "Tucker & Mather 1979 / standard ropivacaine PK reference values" },
+      "primary_citation": "tucker-1979-la-pharmacokinetics"
+    },
+    {
+      "symbol": "Cl1", "label": "systemic clearance (reference adult)",
+      "value": { "central": 0.45, "low": null, "high": null, "units": "L/min" },
+      "covariate_model": "reference-adult disposition (no covariate model in LA0)",
+      "tier": "C",
+      "extraction": { "review_status": "unverified", "source_locator": "Tucker & Mather 1979 / standard ropivacaine PK reference values" },
+      "primary_citation": "tucker-1979-la-pharmacokinetics"
+    }
+  ],
+  "absorption": {
+    "model": "first_order",
+    "site_rates": [
+      { "site": "intercostal", "ka": 0.20, "bioavailability": 1.0, "rank": 1, "citation": "tucker-1979-la-pharmacokinetics" },
+      { "site": "caudal_epidural", "ka": 0.12, "bioavailability": 1.0, "rank": 2, "citation": "tucker-1979-la-pharmacokinetics" },
+      { "site": "lumbar_epidural", "ka": 0.08, "bioavailability": 1.0, "rank": 3, "citation": "tucker-1979-la-pharmacokinetics" },
+      { "site": "brachial_plexus", "ka": 0.05, "bioavailability": 1.0, "rank": 4, "citation": "tucker-1979-la-pharmacokinetics" },
+      { "site": "subcutaneous", "ka": 0.02, "bioavailability": 1.0, "rank": 5, "citation": "tucker-1979-la-pharmacokinetics" }
+    ],
+    "tier": "C",
+    "extraction": { "review_status": "unverified", "tier_rationale": "Site-absorption rank order robust; absolute ka Tier-C, applied site-wise.", "source_locator": "Tucker & Mather 1979 (systemic-absorption rank by site)" },
+    "primary_citation": "tucker-1979-la-pharmacokinetics"
+  },
+  "covariates": { "required": [], "optional": [], "lbm_equation": null },
+  "applicability_envelope": {
+    "age_years": { "min": 18, "max": 90 },
+    "weight_kg": { "min": 40, "max": 120 },
+    "populations": ["adult"],
+    "derivation_n": null
+  },
+  "known_failure_modes": [],
+  "tier": "C",
+  "extraction": {
+    "review_status": "unverified",
+    "tier_rationale": "v0.6 LA0: systemic disposition + site absorption only — no toxicity thresholds (LA1). Disposition + ka Tier-C; the site rank is the robust claim.",
+    "source_locator": "Tucker & Mather 1979 / standard ropivacaine PK reference values"
+  },
+  "primary_citation": "tucker-1979-la-pharmacokinetics",
+  "notes": "Systemic concentration only. The S-enantiomer's wider cardiovascular margin vs bupivacaine at similar CNS potency is the v0.6 LA2 educational comparison."
+}

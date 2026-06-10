@@ -1,0 +1,56 @@
+{
+  "id": "local_anesthetics.lidocaine.systemic",
+  "subsystem": "local_anesthetics",
+  "drug": { "name": "lidocaine", "unii": null, "atc": "N01BB02" },
+  "purpose": "pk",
+  "label": "Lidocaine — systemic disposition + site absorption",
+  "structure": { "compartments": 1, "parameterization": "volumes_clearances", "elimination": "linear", "effect_compartment": false },
+  "kernel": { "implemented": true, "function": "la_absorption" },
+  "parameters": [
+    {
+      "symbol": "V1", "label": "apparent volume of distribution (reference adult)",
+      "value": { "central": 91.0, "low": null, "high": null, "units": "L" },
+      "covariate_model": "reference-adult disposition (no covariate model in LA0; ~1.3 L/kg)",
+      "tier": "C",
+      "extraction": { "review_status": "unverified", "tier_rationale": "Standard reference-adult LA disposition value; LA PK is old, wide, and method-dependent (Tier-C by design). The SITE-absorption rank is the robust, load-bearing claim, not the absolute disposition.", "source_locator": "Tucker & Mather 1979; standard LA PK reference values" },
+      "primary_citation": "tucker-1979-la-pharmacokinetics"
+    },
+    {
+      "symbol": "Cl1", "label": "systemic clearance (reference adult)",
+      "value": { "central": 0.95, "low": null, "high": null, "units": "L/min" },
+      "covariate_model": "reference-adult disposition (hepatic-blood-flow-limited; no covariate model in LA0)",
+      "tier": "C",
+      "extraction": { "review_status": "unverified", "source_locator": "Tucker & Mather 1979; standard LA PK reference values" },
+      "primary_citation": "tucker-1979-la-pharmacokinetics"
+    }
+  ],
+  "absorption": {
+    "model": "first_order",
+    "site_rates": [
+      { "site": "intercostal", "ka": 0.20, "bioavailability": 1.0, "rank": 1, "citation": "tucker-1979-la-pharmacokinetics" },
+      { "site": "caudal_epidural", "ka": 0.12, "bioavailability": 1.0, "rank": 2, "citation": "tucker-1979-la-pharmacokinetics" },
+      { "site": "lumbar_epidural", "ka": 0.08, "bioavailability": 1.0, "rank": 3, "citation": "tucker-1979-la-pharmacokinetics" },
+      { "site": "brachial_plexus", "ka": 0.05, "bioavailability": 1.0, "rank": 4, "citation": "tucker-1979-la-pharmacokinetics" },
+      { "site": "subcutaneous", "ka": 0.02, "bioavailability": 1.0, "rank": 5, "citation": "tucker-1979-la-pharmacokinetics" }
+    ],
+    "tier": "C",
+    "extraction": { "review_status": "unverified", "tier_rationale": "The site-absorption RANK ORDER (intercostal > caudal/epidural > plexus > subcutaneous) is robustly established; the absolute ka magnitudes are Tier-C and applied site-wise (a drug-independent simplification — the site dominates the rate of rise). The rank is the curated direction even where ka magnitude is soft.", "source_locator": "Tucker & Mather 1979 (systemic-absorption rank by site)" },
+    "primary_citation": "tucker-1979-la-pharmacokinetics"
+  },
+  "covariates": { "required": [], "optional": [], "lbm_equation": null },
+  "applicability_envelope": {
+    "age_years": { "min": 18, "max": 90 },
+    "weight_kg": { "min": 40, "max": 120 },
+    "populations": ["adult"],
+    "derivation_n": null
+  },
+  "known_failure_modes": [],
+  "tier": "C",
+  "extraction": {
+    "review_status": "unverified",
+    "tier_rationale": "v0.6 LA0: systemic disposition + site-specific absorption ONLY — no toxicity thresholds (deferred to LA1, which needs its own safety framing). The headline is the site-of-injection dominance: the same dose gives wildly different peak plasma concentrations by site, so the mg/kg ceiling is the wrong mental model. Disposition + ka are Tier-C; the site rank is the robust claim.",
+    "source_locator": "Tucker & Mather 1979; standard LA PK reference values"
+  },
+  "primary_citation": "tucker-1979-la-pharmacokinetics",
+  "notes": "Systemic concentration only (NOT block efficacy at the nerve, NOT a toxicity margin). Bateman first-order-absorption + one-compartment disposition via hypnos.la. Toxicity thresholds, the double-uncertainty view, and the saturable-binding free-fraction story are v0.6 LA1-LA3."
+}

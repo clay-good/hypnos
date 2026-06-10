@@ -39,6 +39,8 @@ from .inhalational import (  # noqa: E402
 )
 from .load import Dataset, load  # noqa: E402
 from .models import (  # noqa: E402
+    EstimateCovariance,
+    EstimationUncertainty,
     Model,
     OmegaBlock,
     Parameter,
@@ -73,6 +75,8 @@ __all__ = [
     "ParameterVariability",
     "ResidualError",
     "OmegaBlock",
+    "EstimationUncertainty",
+    "EstimateCovariance",
     "select",
     "summary",
     "performance_table",

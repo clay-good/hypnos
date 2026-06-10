@@ -8,6 +8,45 @@ version is pinned in `dataset/VERSION` and stamped into every export as
 
 ## [Unreleased]
 
+### The estimation-uncertainty layer + the reducible/irreducible split (v0.3 E0) (2026-06-11)
+- **Estimation uncertainty is now a first-class, *separate* layer from between-subject
+  variability** — the conflation the field's parameter tables routinely commit (an RSE
+  printed in the column beside a BSV CV, indistinguishable but physically different). v0.3
+  gives the dataset the vocabulary to record the two apart, **closing the conflation by
+  construction**: a new per-θ `estimation_uncertainty` block (`se`, `scale`, `rse_percent`,
+  `ci95`, `method`, its own tier) lives **beside** `variability`, never inside it, so an
+  estimation RSE can never be silently read as a between-subject CV. Plus a model-root
+  `estimate_covariance` (the NONMEM `$COV` output, with `covariance_step_succeeded` recorded
+  honestly), `uncertainty_status` (`none | marginal | correlated`), and `omega2_se` (the
+  second-order SE on a BSV variance). Schema is additive; no existing record changes meaning.
+- **`hypnos validate` enforces the numeric traps a machine *can* catch** (v0.3 §4): `scale`
+  is mandatory when an SE is present (Trap 2 — a log-scale SE applied as natural is silently
+  wrong); `rse_percent` recomputes from `se` and `value.central` on the declared scale; `ci95`
+  is consistent with `se` for a symmetric asymptotic interval (Trap 3); every estimation
+  citation resolves; and `uncertainty_status` matches the curated contents (no `correlated`
+  without an `estimate_covariance`). The cardinal RSE-vs-CV disambiguation (Trap 1) stays a
+  **human** checklist line item — both magnitudes are plausible, so the machine cannot guess;
+  the schema separation is the structural guard. `hypnos verify` gains an **estimation** group.
+- **The reducible/irreducible decomposition — the v0.3 headline (§7) — lands now, number-free.**
+  `compare(..., bands=True)` already split the predictive variance into structural / BSV /
+  residual; it now adds a `reducibility` rollup that reframes the same variance along the axis
+  that decides *what to do about it*: **reducible** (between-model — curate/validate more models;
+  and estimation — more data per model) vs **irreducible** (BSV + residual — the population is the
+  limit, the assay is noisy). The punch-line a single curve can never give: *how much of this
+  uncertainty could research buy down, and how much is the patient?* The estimation (more-data)
+  component contributes 0 until per-θ SEs are curated, and the readout says so honestly
+  (`estimation_curated: false`) rather than overstating what is reducible.
+- **Why the Eleveld estimation values are not curated here.** E0's headline curation — each
+  model's per-parameter RSE table — requires transcribing it from the source PDF, exactly the
+  human-verification step the project refuses to let an LLM perform (and the Eleveld 2018 full
+  text is paywalled to automated fetch). So this ships the **machinery + enforcement** (the
+  spec's stated E0 value: *"closing, by construction, the conflation"*) and leaves the RSE
+  *curation* — and the confidence bands (E1) it would unlock — as the explicit human-PDF step.
+- 16 new tests (rse↔se on natural/log scales, the four traps on constructed records,
+  parsing/tiers, estimate-covariance, and the reducibility rollup on real `compare` output).
+- **Housekeeping:** removed two pre-existing unused `typing` imports (`csv_flat.py`,
+  `inhalational.py`); `ruff check python/hypnos/` is now clean.
+
 ### The protein-binding / free-fraction failure mode (v0.5 S1) (2026-06-11)
 - **The albumin axis of the v0.5 organ envelope now says *why* it matters, with a citation.**
   S0 greyed every model under hypoalbuminemia with a generic message. For a **binding-sensitive**

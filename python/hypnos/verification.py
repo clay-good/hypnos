@@ -22,7 +22,7 @@ REVIEW_STATES = ("unverified", "verified", "contested")
 
 @dataclass
 class ChecklistItem:
-    group: str           # "structural" | "covariate" | "envelope" | "population" | "citation"
+    group: str           # "structural" | "covariate" | "envelope" | "population" | "estimation" | "citation"
     label: str
     value: str           # the current value a verifier must confirm against the PDF
     confirmed: bool = False
@@ -78,7 +78,30 @@ def _checklist_for(model: Model, ds: Dataset) -> List[ChecklistItem]:
         rng = getattr(env, name)
         if rng.min is not None or rng.max is not None:
             items.append(ChecklistItem("envelope", name, f"[{rng.min}, {rng.max}]"))
-    # 5. citation resolves to the right paper
+    # 5. estimation uncertainty (v0.3 §9) — the RSE-vs-CV disambiguation is the
+    #    cardinal human line item: confirm each curated number is an estimation
+    #    RSE/SE, not a between-subject CV, against the source column header.
+    for p in model.parameters:
+        e = p.estimation
+        if e is None:
+            continue
+        loc = (e.extraction or {}).get("source_locator")
+        bits = []
+        if e.se is not None:
+            bits.append(f"se={e.se:g} (scale={e.scale})")
+        if e.rse_percent is not None:
+            bits.append(f"RSE%={e.rse_percent:g}")
+        bits.append(f"method={e.method}")
+        items.append(ChecklistItem(
+            "estimation", f"{p.symbol} estimation uncertainty (RSE/SE — NOT a BSV CV)",
+            "; ".join(bits), locator=loc))
+    if model.estimate_covariance is not None:
+        ec = model.estimate_covariance
+        items.append(ChecklistItem(
+            "estimation", "estimate covariance ($COV)",
+            f"{len(ec.correlations)} pair(s), complete={ec.complete}, "
+            f"cov_step_succeeded={ec.covariance_step_succeeded}"))
+    # 6. citation resolves to the right paper
     cit = ds.citation(model.primary_citation) if ds is not None else None
     if cit:
         ref = f"{cit.get('container', '')} {cit.get('year', '')}; doi:{cit.get('doi', '?')}"
@@ -157,12 +180,13 @@ def checklist_markdown(mv: ModelVerification) -> str:
         "double-checking; that is where published-vs-implemented divergence hides.",
         "",
     ]
-    groups = ["structural", "covariate", "population", "envelope", "citation"]
+    groups = ["structural", "covariate", "population", "envelope", "estimation", "citation"]
     titles = {
         "structural": "Structural parameters",
         "covariate": "Covariate equations (incl. exact LBM/FFM form)",
         "population": "Derivation population & n",
         "envelope": "Stated applicability range",
+        "estimation": "Estimation uncertainty (RSE/SE vs BSV CV — read the column header)",
         "citation": "Primary citation",
     }
     for g in groups:

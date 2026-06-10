@@ -484,6 +484,9 @@ def simulate(
         warnings=warnings, excluded=excluded, params=params, patient=dict(patient),
         concentration_unit=drug_meta.get("concentration_unit", "ug/mL"),
     )
+    # whether this model carries curated estimation uncertainty (drives the v0.3 §7
+    # reducible/irreducible readout's `estimation_curated` flag)
+    result.has_estimation = model.has_published_estimation
 
     pdm: Optional[Model] = None
     if pd_model is not None:
@@ -592,11 +595,29 @@ def _band_divergence(results: List[SimulationResult], key: str) -> Dict[str, Any
     resid_var = np.mean([r.__dict__[f"{key}_resid_var"][t_star] for r in eligible])
     total = var_structural + bsv_var + resid_var
     if total > 0:
+        struct_share = float(var_structural / total)
+        bsv_share = float(bsv_var / total)
+        resid_share = float(resid_var / total)
         out["variance_share"] = {
-            "structural": round(float(var_structural / total), 4),
-            "bsv": round(float(bsv_var / total), 4),
-            "residual": round(float(resid_var / total), 4),
+            "structural": round(struct_share, 4),
+            "bsv": round(bsv_share, 4),
+            "residual": round(resid_share, 4),
             "t_star_min": float(eligible[0].t[t_star]),
+        }
+        # The v0.3 §7 reducible/irreducible decomposition — split the same variance
+        # along the axis that decides what to DO about it. Structural (between-model)
+        # is reducible by curating/validating more models; BSV and residual are
+        # irreducible (the population is the limit; the assay is noisy). The
+        # ESTIMATION (more-data) reducible component is not yet curated for any model
+        # (it needs per-θ SEs — v0.3 E0), so `reducible` here reflects structural
+        # uncertainty only; `estimation_curated` says so honestly, never silently.
+        any_estimation = any(getattr(r, "has_estimation", False) for r in eligible)
+        out["reducibility"] = {
+            "reducible": round(struct_share, 4),
+            "irreducible": round(bsv_share + resid_share, 4),
+            "estimation_curated": bool(any_estimation),
+            "note": ("reducible = between-model (more models/curation); estimation "
+                     "(more data per model) not yet curated, so it contributes 0 here"),
         }
 
     # --- separation index (needs >= 2 band-eligible models) ----------------

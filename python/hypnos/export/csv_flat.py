@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import csv
 import io
-from typing import Any, Dict, List, Optional
+from typing import Any, List, Optional
 
 _HEADER = [
     "model_id", "subsystem", "drug", "purpose", "record_tier", "review_status",

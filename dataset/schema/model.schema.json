@@ -73,7 +73,8 @@
           "tier": { "type": "string", "enum": ["A", "B", "C", "D"] },
           "extraction": { "$ref": "#/$defs/extraction" },
           "primary_citation": { "type": "string" },
-          "variability": { "$ref": "#/$defs/parameter_variability" }
+          "variability": { "$ref": "#/$defs/parameter_variability" },
+          "estimation_uncertainty": { "$ref": "#/$defs/estimation_uncertainty" }
         }
       }
     },
@@ -148,10 +149,16 @@
     },
     "residual_error": { "$ref": "#/$defs/residual_error" },
     "omega_block": { "$ref": "#/$defs/omega_block" },
+    "estimate_covariance": { "$ref": "#/$defs/estimate_covariance" },
     "variability_status": {
       "type": "string",
       "description": "Rollup of how much of the NLME random-effects structure is curated; drives band eligibility (v0.2 spec §5).",
       "enum": ["none", "partial", "diagonal", "full"]
+    },
+    "uncertainty_status": {
+      "type": "string",
+      "description": "Rollup of curated ESTIMATION uncertainty (distinct from variability_status); drives confidence-band eligibility + the UI badge (v0.3 spec §5). 'none' => no confidence band drawn (never-synthesize).",
+      "enum": ["none", "marginal", "correlated"]
     },
     "external_validation": {
       "type": "array",
@@ -184,7 +191,8 @@
             "omega2": { "type": ["number", "null"], "description": "CANONICAL: variance on the eta scale (the NONMEM $OMEGA diagonal entry)." },
             "distribution": { "type": "string", "enum": ["exponential", "additive", "logit"], "default": "exponential", "description": "exponential (log-normal) BSV unless stated; additive BSV puts omega2 on the natural scale." },
             "cv_percent": { "type": ["number", "null"], "description": "OPTIONAL human-readable convenience; checked-consistent with omega2 (spec §4 Trap 1)." },
-            "shrinkage_percent": { "type": ["number", "null"], "description": "eta-shrinkage if the source reports it (interpretation caveat, spec §4 Trap 4)." }
+            "shrinkage_percent": { "type": ["number", "null"], "description": "eta-shrinkage if the source reports it (interpretation caveat, spec §4 Trap 4)." },
+            "omega2_se": { "type": ["number", "null"], "description": "SE on the curated BSV variance ω² — second-order ESTIMATION uncertainty on this v0.2 layer (v0.3 §2.2). RSE on the VARIANCE, not the SD (v0.3 §4 Trap 5)." }
           }
         },
         "iov": {
@@ -256,6 +264,57 @@
           }
         },
         "complete": { "type": "boolean", "description": "false => only the listed pairs are published; the rest are UNKNOWN, not zero." },
+        "tier": { "type": "string", "enum": ["A", "B", "C", "D"] },
+        "extraction": { "$ref": "#/$defs/extraction" },
+        "primary_citation": { "type": "string" }
+      }
+    },
+    "estimation_uncertainty": {
+      "type": "object",
+      "description": "Per-θ ESTIMATION uncertainty — the SE/RSE/CI on the estimated typical value (v0.3 spec §2.1). REDUCIBLE (shrinks with more data), and a DIFFERENT number from the BSV in `variability` (irreducible). Lives BESIDE `variability`, never inside it — the schema separation mirrors the conceptual one, so an RSE can never be silently read as a between-subject CV (v0.3 §4 Trap 1).",
+      "required": ["method", "tier", "extraction"],
+      "additionalProperties": false,
+      "properties": {
+        "se": { "type": ["number", "null"], "description": "CANONICAL: standard error on the estimated `scale`." },
+        "scale": { "type": "string", "enum": ["natural", "log"], "description": "Mandatory whenever an SE is present — a log-scale SE applied as natural-scale is silently wrong (v0.3 §4 Trap 2)." },
+        "rse_percent": { "type": ["number", "null"], "description": "OPTIONAL convenience; checked-consistent with `se` and `value.central` on the declared scale (Trap 2)." },
+        "ci95": {
+          "type": ["object", "null"],
+          "description": "OPTIONAL 95% CI; asymptotic unless `method` says otherwise (bootstrap/SIR CIs stored verbatim).",
+          "additionalProperties": false,
+          "properties": {
+            "low": { "type": ["number", "null"] },
+            "high": { "type": ["number", "null"] }
+          }
+        },
+        "method": { "type": "string", "enum": ["asymptotic_covariance", "bootstrap", "sir", "profile_likelihood", "not_reported"] },
+        "tier": { "type": "string", "enum": ["A", "B", "C", "D"] },
+        "extraction": { "$ref": "#/$defs/extraction" },
+        "primary_citation": { "type": "string" }
+      }
+    },
+    "estimate_covariance": {
+      "type": "object",
+      "description": "Published estimate correlation/covariance — the NONMEM $COV output (v0.3 spec §2.3/§3.2). The estimation-layer analog of `omega_block`, but for ESTIMATION covariance, and NEVER merged with the random-effect covariance.",
+      "required": ["correlations", "complete", "tier", "extraction"],
+      "additionalProperties": false,
+      "properties": {
+        "correlations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["between", "correlation"],
+            "additionalProperties": false,
+            "properties": {
+              "between": { "type": "array", "items": { "type": "string" }, "minItems": 2, "maxItems": 2 },
+              "correlation": { "type": "number", "minimum": -1, "maximum": 1 },
+              "citation": { "type": ["string", "null"] }
+            }
+          }
+        },
+        "complete": { "type": "boolean", "description": "false => only listed estimate pairs published; the rest UNKNOWN, not zero (independence assumed only with a recorded caveat)." },
+        "method": { "type": "string", "enum": ["asymptotic_covariance", "bootstrap", "sir", "profile_likelihood", "not_reported"] },
+        "covariance_step_succeeded": { "type": ["boolean", "null"], "description": "NONMEM $COV often fails; record honestly — an absent SE is then MISSING, not zero (v0.3 §4 Trap 4)." },
         "tier": { "type": "string", "enum": ["A", "B", "C", "D"] },
         "extraction": { "$ref": "#/$defs/extraction" },
         "primary_citation": { "type": "string" }

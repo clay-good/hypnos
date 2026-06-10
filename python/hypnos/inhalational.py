@@ -13,7 +13,7 @@ research/education tool, NOT a dosing or depth-of-anaesthesia monitor.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
 import numpy as np
 

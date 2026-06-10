@@ -124,6 +124,9 @@ def validate_dataset(ds: Optional[Dataset] = None) -> List[str]:
         # --- external-validation layer (v0.4 spec §4) ---------------------
         problems.extend(_check_external_validation(m))
 
+        # --- estimation-uncertainty layer (v0.3 spec §9) ------------------
+        problems.extend(_check_estimation(m, known_citations))
+
     # drug-level protein-binding citations resolve (v0.5 §B3 binding failure mode —
     # a binding-sensitivity claim must be traceable, like every other curated claim)
     for d in getattr(ds, "drugs", {}).values():
@@ -202,6 +205,88 @@ def _check_variability(m, known_citations) -> List[str]:
             problems.append(
                 f"[variability] {m.id}: variability_status 'diagonal' but a complete "
                 "omega_block is present (should be 'full')"
+            )
+
+    return problems
+
+
+# RSE recompute tolerance (percentage points) and CI<->SE relative tolerance.
+_RSE_TOL = 1.0
+_CI_REL_TOL = 0.05
+
+
+def _check_estimation(m, known_citations) -> List[str]:
+    """Estimation-uncertainty consistency checks (v0.3 spec §9): the SE/RSE/CI/scale
+    traps (§4), citation resolution, and uncertainty_status ↔ contents.
+
+    The RSE-vs-CV separation (Trap 1) is enforced *structurally* — estimation lives in
+    its own block beside `variability`, so an RSE can never be silently filed as a BSV
+    CV — not by a numeric check (both are plausible magnitudes; that is the human
+    line item). These checks guard the numeric traps a machine *can* catch."""
+    problems: List[str] = []
+    has_estimation = False
+
+    for p in m.parameters:
+        e = p.estimation
+        if e is None:
+            continue
+        if e.se is not None:
+            has_estimation = True
+            # (Trap 2) scale is mandatory when an SE is present
+            if e.scale not in ("natural", "log"):
+                problems.append(
+                    f"[estimation] {m.id}: parameter {p.symbol} has an SE but no/invalid "
+                    f"`scale` (got {e.scale!r}) — a log-scale SE read as natural is silently wrong"
+                )
+            # (Trap 2) rse_percent recomputes from se & central on the declared scale
+            ref = e.rse_from_se(p.central)
+            if e.rse_percent is not None and ref is not None:
+                if abs(e.rse_percent - ref) > _RSE_TOL:
+                    problems.append(
+                        f"[estimation] {m.id}: parameter {p.symbol} rse_percent "
+                        f"{e.rse_percent:g} disagrees with se-derived {ref:.1f} "
+                        f"(>{_RSE_TOL} pp on scale '{e.scale}' — SE/RSE/scale confusion?)"
+                    )
+            # (Trap 3) ci95 consistent with se for a symmetric asymptotic interval
+            if (e.method == "asymptotic_covariance" and e.scale == "natural"
+                    and e.ci95 and e.ci95.get("low") is not None
+                    and e.ci95.get("high") is not None):
+                width = e.ci95["high"] - e.ci95["low"]
+                expected = 2 * 1.96 * e.se
+                if expected > 0 and abs(width - expected) > _CI_REL_TOL * expected:
+                    problems.append(
+                        f"[estimation] {m.id}: parameter {p.symbol} ci95 width {width:g} "
+                        f"inconsistent with 2·1.96·se={expected:g} (asymptotic interval — Trap 3)"
+                    )
+        # estimation citation resolves
+        if e.primary_citation and e.primary_citation not in known_citations:
+            problems.append(
+                f"[cite] {m.id}: parameter {p.symbol} estimation_uncertainty cites unknown "
+                f"'{e.primary_citation}'"
+            )
+
+    ec = m.estimate_covariance
+    if ec is not None and ec.primary_citation and ec.primary_citation not in known_citations:
+        problems.append(f"[cite] {m.id}: estimate_covariance cites unknown '{ec.primary_citation}'")
+
+    # uncertainty_status matches the actual contents (v0.3 §5/§9 item 4)
+    status = m.uncertainty_status
+    if status == "none":
+        if has_estimation or ec is not None:
+            problems.append(
+                f"[estimation] {m.id}: uncertainty_status 'none' but curated estimation "
+                "uncertainty / estimate_covariance is present"
+            )
+    elif status == "correlated":
+        if ec is None:
+            problems.append(
+                f"[estimation] {m.id}: uncertainty_status 'correlated' requires an estimate_covariance"
+            )
+    elif status == "marginal":
+        if not has_estimation:
+            problems.append(
+                f"[estimation] {m.id}: uncertainty_status 'marginal' requires at least one "
+                "parameter carrying an estimation SE"
             )
 
     return problems

@@ -63,6 +63,7 @@ class ParameterVariability:
     omega2: Optional[float] = None
     cv_percent: Optional[float] = None
     shrinkage_percent: Optional[float] = None
+    omega2_se: Optional[float] = None      # SE on ω² — second-order estimation uncertainty (v0.3 §2.2)
     distribution: str = "exponential"
     iov_omega2: Optional[float] = None
     tier: str = "D"
@@ -101,6 +102,61 @@ class OmegaBlock:
     extraction: Dict[str, Any] = field(default_factory=dict)
 
 
+@dataclass(frozen=True)
+class EstimationUncertainty:
+    """Per-θ ESTIMATION uncertainty — the SE/RSE/CI on the estimated typical value
+    (v0.3 spec §2.1). Reducible (shrinks with more data); a DIFFERENT number from the
+    between-subject ``cv_percent`` in :class:`ParameterVariability` (irreducible)."""
+
+    se: Optional[float] = None
+    scale: Optional[str] = None            # "natural" | "log"
+    rse_percent: Optional[float] = None
+    ci95: Optional[Dict[str, Any]] = None  # {"low", "high"}
+    method: str = "not_reported"
+    tier: str = "D"
+    primary_citation: Optional[str] = None
+    extraction: Dict[str, Any] = field(default_factory=dict)
+
+    def rse_from_se(self, central: Optional[float]) -> Optional[float]:
+        """Exact RSE% recomputed from ``se`` on the declared scale (the consistency
+        reference for v0.3 §4 Trap 2). natural: 100·se/|θ|; log: 100·se."""
+        if self.se is None:
+            return None
+        if self.scale == "log":
+            return 100.0 * self.se
+        if central is None or central == 0:
+            return None
+        return 100.0 * self.se / abs(central)
+
+
+@dataclass(frozen=True)
+class EstimateCovariance:
+    """Published estimate correlation/covariance — the $COV output (v0.3 §3.2)."""
+
+    correlations: List[Dict[str, Any]] = field(default_factory=list)
+    complete: bool = False
+    method: str = "not_reported"
+    covariance_step_succeeded: Optional[bool] = None
+    tier: str = "D"
+    primary_citation: Optional[str] = None
+    extraction: Dict[str, Any] = field(default_factory=dict)
+
+
+def _parse_estimation_uncertainty(raw: Optional[Dict[str, Any]]) -> Optional[EstimationUncertainty]:
+    if not raw:
+        return None
+    return EstimationUncertainty(
+        se=raw.get("se"),
+        scale=raw.get("scale"),
+        rse_percent=raw.get("rse_percent"),
+        ci95=raw.get("ci95"),
+        method=raw.get("method", "not_reported"),
+        tier=raw.get("tier", "D"),
+        primary_citation=raw.get("primary_citation"),
+        extraction=raw.get("extraction", {}),
+    )
+
+
 def _parse_param_variability(raw: Optional[Dict[str, Any]]) -> Optional[ParameterVariability]:
     if not raw:
         return None
@@ -110,6 +166,7 @@ def _parse_param_variability(raw: Optional[Dict[str, Any]]) -> Optional[Paramete
         omega2=bsv.get("omega2"),
         cv_percent=bsv.get("cv_percent"),
         shrinkage_percent=bsv.get("shrinkage_percent"),
+        omega2_se=bsv.get("omega2_se"),
         distribution=bsv.get("distribution", "exponential"),
         iov_omega2=iov.get("omega2"),
         tier=raw.get("tier", "D"),
@@ -128,6 +185,7 @@ class Parameter:
     primary_citation: Optional[str] = None
     extraction: Dict[str, Any] = field(default_factory=dict)
     variability: Optional[ParameterVariability] = None
+    estimation: Optional[EstimationUncertainty] = None
 
     @property
     def central(self) -> Optional[float]:
@@ -379,6 +437,7 @@ class Model:
                     primary_citation=p.get("primary_citation"),
                     extraction=p.get("extraction", {}),
                     variability=_parse_param_variability(p.get("variability")),
+                    estimation=_parse_estimation_uncertainty(p.get("estimation_uncertainty")),
                 )
             )
         return out
@@ -539,6 +598,52 @@ class Model:
             return None
         vt = self.variability_tier
         return worst_tier([self.tier, vt]) if vt else self.tier
+
+    # --- estimation uncertainty (v0.3 layer) ------------------------------
+    @property
+    def estimate_covariance(self) -> Optional[EstimateCovariance]:
+        raw = self.raw.get("estimate_covariance")
+        if not raw:
+            return None
+        return EstimateCovariance(
+            correlations=raw.get("correlations", []),
+            complete=raw.get("complete", False),
+            method=raw.get("method", "not_reported"),
+            covariance_step_succeeded=raw.get("covariance_step_succeeded"),
+            tier=raw.get("tier", "D"),
+            primary_citation=raw.get("primary_citation"),
+            extraction=raw.get("extraction", {}),
+        )
+
+    @property
+    def uncertainty_status(self) -> str:
+        """Rollup: 'none' | 'marginal' | 'correlated' (v0.3 §5). Default 'none'.
+
+        Drives confidence-band eligibility: 'none' draws NO confidence band (the
+        never-synthesize rule applied to estimation uncertainty, v0.3 §5)."""
+        return self.raw.get("uncertainty_status", "none")
+
+    @property
+    def has_published_estimation(self) -> bool:
+        return self.uncertainty_status not in (None, "none")
+
+    @property
+    def estimation_tier(self) -> Optional[str]:
+        """Worst tier among the curated estimation-uncertainty components (None if uncurated)."""
+        tiers = [p.estimation.tier for p in self.parameters
+                 if p.estimation and p.estimation.se is not None]
+        if self.estimate_covariance is not None:
+            tiers.append(self.estimate_covariance.tier)
+        return worst_tier(tiers) if tiers else None
+
+    @property
+    def estimation_band_tier(self) -> Optional[str]:
+        """Tier of a *confidence* band: worst of the structural and estimation tiers
+        (v0.3 §5). ``None`` when the model publishes no estimation uncertainty (no band)."""
+        if not self.has_published_estimation:
+            return None
+        et = self.estimation_tier
+        return worst_tier([self.tier, et]) if et else self.tier
 
     def __repr__(self) -> str:  # pragma: no cover - cosmetic
         return f"<Model {self.id} tier={self.tier} review={self.review_status}>"

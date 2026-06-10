@@ -67,7 +67,11 @@
     "weight_kg": { "min": 45, "max": 200 },
     "bmi_kg_m2": { "min": 18, "max": 70 },
     "populations": ["adult", "obese", "morbidly_obese"],
-    "derivation_n": 80
+    "derivation_n": 80,
+    "organ_tolerance": [
+      { "axis": "hepatic", "basis": "Remifentanil is cleared by nonspecific blood and tissue esterases, so its clearance is essentially independent of hepatic function — severe liver disease did not alter remifentanil pharmacokinetics.", "citation": "dershwitz-1996-remifentanil-hepatic" },
+      { "axis": "renal", "basis": "Esterase metabolism is independent of renal function; parent remifentanil pharmacokinetics are unchanged in renal failure.", "citation": "hoke-1997-remifentanil-renal", "caveat": "The active carboxylic-acid metabolite (GR90291) is renally eliminated and accumulates in renal impairment; the parent-drug PK this model predicts is unaffected." }
+    ]
   },
   "known_failure_modes": [],
   "predictive_performance": [],

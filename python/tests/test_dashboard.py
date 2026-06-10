@@ -30,6 +30,18 @@ def test_dashboard_renders_without_bands():
     assert at.title  # page title rendered
 
 
+def test_dashboard_organ_failure_overlay():
+    # set Child-Pugh = C on the default drug (propofol); every propofol model lacks
+    # hepatic standing, so the view greys them all with a named hepatic extrapolation
+    # — and must not crash on the now-empty included set (v0.5 §B6).
+    at = AppTest.from_file(APP, default_timeout=120).run()
+    cp = next(s for s in at.selectbox if "Child-Pugh" in s.label)
+    cp.set_value("C").run()
+    assert not at.exception
+    warnings = " ".join(w.value for w in at.warning)
+    assert "HEPATIC EXTRAPOLATION" in warnings
+
+
 def test_dashboard_renders_with_prediction_bands():
     at = AppTest.from_file(APP, default_timeout=120).run()
     assert not at.exception

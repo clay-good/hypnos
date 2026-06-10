@@ -8,6 +8,40 @@ version is pinned in `dataset/VERSION` and stamped into every export as
 
 ## [Unreleased]
 
+### The organ-function envelope — making Hypnos speak on organ failure (v0.5 S0) (2026-06-10)
+- **The *physiological* envelope now speaks.** v0.1's envelope greys a model when a
+  patient's *demographic* covariates (age/weight/BMI) fall outside the derivation range;
+  it was silent on the highest-stakes extrapolations — **hepatic, renal, cardiac, and
+  protein-binding (albumin) impairment** — and silence reads as "fine." A patient who
+  declares organ impairment now greys every model with no cited standing in that state
+  (Tier-D + a **named** extrapolation: `HEPATIC EXTRAPOLATION: Child-Pugh C … -> Tier D`),
+  exactly as a too-high BMI already does. The eligible-model set visibly **shrinks** under
+  organ failure (v0.5 §B6) instead of pretending nothing changed.
+- **Remifentanil keeps its standing — with a citation.** The one well-established exception
+  is encoded, not hand-waved: remifentanil is cleared by nonspecific blood/tissue esterases,
+  so its clearance is essentially **independent of hepatic and renal function**. The three
+  remifentanil models (Minto/Eleveld/Kim) carry a cited `organ_tolerance` on the hepatic and
+  renal axes (**Dershwitz 1996**, *Anesthesiology* 84:812-20; **Hoke 1997**, *Anesthesiology*
+  87:533-41 — two new citation records). A cirrhotic/renal-failure patient therefore greys
+  every propofol model but leaves remifentanil standing, with the honest **caveat** that the
+  active acid metabolite (GR90291) accumulates in renal failure (the parent PK these models
+  predict is unaffected). Cardiac and albumin axes still grey remifentanil — no model was
+  fit there, and the never-invent rule holds: no standing is claimed without a source.
+- **Schema (additive, backward-compatible):** `applicability_envelope` gains optional
+  numeric organ-function ranges (`crcl_ml_min`, `albumin_g_dl`, `ejection_fraction_pct` —
+  the forward-compatible "fitted-in-disease" slot) and an `organ_tolerance[]` block (cited
+  mechanistic standing). No existing record changes meaning. The impairment cut-points
+  (CrCl<60 = KDIGO CKD stage ≥3; albumin<3.5; EF<40; any Child-Pugh class = chronic liver
+  disease) are **definitional clinical staging**, not fitted PK, so they live named in code —
+  not curated per model.
+- **Surfaced everywhere the demographic envelope is:** `evaluate_safety`/`Envelope.organ_check`
+  drive `simulate` and `compare`; the **CLI** gains `--child-pugh / --crcl / --albumin /
+  --ejection-fraction`; the **dashboard** gains an "Organ function" panel that renders the
+  envelope-shrinkage overlay live. `hypnos validate` resolves every `organ_tolerance` citation
+  and well-orders the new ranges. A normal simulation (no organ covariates) is **unaffected**.
+- 23 new tests (organ-envelope behavior, exact staging cut-points, standing-via-fitted-range,
+  the compare overlay incl. the graceful all-greyed case, citation-resolution, dashboard overlay).
+
 ### External-validation metric engine — Varvel's framework (v0.4 VE0) (2026-06-10)
 - **New `hypnos.analysis` metric engine** implementing the field-standard anesthesia
   PK/PD validation methodology (Varvel 1992): `performance_error(c_obs, c_pred)` (the

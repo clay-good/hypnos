@@ -38,7 +38,15 @@ _default_schedule_for = default_schedule_for
 
 
 def _patient_from_args(args) -> dict:
-    return {"age": args.age, "weight": args.weight, "height": args.height, "sex": args.sex}
+    patient = {"age": args.age, "weight": args.weight, "height": args.height, "sex": args.sex}
+    # Organ-function covariates (v0.5 §B) — present only when supplied, so a normal
+    # simulation is unaffected. Each one a model has no standing in greys it to Tier D.
+    for key, attr in (("child_pugh", "child_pugh"), ("crcl_ml_min", "crcl"),
+                      ("albumin_g_dl", "albumin"), ("ejection_fraction_pct", "ejection_fraction")):
+        val = getattr(args, attr, None)
+        if val is not None:
+            patient[key] = val
+    return patient
 
 
 def _add_patient_args(p: argparse.ArgumentParser) -> None:
@@ -46,6 +54,15 @@ def _add_patient_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--weight", type=float, default=77.0)
     p.add_argument("--height", type=float, default=177.0)
     p.add_argument("--sex", default="M")
+    # Organ-function covariates (optional; v0.5 organ-failure envelope).
+    p.add_argument("--child-pugh", dest="child_pugh", choices=["A", "B", "C"], default=None,
+                   help="Child-Pugh class (hepatic impairment)")
+    p.add_argument("--crcl", type=float, default=None,
+                   help="creatinine clearance mL/min (renal impairment if <60)")
+    p.add_argument("--albumin", type=float, default=None,
+                   help="serum albumin g/dL (hypoalbuminemia if <3.5)")
+    p.add_argument("--ejection-fraction", dest="ejection_fraction", type=float, default=None,
+                   help="ejection fraction %% (low cardiac output if <40)")
     p.add_argument("--tmax", type=float, default=60.0, help="simulation horizon (min)")
     p.add_argument("--n", type=int, default=361, help="number of time samples")
 

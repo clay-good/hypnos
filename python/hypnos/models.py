@@ -148,13 +148,39 @@ class FailureMode:
 
 
 @dataclass(frozen=True)
+class OrganFinding:
+    """One organ-function-envelope finding for a patient (v0.5 §B).
+
+    ``extrapolation`` True => the model has no standing in this organ-failure state
+    (grey it + Tier-D); False => the model has *cited* standing (a note explaining
+    why it survives, e.g. remifentanil's esterase clearance)."""
+
+    axis: str
+    message: str
+    extrapolation: bool
+
+
+# Standard clinical-staging thresholds for "organ impairment is present". These are
+# DEFINITIONAL staging cut-points (KDIGO CKD stage ≥3 at CrCl<60; reduced ejection
+# fraction <40%; hypoalbuminemia <3.5 g/dL; any Child-Pugh class = chronic liver
+# disease), NOT fitted PK — so they live in code, named, not curated per model.
+_CRCL_IMPAIRED = 60.0          # mL/min — KDIGO CKD stage 3+
+_ALBUMIN_IMPAIRED = 3.5        # g/dL — hypoalbuminemia
+_EF_IMPAIRED = 40.0            # % — reduced ejection fraction
+
+
+@dataclass(frozen=True)
 class Envelope:
     age_years: Range = field(default_factory=Range)
     weight_kg: Range = field(default_factory=Range)
     height_cm: Range = field(default_factory=Range)
     bmi_kg_m2: Range = field(default_factory=Range)
+    crcl_ml_min: Range = field(default_factory=Range)
+    albumin_g_dl: Range = field(default_factory=Range)
+    ejection_fraction_pct: Range = field(default_factory=Range)
     populations: List[str] = field(default_factory=list)
     derivation_n: Optional[int] = None
+    organ_tolerance: List[Dict[str, Any]] = field(default_factory=list)
 
     _COVARIATE_RANGES = ("age_years", "weight_kg", "height_cm", "bmi_kg_m2")
 
@@ -178,6 +204,84 @@ class Envelope:
                     f"[{_fmt(rng.min)}, {_fmt(rng.max)}]"
                 )
         return violations
+
+    def _tolerance(self, axis: str) -> Optional[Dict[str, Any]]:
+        for t in self.organ_tolerance:
+            if t.get("axis") == axis:
+                return t
+        return None
+
+    def organ_check(self, patient: Dict[str, Any]) -> List[OrganFinding]:
+        """Make the *physiological* envelope speak (v0.5 §B6).
+
+        For each organ-function axis the patient declares an impairment on, the model
+        either has standing — a numeric range it was fit across, or a cited
+        ``organ_tolerance`` (a note) — or it does not (a named extrapolation, greyed +
+        Tier-D). Silence on organ failure thereby becomes an explicit statement, never
+        an implicit "fine". Axes the patient does not declare never trigger, so a normal
+        simulation is unaffected (backward-compatible)."""
+        findings: List[OrganFinding] = []
+
+        cp = patient.get("child_pugh")
+        if cp is not None and str(cp).strip():
+            cls = str(cp).strip().upper()
+            findings.append(self._axis_finding(
+                "hepatic", granted=self._tolerance("hepatic"),
+                impaired=f"Child-Pugh {cls} (chronic liver disease)",
+                detail="the model was not fit in hepatic impairment; hepatically-cleared "
+                       "drugs have reduced clearance"))
+
+        crcl = patient.get("crcl_ml_min")
+        if crcl is not None and crcl < _CRCL_IMPAIRED:
+            granted = self._tolerance("renal") or (
+                {"_range": True} if self.crcl_ml_min.contains(crcl)
+                and (self.crcl_ml_min.min is not None) else None)
+            findings.append(self._axis_finding(
+                "renal", granted=granted,
+                impaired=f"CrCl {crcl:g} mL/min (renal impairment, KDIGO stage ≥3)",
+                detail="the model was not fit in renal impairment; renally-cleared active "
+                       "metabolites may accumulate"))
+
+        ef = patient.get("ejection_fraction_pct")
+        if ef is not None and ef < _EF_IMPAIRED:
+            granted = self._tolerance("cardiac") or (
+                {"_range": True} if self.ejection_fraction_pct.contains(ef)
+                and (self.ejection_fraction_pct.min is not None) else None)
+            findings.append(self._axis_finding(
+                "cardiac", granted=granted,
+                impaired=f"ejection fraction {ef:g}% (low cardiac output)",
+                detail="slowed front-end kinetics (reduced V1/Q) give a higher, faster "
+                       "peak after a bolus than the model predicts"))
+
+        alb = patient.get("albumin_g_dl")
+        if alb is not None and alb < _ALBUMIN_IMPAIRED:
+            granted = self._tolerance("albumin") or (
+                {"_range": True} if self.albumin_g_dl.contains(alb)
+                and (self.albumin_g_dl.min is not None) else None)
+            findings.append(self._axis_finding(
+                "albumin", granted=granted,
+                impaired=f"albumin {alb:g} g/dL (hypoalbuminemia)",
+                detail="raises the free fraction of highly protein-bound drugs, so effect "
+                       "from a given total concentration is under-predicted"))
+
+        return findings
+
+    @staticmethod
+    def _axis_finding(axis, *, granted, impaired, detail) -> OrganFinding:
+        if granted is None:
+            return OrganFinding(
+                axis, f"{axis.upper()} EXTRAPOLATION: {impaired} is outside the model's "
+                f"derivation population; {detail} -> Tier D", extrapolation=True)
+        if granted.get("_range"):
+            return OrganFinding(
+                axis, f"{axis} impairment ({impaired}) is within the model's fitted range",
+                extrapolation=False)
+        basis = granted.get("basis", "")
+        caveat = granted.get("caveat")
+        msg = f"{axis} impairment ({impaired}) — model retains standing: {basis}"
+        if caveat:
+            msg += f"  CAVEAT: {caveat}"
+        return OrganFinding(axis, msg, extrapolation=False)
 
 
 def _fmt(x: Optional[float]) -> str:
@@ -297,8 +401,12 @@ class Model:
             weight_kg=Range(**env.get("weight_kg", {})),
             height_cm=Range(**env.get("height_cm", {})),
             bmi_kg_m2=Range(**env.get("bmi_kg_m2", {})),
+            crcl_ml_min=Range(**env.get("crcl_ml_min", {})),
+            albumin_g_dl=Range(**env.get("albumin_g_dl", {})),
+            ejection_fraction_pct=Range(**env.get("ejection_fraction_pct", {})),
             populations=env.get("populations", []),
             derivation_n=env.get("derivation_n"),
+            organ_tolerance=env.get("organ_tolerance", []),
         )
 
     @property

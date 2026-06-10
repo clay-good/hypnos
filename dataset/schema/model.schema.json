@@ -94,8 +94,26 @@
         "weight_kg": { "$ref": "#/$defs/range" },
         "height_cm": { "$ref": "#/$defs/range" },
         "bmi_kg_m2": { "$ref": "#/$defs/range" },
+        "crcl_ml_min": { "$ref": "#/$defs/range", "description": "Creatinine-clearance range the model was fit across (renal-function dimension, v0.5 §B4). Absent => the model claims no renal-impairment standing." },
+        "albumin_g_dl": { "$ref": "#/$defs/range", "description": "Serum-albumin range the model was fit across (free-fraction dimension, v0.5 §B3/§B4)." },
+        "ejection_fraction_pct": { "$ref": "#/$defs/range", "description": "Cardiac-output / ejection-fraction range the model was fit across (v0.5 §B4)." },
         "populations": { "type": "array", "items": { "type": "string" } },
-        "derivation_n": { "type": ["integer", "null"] }
+        "derivation_n": { "type": ["integer", "null"] },
+        "organ_tolerance": {
+          "type": "array",
+          "description": "Cited mechanistic standing in an organ-failure state the model was NOT fit in (e.g. remifentanil's esterase clearance is hepatic/renal-independent). Grants envelope standing on that axis without a refitted model (v0.5 §B3). Absent => no standing; an organ-impaired patient is greyed + Tier-D.",
+          "items": {
+            "type": "object",
+            "required": ["axis", "basis"],
+            "additionalProperties": false,
+            "properties": {
+              "axis": { "type": "string", "enum": ["hepatic", "renal", "cardiac", "albumin"] },
+              "basis": { "type": "string", "description": "The cited mechanistic reason for standing." },
+              "citation": { "type": ["string", "null"] },
+              "caveat": { "type": ["string", "null"], "description": "A residual caveat even given standing (e.g. renal accumulation of an active metabolite)." }
+            }
+          }
+        }
       }
     },
     "known_failure_modes": {

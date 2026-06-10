@@ -227,6 +227,19 @@ def evaluate_safety(model: Model, patient: Dict[str, Any]) -> Tuple[str, List[st
         if extrap:
             warnings.append(extrap)
 
+    # Physiological (organ-function) envelope (v0.5 §B): hepatic/renal/cardiac/albumin.
+    # An organ-failure patient is greyed + Tier-D for every model with no cited standing;
+    # a model with standing (e.g. remifentanil's esterase clearance) carries an explaining
+    # note instead. Independent of the demographic check above — organ failure can violate
+    # the envelope even when age/weight/BMI are in range.
+    for f in model.applicability_envelope.organ_check(patient):
+        if f.extrapolation:
+            envelope_violated = True
+            tier_floor = "D"
+            warnings.append(f"ORGAN ENVELOPE: {f.message}")
+        else:
+            warnings.append(f"ORGAN NOTE: {f.message}")
+
     env = _covariate_env(patient)
     for fm in model.known_failure_modes:
         triggered = False

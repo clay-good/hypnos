@@ -99,10 +99,20 @@ def validate_dataset(ds: Optional[Dataset] = None) -> List[str]:
 
         # envelope ranges well-ordered (min <= max)
         env = m.applicability_envelope
-        for name in ("age_years", "weight_kg", "height_cm", "bmi_kg_m2"):
+        for name in ("age_years", "weight_kg", "height_cm", "bmi_kg_m2",
+                     "crcl_ml_min", "albumin_g_dl", "ejection_fraction_pct"):
             rng = getattr(env, name)
             if rng.min is not None and rng.max is not None and rng.min > rng.max:
                 problems.append(f"[envelope] {m.id}: {name} min {rng.min} > max {rng.max}")
+
+        # organ-tolerance citations resolve (a cited standing claim must be traceable —
+        # the same never-assert-bare rule the rest of the dataset follows; v0.5 §C)
+        for ot in env.organ_tolerance:
+            cid = ot.get("citation")
+            if cid and cid not in known_citations:
+                problems.append(
+                    f"[cite] {m.id}: organ_tolerance ({ot.get('axis')}) cites unknown '{cid}'"
+                )
 
         # id prefix matches declared subsystem
         if m.id.split(".")[0] != m.subsystem:

@@ -99,6 +99,17 @@ with st.sidebar:
     weight = st.slider("Weight (kg)", 5, 180, 60)
     height = st.slider("Height (cm)", 90, 210, 162)
     sex = st.radio("Sex", ["F", "M"], horizontal=True)
+    st.header("Organ function (v0.5)")
+    st.caption("Declare organ impairment to watch the eligible-model set shrink. A model "
+               "with no cited standing in that state is greyed + Tier-D (extrapolation); "
+               "remifentanil keeps standing (esterase clearance). Defaults = normal.")
+    child_pugh = st.selectbox("Child-Pugh (hepatic)", ["— none —", "A", "B", "C"], index=0)
+    crcl = st.slider("CrCl (mL/min, renal)", 5, 120, 100,
+                     help="renal impairment (KDIGO stage ≥3) below 60")
+    albumin = st.slider("Albumin (g/dL)", 1.5, 5.0, 4.0, step=0.1,
+                        help="hypoalbuminemia below 3.5 → raised free fraction")
+    ejection_fraction = st.slider("Ejection fraction (%)", 10, 70, 60,
+                                  help="low cardiac output below 40")
     st.header("Dosing")
     # default doses are drug-appropriate (a 2 mg/kg propofol dose would be a
     # ~1000x overdose for remifentanil) — shared with the CLI via hypnos.presets
@@ -120,7 +131,10 @@ with st.sidebar:
     samples = st.select_slider("Monte-Carlo samples", [500, 1000, 2000, 4000], 2000,
                                disabled=not show_bands)
 
-patient = dict(age=age, weight=weight, height=height, sex=sex)
+patient = dict(age=age, weight=weight, height=height, sex=sex,
+               crcl_ml_min=crcl, albumin_g_dl=albumin, ejection_fraction_pct=ejection_fraction)
+if child_pugh != "— none —":
+    patient["child_pugh"] = child_pugh
 schedule = []
 if bolus.strip():
     schedule.append(("bolus", 0.0, bolus.strip()))

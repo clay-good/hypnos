@@ -251,7 +251,7 @@ included (3):  minto_1997 · eleveld_2017 · kim_2017   # esterase clearance is 
         (GR90291) accumulates in renal failure; the parent-drug PK this model predicts is unaffected
 ```
 
-The honest message the view delivers for an organ-failure patient: *"model X has some standing and everything else is extrapolation — here is how far the extrapolations spread, and not one of them is validated here."* A normal simulation (no organ covariates) is unaffected. The **never-invent rule holds**: a model gets organ-failure standing only with a citation — no model is silently "scaled for cirrhosis." The cardiac and albumin axes grey *every* model including remifentanil, because no model was fit there and none claims otherwise. The same overlay is live in the **CLI** (`--child-pugh/--crcl/--albumin/--ejection-fraction`) and the **[dashboard](dashboard/app.py)** "Organ function" panel.
+The honest message the view delivers for an organ-failure patient: *"model X has some standing and everything else is extrapolation — here is how far the extrapolations spread, and not one of them is validated here."* A normal simulation (no organ covariates) is unaffected. The **never-invent rule holds**: a model gets organ-failure standing only with a citation — no model is silently "scaled for cirrhosis." The cardiac and albumin axes grey *every* model including remifentanil, because no model was fit there and none claims otherwise. The same overlay is live in the **CLI** (`--child-pugh/--crcl/--albumin/--ejection-fraction`), the **[dashboard](dashboard/app.py)** "Organ function" panel, and a CI-executed **[reference notebook](notebooks/04_organ_function.ipynb)** that reproduces the envelope-shrinkage, the remifentanil esterase exception, and the binding-sensitivity separation from the live kernels.
 
 **The albumin axis says *why* it matters (v0.5 S1).** Hypoalbuminemia is not a generic envelope miss — for a **binding-sensitive** drug it is a specific, safety-relevant failure mode. Anesthetics like propofol (~98% bound), fentanyl (~84%), and dexmedetomidine (~94%) are highly protein-bound; only the *free* fraction is active. When albumin falls, the free fraction **rises**, so a model fit in normal-albumin patients **under-predicts** effect from a given *total* concentration — exactly when the patient is most fragile. Hypnos curates the drug's `protein_binding` (cited) and surfaces this as a named caveat, **never** folding a fabricated free-fraction correction into the numbers (the free-fraction shift is flagged, not modeled — v0.5 §B3/§B7):
 
@@ -447,9 +447,9 @@ The **dataset is the single source of truth.** Everything else — simulation, e
 ```mermaid
 flowchart TD
     DS["<b>dataset/</b> — source of truth<br/>JSON model records + JSON Schema + JSON-LD context<br/>drugs · models · covariate eqs · envelopes · tiers · citations"]
-    DS --> PKG["<b>hypnos</b> Python package<br/>load · filter · validate<br/>simulate · compare (PK/PD + divergence + bands)<br/>sample_individual (seeded BSV draws)<br/>simulate_interaction (synergy surface)<br/>analysis (tpeak · decrement)<br/>inhalational (MAC · wash-in/out)<br/>verification (checklists, never promotes)"]
-    PKG --> CLI["<b>hypnos</b> CLI<br/>validate · info · models · status · verify<br/>simulate · compare · interact<br/>tpeak · decrement · mac · washin · washout<br/>performance · export"]
-    PKG --> DASH["Streamlit dashboard<br/>drug-aware divergence + accuracy + driver<br/>seeded prediction-band ribbons + separation/variance readout<br/>PD effect (BIS) band · onset table · synergy · volatiles (MAC + wash-in/out)"]
+    DS --> PKG["<b>hypnos</b> Python package<br/>load · filter · validate<br/>simulate · compare (PK/PD + divergence + bands + organ envelope)<br/>sample_individual (seeded BSV draws)<br/>simulate_interaction (synergy surface)<br/>analysis (tpeak · decrement · Varvel MDPE/MDAPE)<br/>inhalational (MAC · wash-in/out)<br/>la (LA absorption · double-uncertainty · cardiotoxicity · free-fraction)<br/>verification (checklists, never promotes)"]
+    PKG --> CLI["<b>hypnos</b> CLI<br/>validate · info · models · status · verify<br/>simulate · compare · interact<br/>tpeak · decrement · mac · washin · washout · la<br/>performance · export"]
+    PKG --> DASH["Streamlit dashboard<br/>drug-aware divergence + accuracy + driver<br/>seeded prediction-band ribbons + separation/variance readout<br/>PD effect (BIS) band · onset table · synergy<br/>volatiles (MAC + wash-in/out) · local anesthetics (v0.6)"]
     PKG --> EXP["<b>hypnos.export</b><br/>format builders"]
     EXP --> NM["NONMEM control stream"]
     EXP --> PHARMML["PharmML projection"]
@@ -689,7 +689,7 @@ hypnos/
 │   ├── cli.py
 │   └── export/                  # registry · annotate · _variability(Ω/Σ projection) · nonmem · pharmml · sbml · tci_json · rxode2 · pumas · bibtex · csv_flat · combine(.omex)
 ├── scripts/regenerate.py        # deterministically regenerate all exports + figures (+ build_la_notebook.py)
-├── notebooks/                   # reference notebooks executed in CI (nbmake): divergence · v0.2 variability · v0.6 local anesthetics
+├── notebooks/                   # reference notebooks executed in CI (nbmake): divergence · v0.2 variability · v0.5 organ envelope · v0.6 local anesthetics
 ├── CHANGELOG.md · .zenodo.json   # release metadata (Zenodo DOI on first tagged release)
 ├── python/tests/                # analytic-vs-numeric, round-trip, envelope, tier, CLI, verification
 ├── dashboard/app.py             # Streamlit: divergence + bands + PD effect band (v0.2) + onset + synergy + volatiles + local anesthetics (v0.6)

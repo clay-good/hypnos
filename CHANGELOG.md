@@ -8,6 +8,21 @@ version is pinned in `dataset/VERSION` and stamped into every export as
 
 ## [Unreleased]
 
+### v0.5 organ-function reference notebook + architecture-diagram accuracy (2026-06-10) — housekeeping/docs
+- **A CI-executed v0.5 reference notebook** (`notebooks/04_organ_function.ipynb`, built
+  deterministically by `scripts/build_organ_notebook.py`) reproduces the organ-function envelope —
+  the flagship "make the silence speak" feature — from the live kernels: propofol greyed to Tier-D
+  with a *named* `HEPATIC EXTRAPOLATION` in cirrhosis, the eligible-model set shrinking under
+  `compare()`, remifentanil keeping cited standing (esterase clearance, Dershwitz/Hoke), the
+  hypoalbuminemia `BINDING-SENSITIVE` caveat for the highly-albumin-bound drugs, and the proof that
+  local anesthetics stay *off* the albumin axis (their binding is α1-AG-driven). Reference notebooks
+  now cover v0.1 (divergence), v0.2 (variability), v0.5 (organ envelope), and v0.6 (local anesthetics).
+- **Architecture-diagram accuracy.** The README data-flow mermaid diagram omitted the v0.6
+  local-anesthetic surfaces; the package node now lists `la` (absorption · double-uncertainty ·
+  cardiotoxicity · free-fraction) and the Varvel metrics, the CLI node lists `la`, and the dashboard
+  node lists the local-anesthetic panel — so the diagram matches the shipped code.
+- No dataset/schema change (still `0.6.0`); documentation + accuracy for the shipped subsystems.
+
 ### v0.6 reaches the dashboard + a reference notebook (2026-06-10) — housekeeping/reach
 - **The local-anesthetic subsystem now reaches the dashboard.** Every prior subsystem shipped into
   `compare` + the CLI + the Streamlit dashboard (volatiles, the organ-failure overlay, the prediction

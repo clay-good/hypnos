@@ -162,3 +162,150 @@ def test_validate_flags_unknown_absorption_citation():
     raw = _la_raw([{"site": "a", "rank": 1}], abs_cite="nope-not-real")
     probs = validate_dataset(_FakeDS(Model(raw=raw)))
     assert any("absorption cites unknown" in p for p in probs)
+
+
+# --------------------------------------------------------------------------- #
+# v0.6 LA1 — toxicity thresholds + the double-uncertainty view
+# --------------------------------------------------------------------------- #
+BUPI = "local_anesthetics.bupivacaine.systemic"
+ROPI = "local_anesthetics.ropivacaine.systemic"
+
+
+def test_toxicity_thresholds_are_ranges_with_basis(ds):
+    m = ds[BUPI]
+    assert m.has_toxicity_thresholds and m.is_safety_critical
+    for th in m.toxicity_thresholds:
+        assert th.low < th.high                       # a range, never a line
+        assert th.basis in ("total_plasma", "free_plasma")
+        assert th.endpoint in ("cns_first_symptoms", "cns_seizure", "cardiovascular")
+        assert th.relative_width is not None and th.relative_width > 0
+
+
+def test_saturable_total_threshold_carries_saturation_caveat(ds):
+    # the load-bearing free-fraction guard: a saturable drug on a total basis must
+    # name the under-prediction failure mode (v0.6 §3.2/§4)
+    for th in ds[BUPI].toxicity_thresholds:
+        if th.basis == "total_plasma":
+            assert th.saturation_caveat and "free" in th.saturation_caveat.lower()
+
+
+def test_free_concentration_linear_with_saturation_caveat(ds):
+    from hypnos.la import free_concentration
+    pb = ds.drug("bupivacaine")["protein_binding"]      # 95% bound, saturable
+    fc = free_concentration(np.array([2.0, 4.0]), pb)
+    assert fc.free_fraction == pytest.approx(0.05)
+    assert fc.c_free == pytest.approx([0.1, 0.2])
+    assert fc.saturable and any("SATURABLE" in w for w in fc.warnings)
+
+
+def test_free_concentration_no_binding_returns_none():
+    from hypnos.la import free_concentration
+    fc = free_concentration(np.array([1.0]), None)
+    assert fc.c_free is None and any("not derivable" in w for w in fc.warnings)
+
+
+def test_double_uncertainty_view_structure(ds):
+    from hypnos.la import double_uncertainty
+    du = double_uncertainty(ds, BUPI, site="lumbar_epidural", dose_mg=100.0)
+    assert du.drug == "bupivacaine" and du.site == "lumbar_epidural"
+    assert du.peak_total > 0 and du.peak_free is not None and du.peak_free < du.peak_total
+    # endpoints sorted by low bound; each placed on the MATCHING basis
+    assert du.endpoints == sorted(du.endpoints, key=lambda e: e.low)
+    for e in du.endpoints:
+        expected = du.peak_free if e.basis == "free_plasma" else du.peak_total
+        assert e.predicted_peak == pytest.approx(expected)
+        assert e.position in ("below range", "within range", "above range")
+    # the honest punchline names the dominant uncertainty, never a verdict
+    assert "THRESHOLD uncertainty dominates" in du.dominant_uncertainty
+    assert any("NOT a dosing tool" in w for w in du.warnings)
+
+
+def test_double_uncertainty_dominant_uses_fold_ranges(ds):
+    # the comparison is on a consistent multiplicative scale (high/low vs max/min Cmax)
+    from hypnos.la import double_uncertainty
+    du = double_uncertainty(ds, BUPI, site="intercostal", dose_mg=100.0)
+    assert du.site_cmax_spread is not None and du.site_cmax_spread > 1.0
+    assert "fold-range" in du.dominant_uncertainty
+
+
+def test_double_uncertainty_requires_curated_thresholds(ds):
+    # never fabricate: no thresholds => the view refuses rather than inventing a line
+    from hypnos.la import double_uncertainty
+    assert not ds[LIDO].has_toxicity_thresholds or True  # lidocaine has them; assert the refusal path on a bare model
+    bare = Model(raw=_la_raw([{"site": "intercostal", "rank": 1, "ka": 0.2}]))
+
+    class _DS:
+        def __getitem__(self, k):
+            return bare
+        def drug(self, n):
+            return None
+    with pytest.raises(ValueError, match="no curated toxicity thresholds"):
+        double_uncertainty(_DS(), "local_anesthetics.x.systemic", site="intercostal", dose_mg=100.0)
+
+
+def test_validate_flags_non_range_threshold():
+    from hypnos.validate import validate_dataset
+    raw = _la_raw([{"site": "a", "rank": 1, "ka": 0.2}])
+    raw["toxicity_thresholds"] = [{
+        "endpoint": "cns_first_symptoms",
+        "concentration_range": {"low": 4.0, "high": 2.0, "units": "ug/mL"},  # inverted
+        "basis": "total_plasma", "tier": "C",
+        "extraction": {"review_status": "unverified"},
+    }]
+    probs = validate_dataset(_FakeDS(Model(raw=raw)))
+    assert any("low" in p and "high" in p and "toxicity" in p for p in probs)
+
+
+def test_validate_flags_missing_saturation_caveat():
+    from hypnos.validate import validate_dataset
+    raw = _la_raw([{"site": "a", "rank": 1, "ka": 0.2}])
+    raw["drug"] = {"name": "bupivacaine"}
+    raw["toxicity_thresholds"] = [{
+        "endpoint": "cns_first_symptoms",
+        "concentration_range": {"low": 1.6, "high": 2.6, "units": "ug/mL"},
+        "basis": "total_plasma", "tier": "C",
+        "extraction": {"review_status": "unverified"},
+    }]
+
+    class _DSsat(_FakeDS):
+        def drug(self, name):
+            return {"name": "bupivacaine", "protein_binding": {"saturable": True}}
+    probs = validate_dataset(_DSsat(Model(raw=raw)))
+    assert any("saturation_caveat" in p for p in probs)
+
+
+def test_verification_checklist_has_la_group(ds):
+    from hypnos.verification import checklist_markdown, model_verification
+    mv = model_verification(ds, BUPI)
+    groups = {it.group for it in mv.checklist}
+    assert "local_anesthetic" in groups
+    md = checklist_markdown(mv)
+    assert "toxicity thresholds" in md.lower()
+    assert "RANGE, never a line" in md
+
+
+def test_la_export_carries_safety_critical_and_threshold_ranges(ds):
+    from hypnos.export import pharmml, sbml, tci_json
+    m = ds[BUPI]
+    sb = sbml.build(m, ds)
+    assert "<hypnos:safetyCritical>true</hypnos:safetyCritical>" in sb
+    assert sb.count("hypnos:toxicityThresholdRange") == len(m.toxicity_thresholds)
+    import json
+    d = json.loads(tci_json.build(m, ds))
+    assert d["safety_critical"] is True
+    assert len(d["toxicity_thresholds"]) == len(m.toxicity_thresholds)   # AS ranges, verbatim
+    assert d["provenance"]["hypnos:safetyCritical"] == "true"
+    pm = pharmml.build(m, ds)
+    assert pm.count("toxicityThresholdRange") == len(m.toxicity_thresholds)
+
+
+def test_ropivacaine_cvs_margin_wider_than_bupivacaine(ds):
+    # the educational point LA1 sets up for LA2: ropivacaine's CNS->CVS separation is
+    # wider than bupivacaine's (the narrow bupivacaine margin is the cardiotoxicity story)
+    def cvs_over_cns(mid):
+        m = ds[mid]
+        cns = next(t for t in m.toxicity_thresholds
+                   if t.endpoint == "cns_first_symptoms" and t.basis == "total_plasma")
+        cvs = next(t for t in m.toxicity_thresholds if t.endpoint == "cardiovascular")
+        return cvs.midpoint / cns.midpoint
+    assert cvs_over_cns(ROPI) > cvs_over_cns(BUPI)

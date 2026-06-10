@@ -45,6 +45,19 @@ def build_dict(model, ds=None, patient: Optional[Dict[str, Any]] = None) -> Dict
     else:
         doc["variability"] = {"variability_status": "none",
                               "note": "no published between-subject variability (no band)"}
+    # v0.6 LA: the site-absorption block and the toxicity-threshold RANGES pass
+    # through verbatim (TCI-JSON is lossless; v0.6 §9). Threshold ranges export AS
+    # ranges — there is no projection that collapses them to a single value. The
+    # drug-level protein binding rides along so the total->free story is consumable.
+    if model.absorption is not None:
+        doc["absorption"] = model.raw.get("absorption")
+    if model.has_toxicity_thresholds:
+        doc["toxicity_thresholds"] = model.raw.get("toxicity_thresholds")
+        doc["safety_critical"] = True
+        if ds is not None:
+            drug = ds.drug(model.drug_name) or {}
+            if drug.get("protein_binding") is not None:
+                doc["protein_binding"] = drug["protein_binding"]
     if model.kernel_implemented and model.kernel_function in KERNELS:
         params = KERNELS[model.kernel_function](pat)
         doc["instantiated_parameters"] = {

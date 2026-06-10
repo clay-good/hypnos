@@ -197,6 +197,39 @@ class Parameter:
 
 
 @dataclass(frozen=True)
+class ToxicityThreshold:
+    """One systemic-toxicity threshold RANGE for a local anesthetic (v0.6 §3.3).
+
+    Always a range, never a line: ``low``/``high`` are both present by schema
+    construction. ``basis`` (``total_plasma`` | ``free_plasma``) is load-bearing —
+    a free-drug threshold read against a total-drug prediction is silently wrong
+    (v0.6 §4 Trap 1)."""
+
+    endpoint: str                          # cns_first_symptoms | cns_seizure | cardiovascular
+    low: float
+    high: float
+    units: str
+    basis: str                             # total_plasma | free_plasma
+    individual_variability: Optional[str] = None
+    method_caveat: Optional[str] = None
+    saturation_caveat: Optional[str] = None
+    tier: str = "D"
+    primary_citation: Optional[str] = None
+    extraction: Dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def midpoint(self) -> float:
+        return 0.5 * (self.low + self.high)
+
+    @property
+    def relative_width(self) -> Optional[float]:
+        """Fractional width (high−low)/midpoint — the threshold's own uncertainty,
+        the quantity the double-uncertainty view (v0.6 §6) weighs against the PK spread."""
+        mid = self.midpoint
+        return (self.high - self.low) / mid if mid else None
+
+
+@dataclass(frozen=True)
 class FailureMode:
     condition: str
     behavior: str
@@ -490,6 +523,38 @@ class Model:
     def absorption(self) -> Optional[Dict[str, Any]]:
         """Site-specific systemic-absorption block (v0.6 §3.1), or None."""
         return self.raw.get("absorption")
+
+    @property
+    def toxicity_thresholds(self) -> List[ToxicityThreshold]:
+        """Curated systemic-toxicity threshold RANGES (v0.6 §3.3 / LA1). Empty when
+        none are curated — a missing threshold is a stated gap, never a fabricated line."""
+        out: List[ToxicityThreshold] = []
+        for t in self.raw.get("toxicity_thresholds", []):
+            cr = t.get("concentration_range", {})
+            out.append(ToxicityThreshold(
+                endpoint=t["endpoint"],
+                low=cr.get("low"), high=cr.get("high"), units=cr.get("units", "ug/mL"),
+                basis=t["basis"],
+                individual_variability=t.get("individual_variability"),
+                method_caveat=t.get("method_caveat"),
+                saturation_caveat=t.get("saturation_caveat"),
+                tier=t.get("tier", "D"),
+                primary_citation=t.get("primary_citation"),
+                extraction=t.get("extraction", {}),
+            ))
+        return out
+
+    @property
+    def has_toxicity_thresholds(self) -> bool:
+        return bool(self.raw.get("toxicity_thresholds"))
+
+    @property
+    def is_safety_critical(self) -> bool:
+        """Local-anesthetic records are doubly safety-critical (v0.6 §7): they carry
+        `hypnos:safetyCritical` in every export so a downstream consumer is twice-warned
+        — the concentration-vs-threshold view is precisely the artifact that tempts the
+        forbidden 'what is the max safe dose?' question."""
+        return self.subsystem == "local_anesthetics"
 
     # --- external validation (v0.4 layer) ---------------------------------
     @property

@@ -8,6 +8,51 @@ version is pinned in `dataset/VERSION` and stamped into every export as
 
 ## [Unreleased]
 
+### Local-anesthetic toxicity thresholds + the double-uncertainty view (v0.6 LA1) (2026-06-10)
+- **Thresholds are RANGES, never lines — enforced by construction.** A new `toxicity_threshold`
+  block (`endpoint` ∈ cns_first_symptoms / cns_seizure / cardiovascular; a `concentration_range`
+  with required, non-null `low`/`high`; a mandatory `basis` of total vs free plasma) carries the
+  documented systemic-toxicity ranges with their honest, large uncertainty. The schema **forbids a
+  single-value threshold** (both bounds required); `hypnos validate` adds the safety-critical
+  integrity checks — `low < high`, basis present, only the `local_anesthetics` subsystem may carry
+  thresholds, and — the load-bearing guard — a `total_plasma` threshold on a **saturable**-binding
+  drug *must* carry a free-fraction `saturation_caveat` (total under-predicts free-drug risk exactly
+  when risk is highest). The view's whole design exists to *prevent* the single-line reading (v0.6 §3.3/§4/§7).
+- **The headline double-uncertainty view (`la.double_uncertainty`, `hypnos la --site …`).** Overlays
+  the predicted total-plasma peak (and the free-concentration peak) against each curated threshold
+  *band*, on the matching basis, and names which uncertainty dominates — compared on a consistent
+  multiplicative fold-range scale (threshold high/low vs the across-site Cmax spread). For LA the
+  threshold band almost always wins, and the readout says so: *"no single safe-concentration line is
+  defensible — this is the answer, not a gap to be closed."* It computes **no** dose, ceiling, margin,
+  or safe/unsafe verdict (v0.6 §6/§7). The CLI lists the ranges, then renders the full view for a
+  chosen `--site`, every line framed RESEARCH/EDUCATION — NOT a dosing tool.
+- **The free-concentration trace (`la.free_concentration`).** The bound→free transform applies the
+  *linear* binding fraction `c_free = c_total·(1 − fraction_bound)` and, for a saturable drug,
+  attaches the saturation failure-mode caveat — the linear free trace **under-predicts** the free
+  (toxic) concentration at high total, and that gap is surfaced, never hidden (the nonlinear model is
+  LA3). Toxicity tracks *free* drug, so the view shows free beside total wherever it matters.
+- **Curated threshold ranges (`unverified`, Tier-C).** Lidocaine CNS-first-symptoms / seizure /
+  cardiovascular on a total basis with its comparatively *wide* CNS-to-CVS margin (Tucker & Mather
+  1979); bupivacaine CNS (total **and** free) + cardiovascular with the explicit *narrow / absent*
+  CNS-to-CVS margin that is its cardiotoxicity story (Knudsen 1997); ropivacaine CNS + cardiovascular
+  with the *wider* margin that sets up the LA2 agent-choice comparison (Knudsen 1997, Scott 1989).
+  Threshold magnitudes are old, wide, method-dependent and ethically un-doseable in volunteers — Tier-C
+  by design; the load-bearing facts are the *margins* and the *uncertainty*, not precise numbers.
+- **Export (v0.6 §9): thresholds export AS ranges, and LA records are doubly warned.** Provenance gains
+  `hypnos:safetyCritical = "true"` for every LA model (flowing to every text banner too); SBML/PharmML
+  carry `hypnos:siteAbsorption` + `hypnos:toxicityThresholdRange` RDF (low/high/basis/units/tier — no
+  projection collapses a range to a single value); TCI-JSON passes the `absorption`, `toxicity_thresholds`,
+  and drug `protein_binding` blocks verbatim (lossless).
+- **Verification: the LA checklist group (v0.6 §8).** `hypnos verify` surfaces the five safety-critical
+  human line items — threshold basis (total vs free, Trap 1), salt-vs-base & units (Trap 2),
+  speed-of-rise/method context (Trap 3), the saturation caveat for binding-sensitive agents, and that
+  every threshold is a *range*, never a line. Given the stakes, threshold ranges require human source
+  confirmation before `verified`.
+- **README figure `la_double_uncertainty.png`** (regenerated from the live kernels like every Hypnos
+  figure): bupivacaine by site against the CNS/cardiovascular threshold *bands*, plus the total-vs-free
+  trace showing the binding-saturation gap. Dataset/schema/package version → **0.6.0** (the v0.6 target;
+  previously pinned at 0.2.0 across the v0.3–v0.6 work).
+
 ### Local-anesthetic systemic-absorption subsystem (v0.6 LA0) (2026-06-11)
 - **A new `local_anesthetics` subsystem — and its safety message is its science.** The one
   LA-specific fact that *is* the safety message: **systemic absorption is site-driven, not

@@ -37,6 +37,40 @@
     "extraction": { "review_status": "unverified", "tier_rationale": "Site-absorption rank order robust; absolute ka Tier-C, applied site-wise (the site dominates the rate of rise). The narrower cardiovascular margin of bupivacaine vs ropivacaine at similar block is the v0.6 LA2 educational comparison.", "source_locator": "Tucker & Mather 1979 (systemic-absorption rank by site)" },
     "primary_citation": "tucker-1979-la-pharmacokinetics"
   },
+  "toxicity_thresholds": [
+    {
+      "endpoint": "cns_first_symptoms",
+      "concentration_range": { "low": 1.6, "high": 2.6, "units": "ug/mL" },
+      "basis": "total_plasma",
+      "individual_variability": "high",
+      "method_caveat": "Volunteer slow i.v. infusion (Knudsen 1997); CNS symptoms (circumoral numbness, tinnitus, light-headedness) at ~2 ug/mL total mean. Speed of rise and acidosis lower the threshold — a rapid intravascular injection is NOT this slow-infusion number.",
+      "saturation_caveat": "Bupivacaine binding SATURATES: at high total concentration the free (toxic) fraction rises non-linearly, so this total-basis range UNDER-predicts free-drug risk exactly when total is highest. Compare against the free-basis threshold below.",
+      "tier": "C",
+      "extraction": { "review_status": "unverified", "source_locator": "Knudsen 1997 (volunteer i.v. infusion, total plasma)" },
+      "primary_citation": "knudsen-1997-la-toxicity"
+    },
+    {
+      "endpoint": "cns_first_symptoms",
+      "concentration_range": { "low": 0.25, "high": 0.40, "units": "ug/mL" },
+      "basis": "free_plasma",
+      "individual_variability": "high",
+      "method_caveat": "Free (unbound) plasma concentration at first CNS symptoms (Knudsen 1997). The free-basis companion to the total-basis range above — toxicity tracks FREE drug, so this is the more mechanistically faithful threshold.",
+      "tier": "C",
+      "extraction": { "review_status": "unverified", "source_locator": "Knudsen 1997 (free plasma)" },
+      "primary_citation": "knudsen-1997-la-toxicity"
+    },
+    {
+      "endpoint": "cardiovascular",
+      "concentration_range": { "low": 2.0, "high": 4.0, "units": "ug/mL" },
+      "basis": "total_plasma",
+      "individual_variability": "high",
+      "method_caveat": "Bupivacaine is the most CARDIOTOXIC common amide (fast-in/slow-out avid cardiac Na-channel binding): the cardiovascular margin OVER the CNS-warning range is narrow or absent — arrhythmia/arrest can occur with little or no CNS prodrome, unlike less cardiotoxic agents. The agent-choice differentiation (vs ropivacaine/levobupivacaine) is v0.6 LA2.",
+      "saturation_caveat": "Saturable binding: this total-basis cardiovascular range under-predicts free-drug risk at high total concentration (v0.6 LA3).",
+      "tier": "C",
+      "extraction": { "review_status": "unverified", "tier_rationale": "Cardiovascular threshold ranges are wide, method-dependent and ethically un-doseable in volunteers; Tier-C by construction. The clinically load-bearing fact is the NARROW CNS-to-CVS margin, not a precise number.", "source_locator": "Knudsen 1997; Scott 1989 (acute toxicity, bupivacaine vs ropivacaine)" },
+      "primary_citation": "knudsen-1997-la-toxicity"
+    }
+  ],
   "covariates": { "required": [], "optional": [], "lbm_equation": null },
   "applicability_envelope": {
     "age_years": { "min": 18, "max": 90 },

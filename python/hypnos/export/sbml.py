@@ -24,7 +24,12 @@ def build(model, ds=None, patient: Optional[Dict[str, Any]] = None) -> str:
     # SBML core is deterministic, so this is metadata only — a downstream solver sees
     # the typical patient; the random-effects layer travels with the model (spec §8).
     var_rdf = annotate.variability_rdf(model, indent="  ")
-    ann = annotate.rdf_annotation_xml(model, ds, extra_predicates=var_rdf)
+    # v0.6: the LA site-absorption + toxicity-threshold RANGES + safetyCritical flag
+    # ride beside the variability RDF (thresholds export AS ranges — never collapsed
+    # to a single value; v0.6 §9).
+    la = annotate.la_rdf(model, indent="  ")
+    extra = "\n".join(x for x in (var_rdf, la) if x)
+    ann = annotate.rdf_annotation_xml(model, ds, extra_predicates=extra)
     var_note = (
         "    <!-- v0.2 population variability: the curated Omega/Sigma are carried as "
         "hypnos: RDF in the model annotation above. SBML core cannot express population "

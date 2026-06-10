@@ -151,6 +151,11 @@
     "omega_block": { "$ref": "#/$defs/omega_block" },
     "estimate_covariance": { "$ref": "#/$defs/estimate_covariance" },
     "absorption": { "$ref": "#/$defs/absorption" },
+    "toxicity_thresholds": {
+      "type": "array",
+      "description": "Systemic-toxicity threshold RANGES for a local anesthetic (v0.6 spec §3.3). ALWAYS a range with low<high and an explicit basis — never a single 'toxic at X' line. The schema forbids a single-value threshold by construction (both range bounds are required, non-null).",
+      "items": { "$ref": "#/$defs/toxicity_threshold" }
+    },
     "variability_status": {
       "type": "string",
       "description": "Rollup of how much of the NLME random-effects structure is curated; drives band eligibility (v0.2 spec §5).",
@@ -317,6 +322,45 @@
             }
           }
         },
+        "tier": { "type": "string", "enum": ["A", "B", "C", "D"] },
+        "extraction": { "$ref": "#/$defs/extraction" },
+        "primary_citation": { "type": "string" }
+      }
+    },
+    "toxicity_threshold": {
+      "type": "object",
+      "description": "One systemic-toxicity threshold RANGE for one endpoint (v0.6 spec §3.3). The safety-critical block: a range, never a line. `basis` (total vs free plasma) is mandatory because a free-drug threshold compared against a total-drug prediction is silently wrong (v0.6 §4 Trap 1). For a saturable-binding drug on a total_plasma basis, `saturation_caveat` is required (the free fraction rises non-linearly when total is highest — total under-predicts risk exactly when it is greatest; v0.6 §3.2/§4).",
+      "required": ["endpoint", "concentration_range", "basis", "tier", "extraction"],
+      "additionalProperties": false,
+      "properties": {
+        "endpoint": {
+          "type": "string",
+          "enum": ["cns_first_symptoms", "cns_seizure", "cardiovascular"],
+          "description": "The toxicity endpoint. The clinical warning sequence is cns_first_symptoms (perioral numbness/tinnitus) -> cns_seizure -> cardiovascular (conduction block/arrhythmia/arrest); for the most cardiotoxic agents the CNS-warning margin can be narrow or absent (v0.6 §3.3)."
+        },
+        "concentration_range": {
+          "type": "object",
+          "description": "The threshold RANGE. Both bounds are required and non-null — a single-value threshold is a schema error by construction (v0.6 §4).",
+          "required": ["low", "high", "units"],
+          "additionalProperties": false,
+          "properties": {
+            "low": { "type": "number", "description": "Lower bound of the published threshold range (low < high enforced by `hypnos validate`)." },
+            "high": { "type": "number", "description": "Upper bound of the published threshold range." },
+            "units": { "type": "string" }
+          }
+        },
+        "basis": {
+          "type": "string",
+          "enum": ["total_plasma", "free_plasma"],
+          "description": "Whether the range is reported on TOTAL or FREE plasma concentration — drives the §3.2 free-fraction caveat and prevents the total-vs-free conversion error (Trap 1)."
+        },
+        "individual_variability": {
+          "type": "string",
+          "enum": ["low", "moderate", "high"],
+          "description": "Qualitative: thresholds are person- and rate-of-rise-dependent; usually 'high'."
+        },
+        "method_caveat": { "type": "string", "description": "Derivation context (e.g. volunteer slow-infusion study) so the number is never read as context-free (Trap 3 — speed-of-rise dependence)." },
+        "saturation_caveat": { "type": "string", "description": "REQUIRED when the drug's binding is saturable and `basis` is total_plasma: names the free-fraction under-prediction failure mode (v0.6 §3.2/§4; enforced by `hypnos validate`)." },
         "tier": { "type": "string", "enum": ["A", "B", "C", "D"] },
         "extraction": { "$ref": "#/$defs/extraction" },
         "primary_citation": { "type": "string" }

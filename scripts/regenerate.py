@@ -355,6 +355,69 @@ def _fig_effect_band(ds, plt) -> None:
     plt.close(fig)
 
 
+def _fig_la_double_uncertainty(ds, plt) -> None:
+    """v0.6 LA1 — the double-uncertainty view: predicted concentration vs the
+    threshold *bands*, with the honest punchline that the threshold uncertainty
+    dwarfs the PK uncertainty (so no single safe-concentration line is defensible).
+
+    LEFT: the same bupivacaine dose at every site (the site-dominance trajectory),
+    with the CNS and cardiovascular threshold RANGES drawn as shaded bands — never
+    lines. RIGHT: the total vs free trace at one site, showing the binding-saturation
+    gap. Framed throughout as research/education, never a dosing margin (v0.6 §6/§7).
+    """
+    from hypnos.la import concentration_at_site, double_uncertainty, free_concentration
+
+    mid = "local_anesthetics.bupivacaine.systemic"
+    dose, horizon = 100.0, 90.0
+    du = double_uncertainty(ds, mid, site="lumbar_epidural", dose_mg=dose, t_min=horizon)
+    sites = ["intercostal", "lumbar_epidural", "brachial_plexus", "subcutaneous"]
+    site_colors = {"intercostal": "#d62728", "lumbar_epidural": "#1f77b4",
+                   "brachial_plexus": "#2ca02c", "subcutaneous": "#888"}
+
+    fig, (axL, axR) = plt.subplots(1, 2, figsize=(13, 4.8))
+
+    # LEFT — total-plasma trajectory by site + total-basis threshold BANDS
+    for s in sites:
+        r = concentration_at_site(ds, mid, site=s, dose_mg=dose, t_min=horizon)
+        axL.plot(r.t, r.cp, color=site_colors[s], lw=2.2, label=f"{s} (Cmax {r.cmax:.2f})")
+    band_styles = {"cns_first_symptoms": ("#f0ad4e", "CNS first symptoms"),
+                   "cardiovascular": ("#c0392b", "cardiovascular")}
+    for e in du.endpoints:
+        if e.basis != "total_plasma":
+            continue
+        color, lab = band_styles.get(e.endpoint, ("#999", e.endpoint))
+        axL.axhspan(e.low, e.high, color=color, alpha=0.18,
+                    label=f"{lab} threshold RANGE [{e.low:g}–{e.high:g}]")
+    axL.set_title(f"Bupivacaine {dose:g} mg — total plasma by site\n"
+                  "vs toxicity-threshold RANGES (never lines)", fontsize=11)
+    axL.set_xlabel("time (min)"); axL.set_ylabel("total plasma conc. (µg/mL)")
+    axL.legend(fontsize=8); axL.grid(alpha=0.25)
+
+    # RIGHT — total vs free trace at one site + the free-basis threshold band
+    r = concentration_at_site(ds, mid, site="lumbar_epidural", dose_mg=dose, t_min=horizon)
+    pb = ds.drug("bupivacaine")["protein_binding"]
+    fc = free_concentration(r.cp, pb)
+    axR.plot(r.t, r.cp, color="#1f77b4", lw=2.3, label="total plasma")
+    axR.plot(r.t, fc.c_free, color="#6a3d9a", lw=2.3,
+             label=f"free (linear, ff={fc.free_fraction:g}) — saturable ⇒ a lower bound")
+    for e in du.endpoints:
+        if e.basis == "free_plasma":
+            axR.axhspan(e.low, e.high, color="#6a3d9a", alpha=0.16,
+                        label=f"free CNS threshold RANGE [{e.low:g}–{e.high:g}]")
+    axR.set_title("Total vs FREE concentration (lumbar epidural)\n"
+                  "toxicity tracks free drug; binding saturation widens the gap", fontsize=11)
+    axR.set_xlabel("time (min)"); axR.set_ylabel("conc. (µg/mL)")
+    axR.legend(fontsize=8); axR.grid(alpha=0.25)
+
+    fig.suptitle("Hypnos v0.6 LA1 — the double-uncertainty view: threshold uncertainty dwarfs "
+                 f"the PK spread ⇒ no single safe line  ·  {_DISCLAIMER}", y=1.02, fontsize=10.5)
+    fig.text(0.5, -0.03, "RESEARCH / EDUCATION ONLY — not a dosing tool, no maximum dose, no "
+             "margin-as-guarantee, no 'is this safe?' answer (v0.6 §7)",
+             ha="center", color="#c0392b", fontsize=9)
+    fig.tight_layout(); fig.savefig(IMAGES / "la_double_uncertainty.png", dpi=130, bbox_inches="tight")
+    plt.close(fig)
+
+
 def regenerate_figures(ds) -> bool:
     try:
         import matplotlib
@@ -372,8 +435,9 @@ def regenerate_figures(ds) -> bool:
     _fig_washout(ds, plt)
     _fig_variability(ds, plt)
     _fig_effect_band(ds, plt)
+    _fig_la_double_uncertainty(ds, plt)
     print(f"figures: regenerated divergence, synergy, pediatric, mac_age, washin, washout, "
-          f"variability, effect_band -> {IMAGES}/")
+          f"variability, effect_band, la_double_uncertainty -> {IMAGES}/")
     return True
 
 

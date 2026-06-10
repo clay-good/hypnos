@@ -133,6 +133,9 @@ def validate_dataset(ds: Optional[Dataset] = None) -> List[str]:
             if len(ranks) != len(set(ranks)):
                 problems.append(f"[absorption] {m.id}: duplicate site_rates rank(s) {ranks}")
 
+        # --- local-anesthetic toxicity thresholds (v0.6 LA1 spec §4) ------
+        problems.extend(_check_toxicity_thresholds(m, ds, known_citations))
+
         # id prefix matches declared subsystem
         if m.id.split(".")[0] != m.subsystem:
             problems.append(f"[id] {m.id}: id prefix does not match subsystem '{m.subsystem}'")
@@ -156,6 +159,55 @@ def validate_dataset(ds: Optional[Dataset] = None) -> List[str]:
                 f"[cite] drug {d.get('name')}: protein_binding cites unknown '{cid}'"
             )
 
+    return problems
+
+
+def _check_toxicity_thresholds(m, ds, known_citations) -> List[str]:
+    """Local-anesthetic toxicity-threshold checks (v0.6 LA1 spec §4) — the
+    safety-critical invariants the schema cannot express on its own:
+
+    * a threshold is a RANGE with ``low < high`` (no false-precision lines);
+    * every threshold declares its ``basis`` (total vs free) — enforced by schema,
+      re-checked here for defense in depth;
+    * a ``total_plasma`` basis on a ``saturable`` drug MUST carry the free-fraction
+      ``saturation_caveat`` (total under-predicts free risk exactly when risk is
+      highest — the documented failure mode a naive view would hide);
+    * only the ``local_anesthetics`` subsystem may carry thresholds;
+    * citations resolve.
+    """
+    problems: List[str] = []
+    thresholds = m.toxicity_thresholds
+    if not thresholds:
+        return problems
+    if m.subsystem != "local_anesthetics":
+        problems.append(
+            f"[toxicity] {m.id}: toxicity_thresholds present on a non-local_anesthetics "
+            f"subsystem '{m.subsystem}'")
+    drug = ds.drug(m.drug_name) if hasattr(ds, "drug") else (
+        getattr(ds, "drugs", {}) or {}).get(m.drug_name)
+    saturable = bool(((drug or {}).get("protein_binding") or {}).get("saturable"))
+    for t in thresholds:
+        if t.low is None or t.high is None:
+            problems.append(
+                f"[toxicity] {m.id}: {t.endpoint} threshold is not a range "
+                "(low/high required — a single-value threshold is forbidden)")
+        elif t.low >= t.high:
+            problems.append(
+                f"[toxicity] {m.id}: {t.endpoint} threshold low {t.low} >= high {t.high} "
+                "(must be a range with low < high — no false-precision line)")
+        if t.basis not in ("total_plasma", "free_plasma"):
+            problems.append(
+                f"[toxicity] {m.id}: {t.endpoint} threshold has invalid basis {t.basis!r}")
+        # the load-bearing free-fraction guard (v0.6 §3.2/§4)
+        if saturable and t.basis == "total_plasma" and not (t.saturation_caveat or "").strip():
+            problems.append(
+                f"[toxicity] {m.id}: {t.endpoint} threshold is total_plasma on a saturable-"
+                "binding drug but carries no saturation_caveat (the free fraction rises "
+                "non-linearly when total is highest — total under-predicts risk)")
+        if t.primary_citation and t.primary_citation not in known_citations:
+            problems.append(
+                f"[cite] {m.id}: {t.endpoint} toxicity threshold cites unknown "
+                f"'{t.primary_citation}'")
     return problems
 
 

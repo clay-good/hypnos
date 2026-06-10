@@ -387,7 +387,7 @@ def cmd_mac(args) -> int:
 
 
 def cmd_la(args) -> int:
-    from .la import site_comparison
+    from .la import double_uncertainty, site_comparison
     ds = load()
     mid = args.drug if "." in args.drug else f"local_anesthetics.{args.drug.replace(' ', '_')}.systemic"
     try:
@@ -398,9 +398,12 @@ def cmd_la(args) -> int:
     if not rows:
         print("no simulable sites (ranks curated but ka magnitudes absent)", file=sys.stderr)
         return 2
+    model = ds[mid]
+    has_thr = model.has_toxicity_thresholds
+    tail = "thresholds shown as RANGES via the double-uncertainty view (v0.6 LA1)" if has_thr else \
+        "NO toxicity threshold is drawn (v0.6 LA0)"
     print(f"{rows[0].drug} — systemic plasma concentration after {args.dose:g} mg, by injection site")
-    print(f"  tier {rows[0].tier}  (systemic concentration only — NOT block efficacy, and NO "
-          "toxicity threshold is drawn; v0.6 LA0)")
+    print(f"  tier {rows[0].tier}  (systemic concentration only — NOT block efficacy; {tail})")
     print(f"{'site':18s} {'rank':>4s} {'ka(1/min)':>9s} {'Cmax(ug/mL)':>12s} {'Tmax(min)':>10s}")
     for r in rows:
         print(f"{r.site:18s} {r.rank:>4d} {r.ka:>9.2f} {r.cmax:>12.3f} {r.tmax_min:>10.1f}")
@@ -408,6 +411,36 @@ def cmd_la(args) -> int:
     print(f"site dominance: the SAME {args.dose:g} mg gives Cmax {hi.cmax:.2f} at {hi.site} vs "
           f"{lo.cmax:.2f} ug/mL at {lo.site} ({hi.cmax / lo.cmax:.1f}x), peaking {lo.tmax_min - hi.tmax_min:.0f} "
           "min later — so the mg/kg ceiling is the wrong mental model (absorption is site-driven).")
+
+    if not has_thr:
+        return 0
+
+    # v0.6 LA1 — the double-uncertainty view. Always a RANGE, never a line.
+    print("\ntoxicity thresholds (RANGES, never lines — v0.6 LA1):")
+    for th in sorted(model.toxicity_thresholds, key=lambda t: t.low):
+        print(f"  {th.endpoint:18s} {th.basis:12s} [{th.low:g}, {th.high:g}] {th.units}"
+              f"  (tier {th.tier}, individual variability {th.individual_variability or '?'})")
+    site = args.site
+    if site is None:
+        print("\npass --site <site> for the double-uncertainty view (predicted concentration vs "
+              "the threshold ranges, free trace, dominant uncertainty). RESEARCH/EDUCATION — NOT a dosing tool.")
+        return 0
+    try:
+        du = double_uncertainty(ds, mid, site=site, dose_mg=args.dose, t_min=args.tmax)
+    except (KeyError, ValueError) as e:
+        print(str(e), file=sys.stderr)
+        return 2
+    print(f"\ndouble-uncertainty view — {du.drug} {du.dose_mg:g} mg at {du.site} (tier {du.tier}):")
+    fp = f"{du.peak_free:.4f}" if du.peak_free is not None else "n/a"
+    print(f"  predicted peak: total {du.peak_total:.3f} ug/mL  ·  free {fp} ug/mL  ·  Tmax {du.tmax_min:.0f} min")
+    print(f"  {'endpoint':18s} {'basis':12s} {'threshold range':>18s} {'predicted peak':>15s}  position")
+    for e in du.endpoints:
+        rng = f"[{e.low:g}, {e.high:g}] {e.units}"
+        pk = f"{e.predicted_peak:.3f}" if e.predicted_peak is not None else "n/a"
+        print(f"  {e.endpoint:18s} {e.basis:12s} {rng:>18s} {pk:>15s}  {e.position}")
+    print(f"  >> {du.dominant_uncertainty}")
+    for w in du.warnings:
+        print("  - " + w)
     return 0
 
 
@@ -595,10 +628,13 @@ def build_parser() -> argparse.ArgumentParser:
     wp.add_argument("--co", type=float, default=5.0, help="cardiac output (L/min)")
     wp.set_defaults(func=cmd_washin)
 
-    lap = sub.add_parser("la", help="local-anesthetic systemic concentration by injection site (v0.6 LA0)")
+    lap = sub.add_parser("la", help="local-anesthetic systemic concentration by injection site + "
+                                    "the double-uncertainty threshold view (v0.6 LA0/LA1)")
     lap.add_argument("--drug", required=True, help="lidocaine | bupivacaine | ropivacaine (or full model id)")
     lap.add_argument("--dose", type=float, default=150.0, help="dose in mg")
     lap.add_argument("--tmax", type=float, default=90.0, help="horizon (min)")
+    lap.add_argument("--site", default=None, help="injection site for the double-uncertainty view "
+                     "(e.g. lumbar_epidural); omit to list the site table + threshold ranges")
     lap.set_defaults(func=cmd_la)
 
     op = sub.add_parser("washout", help="inhalational wash-out (FA/FA0) — solubility-driven emergence")

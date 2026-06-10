@@ -101,6 +101,34 @@ def _checklist_for(model: Model, ds: Dataset) -> List[ChecklistItem]:
             "estimation", "estimate covariance ($COV)",
             f"{len(ec.correlations)} pair(s), complete={ec.complete}, "
             f"cov_step_succeeded={ec.covariance_step_succeeded}"))
+    # 5b. local-anesthetic toxicity thresholds (v0.6 LA1 §8) — the safety-critical
+    #     group; given the stakes, threshold RANGES specifically require human source
+    #     confirmation before `verified`. The five checks the spec enumerates:
+    drug = ds.drug(model.drug_name) if ds is not None else None
+    saturable = bool(((drug or {}).get("protein_binding") or {}).get("saturable"))
+    for th in model.toxicity_thresholds:
+        loc = (th.extraction or {}).get("source_locator")
+        # (1) basis total vs free, and conversion correct (Trap 1)
+        items.append(ChecklistItem(
+            "local_anesthetic", f"{th.endpoint} threshold BASIS (total vs free — Trap 1)",
+            f"[{th.low:g}, {th.high:g}] {th.units} on {th.basis}", locator=loc))
+        # (4) saturation caveat present for a binding-sensitive (saturable) agent
+        if saturable and th.basis == "total_plasma":
+            items.append(ChecklistItem(
+                "local_anesthetic", f"{th.endpoint} saturation caveat (free fraction rises non-linearly)",
+                (th.saturation_caveat or "⚠️ MISSING — required for a saturable drug on total basis")))
+        # (3) speed-of-rise / method context recorded (Trap 3)
+        items.append(ChecklistItem(
+            "local_anesthetic", f"{th.endpoint} method/speed-of-rise context (Trap 3)",
+            th.method_caveat or "⚠️ no method_caveat curated"))
+    if model.has_toxicity_thresholds:
+        # (2) salt vs base and units (Trap 2); (5) curated as a RANGE, not a line
+        items.append(ChecklistItem(
+            "local_anesthetic", "salt-vs-base & concentration units (Trap 2)",
+            "confirm assay basis (base) vs dose salt form against the source"))
+        items.append(ChecklistItem(
+            "local_anesthetic", "every threshold curated as a RANGE, never a line (§3.3)",
+            f"{len(model.toxicity_thresholds)} threshold range(s); none collapsed to a single value"))
     # 6. citation resolves to the right paper
     cit = ds.citation(model.primary_citation) if ds is not None else None
     if cit:
@@ -180,13 +208,15 @@ def checklist_markdown(mv: ModelVerification) -> str:
         "double-checking; that is where published-vs-implemented divergence hides.",
         "",
     ]
-    groups = ["structural", "covariate", "population", "envelope", "estimation", "citation"]
+    groups = ["structural", "covariate", "population", "envelope", "estimation",
+              "local_anesthetic", "citation"]
     titles = {
         "structural": "Structural parameters",
         "covariate": "Covariate equations (incl. exact LBM/FFM form)",
         "population": "Derivation population & n",
         "envelope": "Stated applicability range",
         "estimation": "Estimation uncertainty (RSE/SE vs BSV CV — read the column header)",
+        "local_anesthetic": "LA toxicity thresholds (basis, units, method, saturation, range-not-line — safety-critical)",
         "citation": "Primary citation",
     }
     for g in groups:

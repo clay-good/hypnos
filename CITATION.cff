@@ -14,7 +14,7 @@ type: dataset
 authors:
   - family-names: Good
     given-names: Clay
-version: 0.2.0
+version: 0.6.0
 license: MIT
 license-url: "https://github.com/clay-good/hypnos/blob/main/LICENSE"
 repository-code: "https://github.com/clay-good/hypnos"

@@ -37,6 +37,30 @@
     "extraction": { "review_status": "unverified", "tier_rationale": "Site-absorption rank order robust; absolute ka Tier-C, applied site-wise.", "source_locator": "Tucker & Mather 1979 (systemic-absorption rank by site)" },
     "primary_citation": "tucker-1979-la-pharmacokinetics"
   },
+  "toxicity_thresholds": [
+    {
+      "endpoint": "cns_first_symptoms",
+      "concentration_range": { "low": 3.0, "high": 4.6, "units": "ug/mL" },
+      "basis": "total_plasma",
+      "individual_variability": "high",
+      "method_caveat": "Volunteer slow i.v. infusion (Knudsen 1997): CNS symptoms at higher total plasma than bupivacaine (~3.4 ug/mL mean) — ropivacaine is less potent and less toxic. Speed of rise and acidosis lower the threshold; a rapid intravascular injection is not this slow-infusion number.",
+      "saturation_caveat": "Ropivacaine binding is SATURABLE: this total-basis range under-predicts free-drug risk at high total concentration (the free fraction rises non-linearly; non-linear model is v0.6 LA3).",
+      "tier": "C",
+      "extraction": { "review_status": "unverified", "source_locator": "Knudsen 1997 (volunteer i.v. infusion, total plasma)" },
+      "primary_citation": "knudsen-1997-la-toxicity"
+    },
+    {
+      "endpoint": "cardiovascular",
+      "concentration_range": { "low": 4.0, "high": 8.0, "units": "ug/mL" },
+      "basis": "total_plasma",
+      "individual_variability": "high",
+      "method_caveat": "Ropivacaine's cardiovascular margin OVER its CNS-warning range is WIDER than bupivacaine's (less avid cardiac Na-channel binding; the S-enantiomer and reduced lipophilicity) — the agent-choice safety differentiation, expanded in v0.6 LA2. Magnitude Tier-C and method-dependent; the load-bearing fact is the wider margin, not a precise number.",
+      "saturation_caveat": "Saturable binding: this total-basis cardiovascular range under-predicts free-drug risk at high total concentration (v0.6 LA3).",
+      "tier": "C",
+      "extraction": { "review_status": "unverified", "tier_rationale": "CVS thresholds are wide, method-dependent and ethically un-doseable in volunteers; Tier-C. The clinically load-bearing claim is the WIDER ropivacaine CNS-to-CVS margin vs bupivacaine.", "source_locator": "Knudsen 1997; Scott 1989 (acute toxicity, ropivacaine vs bupivacaine)" },
+      "primary_citation": "scott-1989-ropivacaine-bupivacaine-toxicity"
+    }
+  ],
   "covariates": { "required": [], "optional": [], "lbm_equation": null },
   "applicability_envelope": {
     "age_years": { "min": 18, "max": 90 },

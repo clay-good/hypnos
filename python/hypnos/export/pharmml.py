@@ -79,11 +79,24 @@ def build(model, ds=None, patient: Optional[Dict[str, Any]] = None) -> str:
         param_lines = "      <!-- kernel pending: no instantiated parameters -->"
         kernel_note = '\n    <KernelStatus>pending</KernelStatus>'
 
+    safety_xml = (
+        '      <hypnos:safetyCritical>true</hypnos:safetyCritical>\n'
+        if "hypnos:safetyCritical" in prov else ""
+    )
+    # v0.6 §9: the LA toxicity-threshold RANGES travel as annotation, AS ranges.
+    la_xml = "".join(
+        f'      <hypnos:toxicityThresholdRange endpoint="{escape(th.endpoint)}" '
+        f'basis="{escape(th.basis)}" low="{th.low:.10g}" high="{th.high:.10g}" '
+        f'units="{escape(th.units)}" tier="{th.tier}"/>\n'
+        for th in model.toxicity_thresholds
+    )
     prov_xml = (
         "    <Annotation>\n"
         f'      <hypnos:clinicalUse>{escape(prov["hypnos:clinicalUse"])}</hypnos:clinicalUse>\n'
         f'      <hypnos:confidenceTier>{prov["hypnos:confidenceTier"]}</hypnos:confidenceTier>\n'
         f'      <hypnos:datasetVersion>{prov["hypnos:datasetVersion"]}</hypnos:datasetVersion>\n'
+        + safety_xml
+        + la_xml
         + "".join(
             f'      <bqmodel:isDerivedFrom>{escape(u)}</bqmodel:isDerivedFrom>\n'
             for u in prov["bqmodel:isDerivedFrom"]

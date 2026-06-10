@@ -8,7 +8,7 @@ See spec §10.
 """
 from __future__ import annotations
 
-__version__ = "0.2.0"
+__version__ = "0.6.0"
 
 CLINICAL_USE = "PROHIBITED — research/education/simulation only"
 
@@ -46,6 +46,7 @@ from .models import (  # noqa: E402
     Parameter,
     ParameterVariability,
     ResidualError,
+    ToxicityThreshold,
     worst_tier,
 )
 from .simulate import (  # noqa: E402
@@ -77,6 +78,7 @@ __all__ = [
     "OmegaBlock",
     "EstimationUncertainty",
     "EstimateCovariance",
+    "ToxicityThreshold",
     "select",
     "summary",
     "performance_table",

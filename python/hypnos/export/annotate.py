@@ -32,7 +32,7 @@ def citation_uris(model: Model, ds) -> List[str]:
 
 def provenance(model: Model, ds=None, tier: Optional[str] = None) -> Dict[str, Any]:
     """Structured provenance block reused across all exporters."""
-    return {
+    prov = {
         "hypnos:datasetVersion": __version__,
         "hypnos:modelId": model.id,
         "hypnos:confidenceTier": tier or model.tier,
@@ -40,18 +40,30 @@ def provenance(model: Model, ds=None, tier: Optional[str] = None) -> Dict[str, A
         "hypnos:clinicalUse": CLINICAL_USE,
         "bqmodel:isDerivedFrom": citation_uris(model, ds),
     }
+    # Local-anesthetic records are doubly safety-critical (v0.6 §7/§9): the
+    # concentration-vs-threshold view is exactly the artifact that tempts the
+    # forbidden "max safe dose?" question, so a downstream consumer is twice-warned.
+    if model.is_safety_critical:
+        prov["hypnos:safetyCritical"] = "true"
+    return prov
 
 
 def banner(model: Model, tier: Optional[str] = None) -> str:
     """Human-readable banner for text-format exports (NONMEM, R, etc.)."""
     t = tier or model.tier
+    safety = (
+        "  SAFETY-CRITICAL (local anesthetic): systemic concentration only — NOT a\n"
+        "  toxicity margin, max-dose, or 'is this safe?' tool. Thresholds are RANGES.\n"
+        if model.is_safety_critical else ""
+    )
     return (
         "============================================================\n"
         "  HYPNOS EXPORT — NOT FOR CLINICAL USE\n"
         f"  clinicalUse = {CLINICAL_USE}\n"
         f"  model: {model.id}  (tier {t}, review: {model.review_status})\n"
         f"  dataset version: {__version__}\n"
-        "  Research / education / simulation only. Not a dosing tool.\n"
+        + safety
+        + "  Research / education / simulation only. Not a dosing tool.\n"
         "============================================================"
     )
 
@@ -94,6 +106,37 @@ def variability_rdf(model: Model, indent: str = "  ") -> str:
         if spec.add_sd is not None:
             attrs += f' hypnos:additiveSd="{spec.add_sd:.10g}"'
         lines.append(f"{pad}<hypnos:residualError {attrs}/>")
+    return "\n".join(lines)
+
+
+def la_rdf(model: Model, indent: str = "  ") -> str:
+    """``hypnos:`` RDF predicates for the local-anesthetic blocks (v0.6 §9).
+
+    Carries the site-absorption rank order and the toxicity-threshold *ranges* as
+    metadata so they travel with an SBML/PharmML model whose core is deterministic.
+    Threshold ranges export **as ranges** — there is no format projection that
+    collapses them to a single value (v0.6 §9). Returns ``""`` for a non-LA model
+    (and emits nothing for blocks the model does not carry)."""
+    if not model.is_safety_critical:
+        return ""
+    pad = f"{indent}    "
+    lines = [f"{pad}<hypnos:safetyCritical>true</hypnos:safetyCritical>"]
+    absn = model.absorption or {}
+    rates = absn.get("site_rates", [])
+    if rates:
+        lines.append(f"{pad}<hypnos:siteAbsorption>")
+        lines.append(f"{pad}  <rdf:Seq>")
+        for s in sorted(rates, key=lambda r: r.get("rank", 99)):
+            ka = s.get("ka")
+            ka_attr = f' hypnos:ka="{ka:.10g}"' if ka is not None else ""
+            lines.append(f'{pad}    <rdf:li hypnos:site="{s.get("site")}" '
+                         f'hypnos:rank="{s.get("rank")}"{ka_attr}/>')
+        lines += [f"{pad}  </rdf:Seq>", f"{pad}</hypnos:siteAbsorption>"]
+    for th in model.toxicity_thresholds:
+        lines.append(
+            f'{pad}<hypnos:toxicityThresholdRange hypnos:endpoint="{th.endpoint}" '
+            f'hypnos:basis="{th.basis}" hypnos:low="{th.low:.10g}" hypnos:high="{th.high:.10g}" '
+            f'hypnos:units="{th.units}" hypnos:tier="{th.tier}"/>')
     return "\n".join(lines)
 
 

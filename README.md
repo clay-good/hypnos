@@ -192,7 +192,9 @@ $ hypnos validate-cohort --model hypnotics_iv.propofol.schnider_1998 --observati
 # → the schema external_validation[] record (reproducible; computed_by=hypnos)
 ```
 
-`--self-consistency` needs no external data and is exercised in CI; the `--observations` path is the locally-run command a researcher points at Open-TCI / VitalDB / their own study export. The design's load-bearing decision: the **computed** metrics live in a new `external_validation[]` block, kept strictly separate from the human-curated, publisher-reported `predictive_performance` — so the two can be *reconciled*, never *conflated* (spec §4.1). `hypnos validate` enforces the separation's invariants (a BIS validation can never be filed as a concentration validation). The source-specific adapters (Open-TCI for plasma concentration, VitalDB for BIS) and the reproducible cross-model leaderboard sit *on top of* this engine and are the next phases (VE1–VE3); they need credentialed data, which CI never touches.
+`--self-consistency` needs no external data and is exercised in CI; the `--observations` path is the locally-run command a researcher points at Open-TCI / VitalDB / their own study export. The design's load-bearing decision: the **computed** metrics live in a new `external_validation[]` block, kept strictly separate from the human-curated, publisher-reported `predictive_performance` — so the two can be *reconciled*, never *conflated* (spec §4.1). `hypnos validate` enforces the separation's invariants (a BIS validation can never be filed as a concentration validation).
+
+**VE1 — the first source adapter (VitalDB).** [VitalDB](https://vitaldb.net) is an open intra-operative database whose cases carry the TCI pump's propofol delivery and the *measured* bispectral index. `hypnos.subjects_from_vitaldb` maps fetched cases to `SubjectRecord`s for **PD-BIS validation** — the scientifically independent observation is *measured* BIS (the pump's predicted Ce is just another model's output), and the propofol delivery (`Orchestra/PPF20_RATE`, mL/h, PPF20 = 20 mg/mL) is reconstructed as a step-infusion schedule. The adapter is unit-tested against a synthetic VitalDB-shaped fixture; the live fetch is a **local** command (`python scripts/fetch_vitaldb.py --n 30`) that never enters CI and never commits raw records — per spec §3 it writes only derived metrics + a manifest to a gitignored `data/`. Three caveats travel with every number, because they are domain-review items, not verified facts: (1) a *propofol-only* PK→BIS stack does not model remifentanil's synergistic BIS deepening, so expect a systematic BIS over-prediction in balanced-anaesthesia cases (a real, interpretable finding that itself motivates the interaction surface above); (2) the track names and vial concentration must be confirmed per cohort; (3) committing any derived metric requires confirming VitalDB's data-use terms. The reproducible cross-model leaderboard and the Open-TCI concentration adapter (VE2–VE3) sit on top of this same engine.
 
 ## Drug–drug interaction: the propofol–remifentanil synergy surface
 
@@ -704,7 +706,7 @@ hypnos/
 │   ├── verification.py          # verification checklists + coverage (guides humans; never promotes)
 │   ├── cli.py
 │   └── export/                  # registry · annotate · _variability(Ω/Σ projection) · nonmem · pharmml · sbml · tci_json · rxode2 · pumas · bibtex · csv_flat · combine(.omex)
-├── scripts/regenerate.py        # deterministically regenerate all exports + figures (+ build_la_notebook.py)
+├── scripts/regenerate.py        # deterministically regenerate all exports + figures (+ build_*_notebook.py · fetch_vitaldb.py)
 ├── notebooks/                   # reference notebooks executed in CI (nbmake): divergence · v0.2 variability · v0.5 organ envelope · v0.6 local anesthetics
 ├── CHANGELOG.md · .zenodo.json   # release metadata (Zenodo DOI on first tagged release)
 ├── python/tests/                # analytic-vs-numeric, round-trip, envelope, tier, CLI, verification
@@ -767,6 +769,7 @@ hypnos.performance_error(c_obs, c_pred)                              # v0.4: Var
 hypnos.varvel_metrics(pe, times)                                    # v0.4: MDPE / MDAPE / wobble / divergence
 hypnos.validate_against_cohort(ds, model_id, subjects, target="cp", seed=7)  # v0.4: forward-validate on a cohort
 hypnos.subjects_from_csv(rows)                                      # v0.4: long-format cohort CSV -> SubjectRecord[] (generic adapter)
+hypnos.subjects_from_vitaldb(cases)                                 # v0.4 VE1: VitalDB cases -> SubjectRecord[] (PD-BIS); fetch via scripts/fetch_vitaldb.py
 res.cp_peak_display, res.concentration_unit                          # conventional units (ng/mL for opioids)
 hypnos.verification_summary(ds)                                       # coverage + next-to-verify
 hypnos.model_verification(ds, model_id)                              # field-by-field checklist object

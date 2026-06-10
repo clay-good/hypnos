@@ -8,6 +8,30 @@ version is pinned in `dataset/VERSION` and stamped into every export as
 
 ## [Unreleased]
 
+### v0.4 VE1 — the first external-data adapter (VitalDB) (2026-06-10)
+- **The first source-specific adapter for the Varvel engine.** [VitalDB](https://vitaldb.net) is an
+  open intra-operative database; its cases carry the TCI pump's propofol delivery and the *measured*
+  bispectral index. `analysis.subjects_from_vitaldb` (exported top-level) maps fetched cases to
+  `SubjectRecord`s for **PD-BIS validation**: the independent observation is *measured* BIS (not the
+  pump's own predicted Ce), and the propofol delivery (`Orchestra/PPF20_RATE`, mL/h, PPF20 = 20 mg/mL)
+  is reconstructed as a faithful **step-infusion schedule** (one event per rate change) — exercising
+  the multi-event infusion path the engine already supports. A measured-BIS artifact (>100) is dropped;
+  a case missing BIS or infusion is dropped (never invents data).
+- **`scripts/fetch_vitaldb.py`** — a LOCAL fetch (via the `vitaldb` package + the open clinical table)
+  that pulls a cohort, runs `validate_against_cohort`, and writes derived metrics + a manifest to a
+  **gitignored `data/`**. Raw records never enter the repo (spec §3); only derived metrics + manifest
+  are committable, and only after the maintainer confirms VitalDB's data-use terms. The adapter's
+  clinical choices ship with explicit caveats as domain-review items, not verified facts: a
+  propofol-only PK→BIS stack does NOT model remifentanil's synergistic BIS deepening (expect systematic
+  BIS over-prediction in balanced anaesthesia — a real, interpretable finding), and the track
+  names + vial concentration must be confirmed per cohort.
+- Tests cover the schedule reconstruction (rate changes → infusion events, mL/h→mg/h), the
+  artifact/empty-case dropping, and an end-to-end run through the real Eleveld PK→BIS stack + Varvel
+  engine on a synthetic VitalDB-shaped fixture (no network, CI-safe).
+- No dataset/schema change (still `0.6.0`). This is the unblocked engineering half of VE1; the
+  paper-gated curations (rocuronium PK for reversal; per-θ SEs for E1) remain human-verification work
+  by the project's own rule (*LLMs assist, never promote*).
+
 ### v0.4 external validation reaches the CLI — `hypnos validate-cohort` (2026-06-10)
 - **The Varvel external-validation engine is now a command.** VE0 shipped the metric engine
   (`performance_error` / `varvel_metrics` / `validate_against_cohort`) as a tested *library*, but the

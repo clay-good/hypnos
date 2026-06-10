@@ -295,7 +295,51 @@ def test_full_dataset_still_validates():
 from hypnos.analysis import (  # noqa: E402
     subjects_from_cohort_self_consistency,
     subjects_from_csv,
+    subjects_from_vitaldb,
 )
+
+
+def _synthetic_vitaldb_case():
+    """A VitalDB-shaped case: a stepped propofol rate track + a measured-BIS track."""
+    # rate (mL/h) sampled every 10 s: a 40 mL/h induction infusion that steps to 20,
+    # then 0 — three distinct rates, so three reconstructed infusion events.
+    rate = [(0.0, 40.0), (10.0, 40.0), (20.0, 20.0), (30.0, 20.0), (40.0, 0.0)]
+    bis = [(0.0, 95.0), (10.0, 70.0), (20.0, 45.0), (30.0, 48.0), (40.0, 60.0),
+           (50.0, 300.0)]   # the 300 is an artifact -> must be filtered out
+    return {"id": "42", "age": 55, "sex": "F", "height": 165, "weight": 62,
+            "infusion_ml_h": rate, "bis": bis}
+
+
+def test_subjects_from_vitaldb_reconstructs_schedule_and_observations():
+    subs = subjects_from_vitaldb([_synthetic_vitaldb_case()], propofol_mg_per_ml=20.0)
+    assert len(subs) == 1
+    s = subs[0]
+    assert s.subject_id == "42"
+    assert s.covariates == {"age": 55.0, "height": 165.0, "weight": 62.0, "sex": "F"}
+    # one infusion event per RATE CHANGE: 40 -> 20 -> 0  (3 events, in mg/h = mL/h*20)
+    assert s.schedule == [("infusion", 0.0, "800 mg/h"),
+                          ("infusion", round(20.0 / 60.0, 4), "400 mg/h"),
+                          ("infusion", round(40.0 / 60.0, 4), "0 mg/h")]
+    # observations are measured BIS in MINUTES, with the >100 artifact dropped
+    assert all(kind == "bis" and 0 < v <= 100 for (_, v, kind) in s.observations)
+    assert len(s.observations) == 5                      # the 300 artifact removed
+    assert s.observations[0] == (0.0, 95.0, "bis")
+
+
+def test_subjects_from_vitaldb_drops_cases_without_bis_or_infusion():
+    no_bis = {"id": "1", "age": 50, "weight": 70, "infusion_ml_h": [(0.0, 10.0)], "bis": []}
+    no_inf = {"id": "2", "age": 50, "weight": 70, "infusion_ml_h": [], "bis": [(0.0, 50.0)]}
+    assert subjects_from_vitaldb([no_bis, no_inf]) == []
+
+
+def test_subjects_from_vitaldb_validates_end_to_end():
+    # the reconstructed cohort runs through the real PK->BIS stack + Varvel engine
+    ds = hypnos.load()
+    subs = subjects_from_vitaldb([_synthetic_vitaldb_case()])
+    cv = validate_against_cohort(ds, "hypnotics_iv.propofol.eleveld_2018", subs,
+                                 target="bis", pd_model="pd_effect.propofol.eleveld_bis", seed=0)
+    assert cv.mode == "pd_bis" and cv.target == "bis" and cv.n_subjects == 1
+    assert np.isfinite(cv.population.mdape)
 
 
 def test_subjects_from_csv_groups_and_parses():

@@ -500,6 +500,58 @@ def subjects_from_csv(rows: Sequence[Dict[str, str]]) -> List[SubjectRecord]:
                           observations=grouped[s]["obs"], subject_id=s) for s in order]
 
 
+def subjects_from_vitaldb(
+    cases: Sequence[Dict[str, Any]], *, propofol_mg_per_ml: float = 20.0,
+) -> List[SubjectRecord]:
+    """Map fetched VitalDB cases -> :class:`SubjectRecord`\\ s for PD-BIS validation (v0.4 VE1).
+
+    VitalDB (vitaldb.net, open) records the TCI pump's drug-delivery tracks and the
+    *measured* bispectral index. The scientifically independent observation is the
+    **measured BIS** (``BIS/BIS``) — not the pump's own predicted Ce, which is just
+    another model's output — so this adapter validates a Hypnos PK→BIS stack against
+    measured depth-of-anaesthesia. The propofol delivery (``Orchestra/PPF20_RATE``,
+    mL/h, PPF20 = 20 mg/mL) is reconstructed as a step-infusion schedule (one event per
+    rate change), and the measured BIS becomes the ``kind="bis"`` observations.
+
+    Each ``case`` is a plain dict (the network fetch builds these; this transform is
+    pure and offline-testable)::
+
+        {"id": str, "age": float, "sex": "M"/"F", "height": float, "weight": float,
+         "infusion_ml_h": [(t_sec, rate_ml_h), ...],   # Orchestra/PPF20_RATE
+         "bis":           [(t_sec, bis_value), ...]}    # BIS/BIS
+
+    It **never invents data**: a case with no usable BIS or infusion is dropped, and the
+    clinical choices it bakes in (which track is the observation; PPF20 = 20 mg/mL; that
+    a propofol-only stack ignores remifentanil's synergistic BIS deepening) are
+    DOMAIN-REVIEW items, not verified facts — exactly the curation the community confirms.
+    """
+    out: List[SubjectRecord] = []
+    for case in cases:
+        bis = [(float(t) / 60.0, float(v), "bis")
+               for t, v in case.get("bis", []) if v is not None and 0.0 < float(v) <= 100.0]
+        rate = [(float(t), float(r)) for t, r in case.get("infusion_ml_h", []) if r is not None]
+        if not bis or not rate:
+            continue
+        # reconstruct a step-infusion schedule: one ("infusion", t_min, "<mg/h>") event
+        # per change in the delivered rate (mL/h * mg/mL = mg/h), starting from t=0.
+        schedule: List[Tuple[str, float, str]] = []
+        last: Optional[float] = None
+        for t_sec, r_ml_h in rate:
+            if last is None or abs(r_ml_h - last) > 1e-9:
+                mg_h = r_ml_h * propofol_mg_per_ml
+                schedule.append(("infusion", round(float(t_sec) / 60.0, 4), f"{mg_h:g} mg/h"))
+                last = r_ml_h
+        cov: Dict[str, Any] = {}
+        for k in ("age", "height", "weight"):
+            if case.get(k) is not None:
+                cov[k] = float(case[k])
+        if case.get("sex"):
+            cov["sex"] = str(case["sex"]).upper()[:1]
+        out.append(SubjectRecord(covariates=cov, schedule=schedule, observations=bis,
+                                 subject_id=str(case.get("id", f"vdb{len(out) + 1}"))))
+    return out
+
+
 def subjects_from_cohort_self_consistency(
     ds: Dataset, model_id: str, *, target: str = "cp", pd_model: Optional[str] = None,
     offset_pct: float = 20.0, n_subjects: int = 3,

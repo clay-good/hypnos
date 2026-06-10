@@ -98,6 +98,14 @@ def build(model, ds=None, patient: Optional[Dict[str, Any]] = None) -> str:
             f'stereochemistry="{escape(cc.get("stereochemistry", ""))}" '
             f'cnsToCvsMargin="{escape(cc.get("cns_to_cvs_margin", ""))}"/>\n'
         )
+    ffm = ((ds.drug(model.drug_name) or {}).get("protein_binding") or {}).get(
+        "free_fraction_model") if ds is not None else None
+    if ffm:
+        la_xml += (
+            f'      <hypnos:freeFractionModel type="{escape(ffm.get("type", ""))}" '
+            f'bindingCapacityUgMl="{ffm.get("binding_capacity_ug_ml")}" '
+            f'tier="{escape(ffm.get("tier", ""))}"/>\n'
+        )
     prov_xml = (
         "    <Annotation>\n"
         f'      <hypnos:clinicalUse>{escape(prov["hypnos:clinicalUse"])}</hypnos:clinicalUse>\n'

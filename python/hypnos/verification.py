@@ -136,6 +136,16 @@ def _checklist_for(model: Model, ds: Dataset) -> List[ChecklistItem]:
         items.append(ChecklistItem(
             "local_anesthetic", "cardiotoxicity class & CNS-to-CVS margin (stereochemistry — §3.4)",
             f"{cc.get('rank')} / {cc.get('stereochemistry')} / margin {cc.get('cns_to_cvs_margin')}"))
+    # (7) free-fraction saturation model (v0.6 LA3) — confirm the capacity-limited
+    #     model is Tier-D/illustrative, its capacity derivation is cited, and the
+    #     low-concentration fraction_bound that pins the affinity matches the source.
+    ffm = ((drug or {}).get("protein_binding") or {}).get("free_fraction_model") if drug else None
+    if ffm:
+        loc = (ffm.get("note") or "")[:60]
+        items.append(ChecklistItem(
+            "local_anesthetic", "free-fraction saturation model (capacity-limited, Tier-D — §3.2/LA3)",
+            f"capacity {ffm.get('binding_capacity_ug_ml')} ug/mL, tier {ffm.get('tier')} "
+            f"(illustrative; affinity pinned by fraction_bound)", locator=loc or None))
     # 6. citation resolves to the right paper
     cit = ds.citation(model.primary_citation) if ds is not None else None
     if cit:

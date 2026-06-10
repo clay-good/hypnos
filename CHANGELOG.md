@@ -8,6 +8,38 @@ version is pinned in `dataset/VERSION` and stamped into every export as
 
 ## [Unreleased]
 
+### Local-anesthetic binding-saturation free-fraction model (v0.6 LA3) (2026-06-10) — v0.6 subsystem COMPLETE
+- **The failure mode total concentration hides, made visible.** Local anesthetics are highly,
+  *saturably* protein-bound (chiefly to α1-acid glycoprotein); only the FREE fraction is toxic, and as
+  total concentration rises the binding saturates so the free fraction climbs non-linearly — total
+  concentration under-predicts free-drug risk exactly when risk is highest. LA1 surfaced this as a
+  caveat on the linear trace; LA3 now *models* it.
+- **`la.saturable_free_concentration` — an exact, reusable capacity-limited (Langmuir 1:1) kernel.**
+  A single saturable high-affinity site of capacity `C` and affinity `Ka`, inverted total→free as the
+  physical root of a quadratic. The affinity is **pinned by the already-curated low-concentration
+  `fraction_bound`** (`C·Ka = fb0/(1−fb0)`), so no second number is invented; the only new curated
+  quantity is the binding capacity (≈ AAG molar concentration ~17 µM × drug MW ≈ 4.7–4.9 µg/mL,
+  cited). The low-concentration limit reduces exactly to the linear `free = total·(1−fb0)`; as total
+  approaches `C` the free fraction climbs from ~5% toward 1.
+- **`free_fraction_model` on bupivacaine/levobupivacaine/ropivacaine — Tier-D, illustrative.** The
+  QUALITATIVE rise of the free fraction is the documented, load-bearing fact (Tucker & Mather 1979
+  concentration-dependent binding); the magnitude is a representative mechanistic illustration, not a
+  fitted model, and is labeled Tier-D throughout. Lidocaine (non-saturable) correctly carries no model
+  and stays linear; `hypnos validate` rejects a `free_fraction_model` on a non-saturable drug.
+- **`la.free_concentration` upgraded.** Where a model is curated it returns the non-linear free trace
+  as the primary `c_free` with the linear baseline beside it (`c_free_linear`); where a saturable drug
+  has no curated model it stays linear + the LA1 caveat (never a fabricated curve). The
+  double-uncertainty view (`hypnos la --site`) now reports the non-linear free peak, the linear
+  under-estimate, and the **under-prediction gap** (e.g. bupivacaine 200 mg intercostal: free peak
+  1.76× the linear estimate).
+- **Surfaced + exported.** `hypnos verify` gains a free-fraction-model checklist item; `hypnos:freeFractionModel`
+  rides in SBML/PharmML RDF; TCI-JSON passes the block verbatim (inside `protein_binding`).
+- **README figure `la_saturation.png`** (regenerated from the live kernel): the free fraction rising
+  with total for the three saturable amides (vs the flat linear assumption), and bupivacaine's free
+  concentration with the under-prediction gap shaded.
+- With LA3 the **v0.6 local-anesthetic subsystem is complete** (LA0 absorption · LA1 thresholds +
+  double-uncertainty · LA2 cardiotoxicity · LA3 saturation). 23 models · 13 drugs · 28 citations.
+
 ### Local-anesthetic stereochemistry & cardiotoxicity (v0.6 LA2) (2026-06-10)
 - **The agent-choice safety argument, made quantitative and honest.** Racemic bupivacaine is the
   most cardiotoxic common amide ("fast-in/slow-out" avid cardiac Na-channel binding); its

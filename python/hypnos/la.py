@@ -152,40 +152,86 @@ def site_comparison(
 # --------------------------------------------------------------------------- #
 # v0.6 LA1 — free concentration + the double-uncertainty view
 # --------------------------------------------------------------------------- #
+def saturable_free_concentration(
+    c_total: np.ndarray, fraction_bound: float, capacity_ug_ml: float,
+) -> np.ndarray:
+    """Capacity-limited (Langmuir, 1:1) bound→free transform — the v0.6 LA3 non-linear
+    free-fraction model.
+
+    A single saturable high-affinity binding site (α1-acid glycoprotein for the
+    amide LAs) of capacity ``C`` (µg/mL drug-equivalent) and affinity ``Ka``:
+
+        bound(free) = C · Ka·free / (1 + Ka·free),   total = free + bound
+
+    The affinity is **pinned by the curated low-concentration fraction bound** ``fb0``
+    (so no second number is invented): in the low-concentration limit ``C·Ka = fb0 /
+    (1 − fb0)``. Inverting ``total → free`` is a quadratic with the physical (positive)
+    root::
+
+        Ka·free² + (1 + C·Ka − Ka·total)·free − total = 0
+
+    As ``total`` rises toward ``C`` the site saturates and the free fraction climbs
+    from ``fb0`` toward 1 — the documented failure mode a linear trace hides. The
+    low-concentration limit reduces exactly to the linear ``free = total·(1 − fb0)``.
+    """
+    c_total = np.asarray(c_total, dtype=float)
+    fb0 = float(fraction_bound)
+    if not (0.0 < fb0 < 1.0) or capacity_ug_ml <= 0:
+        return c_total * (1.0 - fb0)            # degenerate -> linear
+    ka = (fb0 / (1.0 - fb0)) / capacity_ug_ml   # pinned by the low-conc fraction bound
+    b = 1.0 + capacity_ug_ml * ka - ka * c_total
+    free = (-b + np.sqrt(b * b + 4.0 * ka * c_total)) / (2.0 * ka)
+    return np.clip(free, 0.0, None)
+
+
 def free_concentration(c_total: np.ndarray, protein_binding: Optional[Dict]) -> "FreeConcentration":
-    """Bound→free transform (v0.6 §5). LA1 applies the *linear* binding fraction
-    ``c_free = c_total·(1 − fraction_bound)`` and — for a drug whose binding is
-    ``saturable`` — attaches the saturation failure-mode caveat, because at high
-    total concentration binding saturates and the free fraction rises *non-linearly*:
-    the linear free trace then **under-predicts** the free (toxic) concentration
-    exactly when risk is highest. The non-linear free-fraction model itself is v0.6
-    LA3; LA1 surfaces the gap rather than hiding it (never-invent — a borrowed
-    saturation model would be a fabricated number)."""
+    """Bound→free transform (v0.6 §5). Returns the *linear* free trace
+    ``c_free = c_total·(1 − fraction_bound)`` and, when a ``free_fraction_model`` is
+    curated (v0.6 LA3), the **non-linear** (capacity-limited) free trace beside it so
+    the under-prediction gap is explicit. For a ``saturable`` drug with no curated
+    non-linear model, the linear trace carries the saturation failure-mode caveat
+    rather than a fabricated curve (never-invent)."""
     pb = protein_binding or {}
     fb = pb.get("fraction_bound")
     c_total = np.asarray(c_total, dtype=float)
     warnings: List[str] = []
     if fb is None:
-        return FreeConcentration(c_free=None, free_fraction=None, saturable=False,
+        return FreeConcentration(c_free=None, c_free_linear=None, free_fraction=None,
+                                 saturable=False, model="none",
                                  warnings=["no curated protein binding — free concentration not derivable"])
     free_fraction = 1.0 - float(fb)
-    c_free = c_total * free_fraction
+    c_free_linear = c_total * free_fraction
     saturable = bool(pb.get("saturable"))
+    ffm = pb.get("free_fraction_model") or {}
+    if saturable and ffm.get("type") == "capacity_limited" and ffm.get("binding_capacity_ug_ml"):
+        c_free = saturable_free_concentration(c_total, float(fb),
+                                              float(ffm["binding_capacity_ug_ml"]))
+        warnings.append(
+            "binding is SATURABLE: the NON-LINEAR (capacity-limited, Tier-D illustrative) "
+            "free trace rises ABOVE the linear one at high total concentration — total "
+            "concentration under-predicts free-drug risk exactly when risk is highest "
+            "(v0.6 LA3; the magnitude is representative, the rise is the documented fact).")
+        return FreeConcentration(c_free=c_free, c_free_linear=c_free_linear,
+                                 free_fraction=free_fraction, saturable=True,
+                                 model="capacity_limited", warnings=warnings)
     if saturable:
         warnings.append(
             "binding is SATURABLE: this LINEAR free trace under-predicts the free "
             "(toxic) concentration at high total concentration — the free fraction "
-            "rises non-linearly exactly when risk is highest (the non-linear model is "
-            "v0.6 LA3; the gap is surfaced, never hidden)")
-    return FreeConcentration(c_free=c_free, free_fraction=free_fraction,
-                             saturable=saturable, warnings=warnings)
+            "rises non-linearly exactly when risk is highest (no non-linear model curated; "
+            "the gap is surfaced, never hidden — v0.6 LA3).")
+    return FreeConcentration(c_free=c_free_linear, c_free_linear=c_free_linear,
+                             free_fraction=free_fraction, saturable=saturable,
+                             model="linear", warnings=warnings)
 
 
 @dataclass
 class FreeConcentration:
-    c_free: Optional[np.ndarray]
-    free_fraction: Optional[float]
+    c_free: Optional[np.ndarray]                 # the best curated free trace (non-linear where modeled)
+    free_fraction: Optional[float]               # low-concentration (linear) free fraction
     saturable: bool
+    c_free_linear: Optional[np.ndarray] = None   # the linear free trace (for the under-prediction gap)
+    model: str = "linear"                        # none | linear | capacity_limited
     warnings: List[str] = field(default_factory=list)
 
 
@@ -221,12 +267,14 @@ class DoubleUncertainty:
     site: str
     dose_mg: float
     peak_total: float                        # ug/mL
-    peak_free: Optional[float]               # ug/mL (linear; under-predicts if saturable)
+    peak_free: Optional[float]               # ug/mL — the best curated free peak (non-linear where modeled)
     tmax_min: float
     site_cmax_spread: Optional[float]        # max/min Cmax across sites — the PK (site) spread
     endpoints: List[EndpointReadout] = field(default_factory=list)
     dominant_uncertainty: str = ""
     cardiotoxicity: Optional[Dict] = None    # the drug's cardiotoxicity_class (v0.6 LA2), or None
+    peak_free_linear: Optional[float] = None  # the LINEAR free peak (v0.6 LA3 — the under-prediction baseline)
+    free_model: str = "linear"               # none | linear | capacity_limited (v0.6 LA3)
     tier: str = "D"
     warnings: List[str] = field(default_factory=list)
 
@@ -262,6 +310,7 @@ def double_uncertainty(
     pb = ds.drug(model.drug_name).get("protein_binding") if hasattr(ds, "drug") else None
     free = free_concentration(abs_run.cp, pb)
     peak_free = float(np.max(free.c_free)) if free.c_free is not None else None
+    peak_free_linear = float(np.max(free.c_free_linear)) if free.c_free_linear is not None else None
 
     # PK (site) spread: the SAME dose's peak across every simulable site — the
     # education point that drives the comparison, and the PK-uncertainty proxy.
@@ -315,6 +364,14 @@ def double_uncertainty(
             f"CARDIOTOXICITY ({cardiotox.get('rank')}): the CNS-to-CVS margin is NARROW — "
             "cardiovascular toxicity can occur with little or no CNS prodrome; the agent-choice "
             "comparison is `hypnos la --agents` (v0.6 LA2).")
+    # v0.6 LA3: where a non-linear free model is curated, name the under-prediction
+    # gap — how much higher the saturable free peak is than the linear estimate.
+    if free.model == "capacity_limited" and peak_free and peak_free_linear and peak_free_linear > 0:
+        gap = peak_free / peak_free_linear
+        warnings.append(
+            f"FREE-FRACTION SATURATION: the non-linear free peak ({peak_free:.3g} ug/mL) is "
+            f"{gap:.2f}x the linear estimate ({peak_free_linear:.3g}) at this dose — the linear "
+            "trace under-predicts free-drug risk (Tier-D illustrative magnitude; v0.6 LA3).")
     warnings.append(
         "RESEARCH/EDUCATION ONLY — this is a double-uncertainty view, NOT a dosing tool: "
         "no maximum dose, no margin-as-guarantee, no 'is this safe?' answer (v0.6 §7).")
@@ -322,7 +379,8 @@ def double_uncertainty(
         model_id=model_id, drug=model.drug_name, site=site, dose_mg=float(dose_mg),
         peak_total=abs_run.cmax, peak_free=peak_free, tmax_min=abs_run.tmax_min,
         site_cmax_spread=site_spread, endpoints=endpoints, dominant_uncertainty=dominant,
-        cardiotoxicity=cardiotox, tier=worst_tier(tiers), warnings=warnings,
+        cardiotoxicity=cardiotox, peak_free_linear=peak_free_linear, free_model=free.model,
+        tier=worst_tier(tiers), warnings=warnings,
     )
 
 

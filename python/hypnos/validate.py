@@ -158,6 +158,32 @@ def validate_dataset(ds: Optional[Dataset] = None) -> List[str]:
             problems.append(
                 f"[cite] drug {d.get('name')}: protein_binding cites unknown '{cid}'"
             )
+        # drug-level free_fraction_model (v0.6 LA3): the non-linear saturable-binding
+        # model. Must cite, use a known type, carry a positive capacity, and only sit on
+        # a drug whose binding is actually saturable (a linear drug has no saturation).
+        ffm = pb.get("free_fraction_model") or {}
+        if ffm:
+            fcid = ffm.get("citation")
+            if fcid and fcid not in known_citations:
+                problems.append(
+                    f"[cite] drug {d.get('name')}: free_fraction_model cites unknown '{fcid}'"
+                )
+            if ffm.get("type") not in ("capacity_limited",):
+                problems.append(
+                    f"[free-fraction] drug {d.get('name')}: free_fraction_model type "
+                    f"'{ffm.get('type')}' not supported (expected 'capacity_limited')"
+                )
+            cap = ffm.get("binding_capacity_ug_ml")
+            if cap is None or cap <= 0:
+                problems.append(
+                    f"[free-fraction] drug {d.get('name')}: free_fraction_model needs a "
+                    "positive binding_capacity_ug_ml"
+                )
+            if not pb.get("saturable"):
+                problems.append(
+                    f"[free-fraction] drug {d.get('name')}: free_fraction_model present but "
+                    "binding is not marked saturable (a non-saturable drug has no saturation model)"
+                )
         # drug-level cardiotoxicity_class (v0.6 LA2): a stereochemistry-driven claim
         # that must be traceable + use the controlled rank/margin vocabulary.
         cc = d.get("cardiotoxicity_class") or {}

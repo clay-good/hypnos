@@ -14,7 +14,14 @@
     "saturable": true,
     "binding_sensitive": false,
     "citation": "tucker-1979-la-pharmacokinetics",
-    "note": "~94% bound, principally to α1-acid glycoprotein. As with bupivacaine the binding saturates; the LA-specific free-fraction story is v0.6 LA1/LA3, distinct from the v0.5 albumin axis (binding_sensitive=false)."
+    "note": "~94% bound, principally to α1-acid glycoprotein. As with bupivacaine the binding saturates; the LA-specific free-fraction story is v0.6 LA1/LA3, distinct from the v0.5 albumin axis (binding_sensitive=false).",
+    "free_fraction_model": {
+      "type": "capacity_limited",
+      "binding_capacity_ug_ml": 4.7,
+      "tier": "D",
+      "citation": "tucker-1979-la-pharmacokinetics",
+      "note": "Representative capacity-limited (Langmuir, 1:1) saturable binding to α1-acid glycoprotein. Capacity ≈ AAG molar concentration (~17 µM) × ropivacaine MW (274 g/mol) ≈ 4.7 µg/mL drug-equivalent; affinity pinned by the curated low-concentration fraction_bound (0.94). Tier-D illustrative: the QUALITATIVE rise of the free fraction at high total is documented; the magnitude is not a fitted model (v0.6 LA3, §7)."
+    }
   },
   "cardiotoxicity_class": {
     "rank": "low",

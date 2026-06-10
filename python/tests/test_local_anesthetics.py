@@ -189,12 +189,15 @@ def test_saturable_total_threshold_carries_saturation_caveat(ds):
             assert th.saturation_caveat and "free" in th.saturation_caveat.lower()
 
 
-def test_free_concentration_linear_with_saturation_caveat(ds):
+def test_free_concentration_linear_baseline_and_caveat(ds):
     from hypnos.la import free_concentration
     pb = ds.drug("bupivacaine")["protein_binding"]      # 95% bound, saturable
     fc = free_concentration(np.array([2.0, 4.0]), pb)
     assert fc.free_fraction == pytest.approx(0.05)
-    assert fc.c_free == pytest.approx([0.1, 0.2])
+    # the LINEAR baseline is still fraction_bound * total (now exposed as c_free_linear);
+    # since bupivacaine carries a curated LA3 model, the primary c_free is the non-linear one
+    assert fc.c_free_linear == pytest.approx([0.1, 0.2])
+    assert fc.model == "capacity_limited"
     assert fc.saturable and any("SATURABLE" in w for w in fc.warnings)
 
 
@@ -394,3 +397,106 @@ def test_verification_checklist_has_cardiotoxicity_item(ds):
     from hypnos.verification import model_verification
     mv = model_verification(ds, BUPI)
     assert any("cardiotoxicity class" in it.label.lower() for it in mv.checklist)
+
+
+# --------------------------------------------------------------------------- #
+# v0.6 LA3 — the non-linear (capacity-limited) free-fraction model
+# --------------------------------------------------------------------------- #
+def test_saturable_free_concentration_low_conc_matches_linear():
+    from hypnos.la import saturable_free_concentration
+    # in the low-concentration limit the capacity-limited model reduces to linear
+    ct = np.array([0.001])
+    nl = saturable_free_concentration(ct, fraction_bound=0.95, capacity_ug_ml=4.9)[0]
+    assert nl == pytest.approx(ct[0] * 0.05, rel=1e-2)
+
+
+def test_saturable_free_concentration_monotone_rising_fraction():
+    from hypnos.la import saturable_free_concentration
+    ct = np.array([0.5, 2.0, 5.0, 10.0, 20.0])
+    free = saturable_free_concentration(ct, fraction_bound=0.95, capacity_ug_ml=4.9)
+    frac = free / ct
+    # the free FRACTION rises monotonically with total (binding saturates)
+    assert np.all(np.diff(frac) > 0)
+    # it stays a fraction in (0, 1] and the non-linear free always >= the linear
+    assert np.all(free >= ct * 0.05 - 1e-9) and np.all(frac <= 1.0 + 1e-9)
+
+
+def test_saturable_conservation_total_equals_free_plus_bound():
+    # invert total->free, reconstruct bound, and confirm free+bound == total
+    from hypnos.la import saturable_free_concentration
+    fb0, cap = 0.95, 4.9
+    ka = (fb0 / (1 - fb0)) / cap
+    ct = np.array([1.0, 5.0, 25.0])
+    free = saturable_free_concentration(ct, fb0, cap)
+    bound = cap * ka * free / (1 + ka * free)
+    assert np.allclose(free + bound, ct, rtol=1e-9)
+
+
+def test_free_concentration_uses_curated_nonlinear_model(ds):
+    from hypnos.la import free_concentration
+    pb = ds.drug("bupivacaine")["protein_binding"]
+    assert pb["free_fraction_model"]["type"] == "capacity_limited"
+    fc = free_concentration(np.array([2.0, 20.0]), pb)
+    assert fc.model == "capacity_limited"
+    # the curated non-linear trace rises ABOVE the linear one, more so at high total
+    assert fc.c_free[0] > fc.c_free_linear[0]
+    assert (fc.c_free[1] / fc.c_free_linear[1]) > (fc.c_free[0] / fc.c_free_linear[0])
+    assert any("SATURABLE" in w and "non-linear" in w.lower() for w in fc.warnings)
+
+
+def test_free_concentration_falls_back_to_linear_without_model():
+    # a saturable drug with NO curated free_fraction_model stays linear + caveat
+    from hypnos.la import free_concentration
+    pb = {"fraction_bound": 0.9, "saturable": True}      # no free_fraction_model
+    fc = free_concentration(np.array([10.0]), pb)
+    assert fc.model == "linear"
+    assert fc.c_free[0] == pytest.approx(1.0)
+    assert any("no non-linear model curated" in w for w in fc.warnings)
+
+
+def test_lidocaine_nonsaturable_has_no_model_and_stays_linear(ds):
+    from hypnos.la import free_concentration
+    pb = ds.drug("lidocaine")["protein_binding"]
+    assert "free_fraction_model" not in pb and pb["saturable"] is False
+    fc = free_concentration(np.array([5.0]), pb)
+    assert fc.model == "linear" and fc.c_free[0] == pytest.approx(5.0 * 0.35)
+
+
+def test_double_uncertainty_surfaces_saturation_gap(ds):
+    from hypnos.la import double_uncertainty
+    du = double_uncertainty(ds, BUPI, site="intercostal", dose_mg=200.0)
+    assert du.free_model == "capacity_limited"
+    assert du.peak_free is not None and du.peak_free_linear is not None
+    assert du.peak_free > du.peak_free_linear               # non-linear under-prediction made visible
+    assert any("FREE-FRACTION SATURATION" in w for w in du.warnings)
+
+
+def test_validate_flags_free_fraction_model_on_nonsaturable():
+    from hypnos.validate import validate_dataset
+
+    class _DS:
+        def __init__(self):
+            self.citations = {"tucker-1979-la-pharmacokinetics": {}}
+            self.drugs = {"x": {"name": "x", "protein_binding": {
+                "fraction_bound": 0.5, "saturable": False,
+                "free_fraction_model": {"type": "capacity_limited",
+                                        "binding_capacity_ug_ml": 5.0,
+                                        "citation": "tucker-1979-la-pharmacokinetics"}}}}
+
+        def __iter__(self):
+            return iter([])
+
+        def drug(self, n):
+            return self.drugs.get(n)
+    probs = validate_dataset(_DS())
+    assert any("not marked saturable" in p for p in probs)
+
+
+def test_free_fraction_model_export_carried(ds):
+    from hypnos.export import pharmml, sbml, tci_json
+    import json
+    m = ds[BUPI]
+    assert 'hypnos:freeFractionModel' in sbml.build(m, ds)
+    assert 'freeFractionModel type="capacity_limited"' in pharmml.build(m, ds)
+    d = json.loads(tci_json.build(m, ds))
+    assert d["protein_binding"]["free_fraction_model"]["type"] == "capacity_limited"

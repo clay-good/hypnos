@@ -145,6 +145,12 @@ def la_rdf(model: Model, drug: Optional[Dict[str, Any]] = None, indent: str = " 
             f'{pad}<hypnos:cardiotoxicityClass hypnos:rank="{cc.get("rank")}" '
             f'hypnos:stereochemistry="{cc.get("stereochemistry")}" '
             f'hypnos:cnsToCvsMargin="{cc.get("cns_to_cvs_margin")}"/>')
+    ffm = ((drug or {}).get("protein_binding") or {}).get("free_fraction_model") if drug else None
+    if ffm:
+        lines.append(
+            f'{pad}<hypnos:freeFractionModel hypnos:type="{ffm.get("type")}" '
+            f'hypnos:bindingCapacityUgMl="{ffm.get("binding_capacity_ug_ml")}" '
+            f'hypnos:tier="{ffm.get("tier")}"/>')
     return "\n".join(lines)
 
 

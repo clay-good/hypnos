@@ -463,7 +463,11 @@ def cmd_la(args) -> int:
         print(f"  cardiotoxicity: {cc.get('rank')} ({cc.get('stereochemistry')}) · "
               f"CNS-to-CVS margin {cc.get('cns_to_cvs_margin')} (v0.6 LA2; `hypnos la --agents` to compare)")
     fp = f"{du.peak_free:.4f}" if du.peak_free is not None else "n/a"
-    print(f"  predicted peak: total {du.peak_total:.3f} ug/mL  ·  free {fp} ug/mL  ·  Tmax {du.tmax_min:.0f} min")
+    if du.free_model == "capacity_limited" and du.peak_free_linear:
+        print(f"  predicted peak: total {du.peak_total:.3f} ug/mL  ·  free {fp} ug/mL "
+              f"(non-linear; linear under-estimate {du.peak_free_linear:.4f})  ·  Tmax {du.tmax_min:.0f} min")
+    else:
+        print(f"  predicted peak: total {du.peak_total:.3f} ug/mL  ·  free {fp} ug/mL  ·  Tmax {du.tmax_min:.0f} min")
     print(f"  {'endpoint':18s} {'basis':12s} {'threshold range':>18s} {'predicted peak':>15s}  position")
     for e in du.endpoints:
         rng = f"[{e.low:g}, {e.high:g}] {e.units}"

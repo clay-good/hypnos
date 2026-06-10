@@ -465,6 +465,60 @@ def _fig_la_cardiotoxicity(ds, plt) -> None:
     plt.close(fig)
 
 
+def _fig_la_saturation(ds, plt) -> None:
+    """v0.6 LA3 — the binding-saturation failure mode made visible: total
+    concentration under-predicts free-drug (toxic) concentration exactly when risk
+    is highest, because plasma-protein binding saturates and the free fraction rises.
+
+    LEFT: the free FRACTION vs total plasma concentration — the curated capacity-
+    limited (Langmuir, Tier-D illustrative) curves climb from the low-concentration
+    fraction toward 1 as binding saturates, while the linear assumption (dashed) stays
+    flat. RIGHT: bupivacaine's free CONCENTRATION, linear vs non-linear, with the
+    under-prediction gap shaded. Comparative / educational, never a dose (v0.6 §7).
+    """
+    from hypnos.la import saturable_free_concentration
+
+    agents = [("bupivacaine", "#c0392b"), ("levobupivacaine", "#8e44ad"), ("ropivacaine", "#2980b9")]
+    ct = np.logspace(np.log10(0.2), np.log10(40.0), 240)
+    fig, (axL, axR) = plt.subplots(1, 2, figsize=(13, 4.8))
+
+    for name, color in agents:
+        pb = ds.drug(name)["protein_binding"]
+        fb = pb["fraction_bound"]
+        cap = pb["free_fraction_model"]["binding_capacity_ug_ml"]
+        free_nl = saturable_free_concentration(ct, fb, cap)
+        axL.plot(ct, 100.0 * free_nl / ct, color=color, lw=2.3,
+                 label=f"{name} (non-linear, cap {cap:g} µg/mL)")
+        axL.axhline(100.0 * (1.0 - fb), color=color, lw=1.1, ls=":", alpha=0.7)
+    axL.set_xscale("log")
+    axL.set_xlabel("total plasma concentration (µg/mL, log scale)")
+    axL.set_ylabel("free fraction (%)")
+    axL.set_title("Free fraction RISES as binding saturates\n(dotted = the flat linear assumption)", fontsize=11)
+    axL.legend(fontsize=8.5, loc="upper left"); axL.grid(alpha=0.25)
+
+    pb = ds.drug("bupivacaine")["protein_binding"]
+    fb, cap = pb["fraction_bound"], pb["free_fraction_model"]["binding_capacity_ug_ml"]
+    free_nl = saturable_free_concentration(ct, fb, cap)
+    free_lin = ct * (1.0 - fb)
+    axR.fill_between(ct, free_lin, free_nl, color="#c0392b", alpha=0.15,
+                     label="under-prediction gap")
+    axR.plot(ct, free_nl, color="#c0392b", lw=2.4, label="free (non-linear, Tier-D)")
+    axR.plot(ct, free_lin, color="#333", lw=1.6, ls="--", label="free (linear assumption)")
+    axR.set_xlabel("total plasma concentration (µg/mL)")
+    axR.set_ylabel("free (unbound) concentration (µg/mL)")
+    axR.set_xlim(0, 20); axR.set_ylim(0, 8)
+    axR.set_title("Bupivacaine: the linear free trace UNDER-predicts\nfree-drug risk at high total", fontsize=11)
+    axR.legend(fontsize=8.5, loc="upper left"); axR.grid(alpha=0.25)
+
+    fig.suptitle("Hypnos v0.6 LA3 — the binding-saturation failure mode (total under-predicts free "
+                 f"when risk is highest)  ·  {_DISCLAIMER}", y=1.02, fontsize=10.5)
+    fig.text(0.5, -0.03, "RESEARCH / EDUCATION ONLY — capacity-limited model is Tier-D illustrative; "
+             "the QUALITATIVE rise is the documented fact, not the magnitude (v0.6 §7)",
+             ha="center", color="#c0392b", fontsize=9)
+    fig.tight_layout(); fig.savefig(IMAGES / "la_saturation.png", dpi=130, bbox_inches="tight")
+    plt.close(fig)
+
+
 def regenerate_figures(ds) -> bool:
     try:
         import matplotlib
@@ -484,8 +538,9 @@ def regenerate_figures(ds) -> bool:
     _fig_effect_band(ds, plt)
     _fig_la_double_uncertainty(ds, plt)
     _fig_la_cardiotoxicity(ds, plt)
+    _fig_la_saturation(ds, plt)
     print(f"figures: regenerated divergence, synergy, pediatric, mac_age, washin, washout, "
-          f"variability, effect_band, la_double_uncertainty, la_cardiotoxicity -> {IMAGES}/")
+          f"variability, effect_band, la_double_uncertainty, la_cardiotoxicity, la_saturation -> {IMAGES}/")
     return True
 
 

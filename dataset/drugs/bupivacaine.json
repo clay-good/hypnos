@@ -14,7 +14,14 @@
     "saturable": true,
     "binding_sensitive": false,
     "citation": "tucker-1979-la-pharmacokinetics",
-    "note": "~95% bound, principally to α1-acid glycoprotein; binding SATURATES, so the free (toxic) fraction rises non-linearly when total concentration is highest. This LA-specific saturation failure mode is surfaced in v0.6 LA3; it is distinct from the v0.5 albumin/hypoalbuminemia axis (binding_sensitive=false)."
+    "note": "~95% bound, principally to α1-acid glycoprotein; binding SATURATES, so the free (toxic) fraction rises non-linearly when total concentration is highest. This LA-specific saturation failure mode is surfaced in v0.6 LA3; it is distinct from the v0.5 albumin/hypoalbuminemia axis (binding_sensitive=false).",
+    "free_fraction_model": {
+      "type": "capacity_limited",
+      "binding_capacity_ug_ml": 4.9,
+      "tier": "D",
+      "citation": "tucker-1979-la-pharmacokinetics",
+      "note": "Representative capacity-limited (Langmuir, 1:1) saturable binding to α1-acid glycoprotein. Capacity ≈ AAG molar concentration (~0.7 g/L ÷ ~41 kDa ≈ 17 µM, 1 high-affinity site) × bupivacaine MW (288 g/mol) ≈ 4.9 µg/mL drug-equivalent; the affinity is pinned by the curated low-concentration fraction_bound (0.95). Tier-D: the QUALITATIVE rise of the free fraction toward 1 as total approaches the binding capacity is well-documented (Tucker & Mather 1979 concentration-dependent binding); the magnitude is illustrative, NOT a fitted model — it makes the documented under-prediction of free-drug risk visible, never a precise prediction (v0.6 LA3, §7)."
+    }
   },
   "cardiotoxicity_class": {
     "rank": "high",

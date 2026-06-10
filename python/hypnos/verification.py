@@ -26,6 +26,10 @@ class ChecklistItem:
     label: str
     value: str           # the current value a verifier must confirm against the PDF
     confirmed: bool = False
+    # curated provenance pointer (e.g. "Schnider 1998, Table 2") so a verifier goes
+    # straight to the right table; None where no source_locator is curated yet — which
+    # the renderers flag as a gap to fill, the same honesty the dataset applies to itself.
+    locator: Optional[str] = None
 
 
 @dataclass
@@ -53,7 +57,9 @@ def _checklist_for(model: Model, ds: Dataset) -> List[ChecklistItem]:
     for p in model.parameters:
         units = p.units or ""
         central = "covariate" if p.central is None else f"{p.central:g}"
-        items.append(ChecklistItem("structural", f"parameter {p.symbol}", f"{central} {units}".strip()))
+        loc = (p.extraction or {}).get("source_locator")
+        items.append(ChecklistItem("structural", f"parameter {p.symbol}",
+                                   f"{central} {units}".strip(), locator=loc))
     # 2. covariate equations (where transcription errors hide)
     for p in model.parameters:
         if p.covariate_model:
@@ -165,6 +171,9 @@ def checklist_markdown(mv: ModelVerification) -> str:
             continue
         lines.append(f"## {titles[g]}")
         for it in items:
-            lines.append(f"- [ ] **{it.label}** = `{it.value}`")
+            where = (f"  — _{it.locator}_" if it.locator
+                     else "  — ⚠️ **no source locator curated; add one**" if it.group == "structural"
+                     else "")
+            lines.append(f"- [ ] **{it.label}** = `{it.value}`{where}")
         lines.append("")
     return "\n".join(lines).rstrip() + "\n"

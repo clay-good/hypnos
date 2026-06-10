@@ -8,6 +8,22 @@ version is pinned in `dataset/VERSION` and stamped into every export as
 
 ## [Unreleased]
 
+### Verification checklist surfaces (and flags missing) per-parameter source locators (2026-06-10)
+- **`hypnos verify <id>` now shows each structural parameter's curated `source_locator`**
+  (`@ Schnider 1998, Table 2`) — provenance that was already in the dataset but hidden
+  from the one workflow that needs it most, the human PDF verification that is the
+  project's single highest-leverage contribution. A verifier now goes straight to the
+  right table instead of hunting the whole PDF (it even surfaces provenance nuances like
+  Schnider's ke0 coming from the 1999 PD-companion paper).
+- **Where a structural parameter has no curated locator, the checklist flags the gap**
+  (plain text `[! no source locator curated — add one]` + a summary nudge; markdown
+  `⚠️ no source locator curated`), so verification *adds* provenance over time. Audit
+  found 35 of 99 parameters lack a locator today (concentrated in Marsh, Paedfusor, the
+  Greco surface, the PD sigmoids, and the volatiles) — now visible instead of silent.
+  The dataset stays honest about its own provenance, not just its parameter values.
+- New `ChecklistItem.locator` field; rendered by both the CLI and the markdown PR
+  checklist. Tests cover the present-and-surfaced and absent-and-flagged cases.
+
 ### Dashboard surfaces the PD effect (BIS) prediction band (2026-06-10)
 - **The dashboard now renders the v0.2 effect band**, closing the same "feature in the
   package but not in the UI" gap a prior commit closed for the volatiles. With the

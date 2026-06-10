@@ -254,8 +254,19 @@ def cmd_verify(args) -> int:
         for b in mv.blocking:
             print("  - " + b)
     print(f"\nchecklist ({mv.n_items} items to confirm against the PDF):")
+    n_missing = 0
     for it in mv.checklist:
-        print(f"  [ ] ({it.group}) {it.label} = {it.value}")
+        if it.locator:
+            where = f"   @ {it.locator}"
+        elif it.group == "structural":
+            where = "   [! no source locator curated — add one]"
+            n_missing += 1
+        else:
+            where = ""
+        print(f"  [ ] ({it.group}) {it.label} = {it.value}{where}")
+    if n_missing:
+        print(f"\n{n_missing} structural parameter(s) have no curated source locator — "
+              "add one (e.g. 'Author YYYY, Table N') while confirming against the PDF.")
     print("\nLLMs do not promote: a human confirms these, then edits review_status -> verified.")
     return 0
 

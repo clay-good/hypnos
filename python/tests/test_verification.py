@@ -38,6 +38,28 @@ def test_checklist_covers_params_and_covariate_equations(ds):
     assert any("0.0681" in it.value for it in cov)  # the Schnider Cl1 LBM coefficient
 
 
+def test_checklist_surfaces_curated_source_locator(ds):
+    # Schnider curates a per-parameter source locator; the checklist must surface it so
+    # a verifier goes straight to the right table instead of hunting the whole PDF.
+    mv = model_verification(ds, SCHNIDER)
+    v1 = next(it for it in mv.checklist if it.label == "parameter V1")
+    assert v1.locator == "Schnider 1998, Table 2"
+    md = checklist_markdown(mv)
+    assert "Schnider 1998, Table 2" in md
+
+
+def test_checklist_flags_missing_source_locator(ds, capsys):
+    # Where a structural parameter has no curated locator, both the API field and the
+    # CLI render must flag it as a gap to fill (honest about the dataset's own provenance).
+    mv = model_verification(ds, "hypnotics_iv.propofol.marsh_1991")
+    structural = [it for it in mv.checklist if it.group == "structural"]
+    assert any(it.locator is None for it in structural)
+    assert main(["verify", "hypnotics_iv.propofol.marsh_1991"]) == 0
+    out = capsys.readouterr().out
+    assert "no source locator curated" in out
+    assert "have no curated source locator" in out  # the summary nudge
+
+
 def test_next_to_verify_prioritizes_implemented_kernels(ds):
     ordered = next_to_verify(ds)
     # all returned models are not yet verified

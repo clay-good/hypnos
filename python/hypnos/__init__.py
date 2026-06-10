@@ -61,9 +61,12 @@ from .models import (  # noqa: E402
 )
 from .simulate import (  # noqa: E402
     Comparison,
+    CovariateDivergence,
+    EquationCurve,
     InteractionResult,
     SimulationResult,
     compare,
+    covariate_divergence,
     simulate,
     simulate_interaction,
 )
@@ -99,8 +102,11 @@ __all__ = [
     "performance_table",
     "simulate",
     "compare",
+    "covariate_divergence",
     "simulate_interaction",
     "Comparison",
+    "CovariateDivergence",
+    "EquationCurve",
     "SimulationResult",
     "InteractionResult",
     "mac",

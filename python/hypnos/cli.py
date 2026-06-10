@@ -37,6 +37,13 @@ from .verification import checklist_markdown, model_verification, verification_s
 _default_schedule_for = default_schedule_for
 
 
+def _bmi_of(patient: dict):
+    w, h = patient.get("weight"), patient.get("height")
+    if w and h:
+        return w / ((h / 100.0) ** 2)
+    return None
+
+
 def _patient_from_args(args) -> dict:
     patient = {"age": args.age, "weight": args.weight, "height": args.height, "sex": args.sex}
     # Organ-function covariates (v0.5 §B) — present only when supplied, so a normal
@@ -410,6 +417,59 @@ def cmd_covariates(args) -> int:
     return 0
 
 
+def _resolve_model_id(ds, ref: str) -> Optional[str]:
+    """Resolve a full or shorthand model id (e.g. 'propofol.schnider_1998')."""
+    if ref in ds:
+        return ref
+    matches = [m.id for m in ds if m.id == ref or m.id.endswith("." + ref) or m.id.endswith(ref)]
+    return matches[0] if len(matches) == 1 else None
+
+
+def cmd_covariate_divergence(args) -> int:
+    """Divergence WITHIN one model, over its admissible covariate equations (v0.7 §7.1).
+
+    Overlays the model's predicted curve under each body-size equation, greying any
+    evaluated outside its own validity envelope — rendering the documented
+    Schnider-in-obesity failure mode at its covariate source. Forward-only (spec §10)."""
+    from .simulate import covariate_divergence as _covdiv
+
+    ds = load()
+    mid = _resolve_model_id(ds, args.model)
+    if mid is None:
+        print(f"unknown or ambiguous model {args.model!r}", file=sys.stderr)
+        return 2
+    patient = _patient_from_args(args)
+    try:
+        cd = _covdiv(ds, mid, patient=patient,
+                     t=np.linspace(0.0, args.tmax, args.n))
+    except (ValueError, NotImplementedError) as e:
+        print(str(e), file=sys.stderr)
+        return 2
+
+    bmi = _bmi_of(patient)
+    unit = cd.concentration_unit
+    cf = cd.conc_factor
+    qlabel = cd.quantity.upper()
+    bmi_s = f"BMI {bmi:.1f}" if bmi is not None else "BMI —"
+    print(f"{mid} — covariate-equation divergence ({bmi_s})")
+    print(f"  {'equation':22s} {qlabel + ' (kg)':>10s} {cd.key.capitalize() + ' peak':>14s}   status")
+    for c in cd.by_equation:
+        peak = getattr(c, cd.key + "_peak") * cf
+        own = " *own*" if c.verbatim else ""
+        peak_s = "(greyed)" if not c.in_envelope else f"{peak:.3f} {unit}"
+        print(f"  {c.equation_id:22s} {c.derived_value:10.1f} {peak_s:>14s}   {c.status}{own}")
+    d = cd.divergence
+    if d:
+        print(f"  peak spread across equations: {100 * d['max_rel']:.0f}%  "
+              f"(driver: {d['driver']['high']} vs {d['driver']['low']})")
+    own_c = cd.own
+    if own_c.inverted:
+        print(f"  note: the model's DERIVED equation is {cd.derived_equation}; at {bmi_s} it has "
+              "INVERTED.\n        this divergence IS the documented Schnider-in-obesity failure "
+              "mode (v0.1), shown at its source.")
+    return 0
+
+
 def cmd_models(args) -> int:
     ds = load()
     models = select(ds, drug=args.drug) if args.drug else list(ds)
@@ -729,6 +789,12 @@ def build_parser() -> argparse.ArgumentParser:
     cvp.add_argument("--model", default=None, help="show this model's covariate_model bindings for the patient")
     _add_patient_args(cvp)
     cvp.set_defaults(func=cmd_covariates)
+
+    cdp = sub.add_parser("covariate-divergence", help="v0.7 C1: divergence WITHIN one model over its "
+                         "admissible covariate equations (greys equations outside their own envelope)")
+    cdp.add_argument("--model", required=True, help="model id (full or shorthand, e.g. propofol.schnider_1998)")
+    _add_patient_args(cdp)
+    cdp.set_defaults(func=cmd_covariate_divergence)
 
     vcp = sub.add_parser("validate-cohort", help="Hypnos-COMPUTED Varvel metrics (MDPE/MDAPE/wobble/"
                          "divergence) for a model vs a cohort of observations (v0.4 §6) — the "

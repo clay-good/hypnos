@@ -8,6 +8,30 @@ version is pinned in `dataset/VERSION` and stamped into every export as
 
 ## [Unreleased]
 
+### v0.7 C1 — the equation-divergence view: model-selection risk inside one model (2026-06-10)
+- **Divergence *within* a model, over its covariate equations.** v0.1's `compare` overlays *different
+  models* for one patient; C1 adds the orthogonal view — `covariate_divergence(ds, model_id, patient=...)`
+  overlays the **same model** under each admissible body-size equation (the LBM↔FFM substitution some
+  commercial TCI pumps make silently when they implement "the Schnider model" with Janmahasatian FFM
+  instead of James LBM), greying any equation evaluated outside its own validity envelope. It reuses the
+  v0.1 `_divergence` machinery, parameterized over equations instead of models, and reports the per-equation
+  derived value + curve + envelope status, the peak spread, and the driver pair. ([Spec §7.1.](docs/specs/v0.7/covariate_uncertainty.md))
+- **A backward-compatible kernel override.** The five covariate-scaled kernels (Schnider/Minto/Kim/Eleveld
+  ×2) gain a one-line `_maybe_override` hook that substitutes a caller-supplied derived covariate when
+  `patient["_<quantity>_override"]` is present; absent it, the kernel computes its own verbatim equation, so
+  **default behavior is byte-identical** — a tested invariant asserts the verbatim divergence curve
+  reproduces a plain `simulate()` exactly.
+- **The Schnider-in-obesity failure mode, rendered at its source.** For an obese patient the model's own
+  James LBM is greyed (it has inverted), while the FFM substitutions stay in-envelope — a ~9% divergence
+  in a single model, from a covariate equation no one was looking at. The substitution is always a labeled
+  `verbatim=false` alternative, never presented as the model's own prediction; the inversion is surfaced,
+  not silently "fixed" (auto-substituting would erase the documented failure mode — v0.7 §10).
+- `hypnos covariate-divergence --model propofol.schnider_1998 --weight 130 ...` (full or shorthand model id),
+  the `covariate_divergence`/`CovariateDivergence`/`EquationCurve` API, and `docs/images/covariate_divergence.png`
+  (CI-regenerated: the obese-patient curves + a BMI sweep showing the divergence open exactly where James
+  leaves its BMI≤37 envelope). 8 new tests. No dataset/schema change (still `0.7.0`). C2 (covariate-value
+  bands + the fifth variance component) and C3 (covariate-aware exports) remain.
+
 ### v0.7 C0 — the covariate-equation library + bindings (2026-06-10)
 - **The fourth hidden uncertainty becomes a first-class object.** v0.1 made model-selection
   uncertainty first-class; v0.2 between-subject; v0.3 estimation. v0.7 C0 curates the uncertainty

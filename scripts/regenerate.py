@@ -595,6 +595,87 @@ def _fig_covariate_equations(ds, plt) -> None:
     plt.close(fig)
 
 
+def _fig_covariate_divergence(ds, plt) -> None:
+    """v0.7 C1 — divergence WITHIN one model, over its covariate equations.
+
+    v0.1's divergence view overlays *different models*; this overlays the SAME model
+    (Schnider) under *different body-size equations* — the substitution some TCI pumps
+    make silently. LEFT: the obese patient's effect-site curve under the model's own
+    James LBM (greyed — it has inverted) vs the Janmahasatian FFM substitution. RIGHT:
+    sweeping BMI shows the two predictions track until James leaves its validity envelope
+    (BMI>37, shaded), where the divergence opens — the failure mode at its covariate source.
+    """
+    from hypnos.simulate import covariate_divergence
+
+    MID = "hypnotics_iv.propofol.schnider_1998"
+    eq_color = {"james_1976": "#d62728", "janmahasatian_2005": "#1f77b4", "al_sallami_2015": "#2ca02c"}
+    t = np.linspace(0, 60, 361)
+
+    fig, (axL, axR) = plt.subplots(1, 2, figsize=(13, 4.8))
+
+    # LEFT — the obese patient, curve under each equation
+    obese = dict(age=50, weight=130, height=170, sex="M")
+    cd = covariate_divergence(ds, MID, patient=obese, t=t)
+    seen_label = set()
+    for c in cd.by_equation:
+        col = eq_color.get(c.equation_id, "#333")
+        own = " (model's own)" if c.verbatim else " (substitution)"
+        if not c.in_envelope:
+            lab = f"{c.equation_id}{own} — INVERTED, greyed"
+            axL.plot(t, c.ce, color="#aaa", lw=2.2, ls="--", label=lab)
+        else:
+            lab = f"{c.equation_id}{own}"
+            # al_sallami coincides with janmahasatian in adults — avoid a duplicate legend line
+            key = round(float(c.ce.max()), 3)
+            if key in seen_label:
+                continue
+            seen_label.add(key)
+            axL.plot(t, c.ce, color=col, lw=2.4, label=lab)
+    d = cd.divergence
+    axL.set_title(f"Schnider effect-site, obese patient (BMI {130/1.7**2:.0f})\n"
+                  f"own James LBM has inverted → {100*d['max_rel']:.0f}% divergence vs the FFM substitution",
+                  fontsize=11)
+    axL.set_xlabel("time (min)"); axL.set_ylabel("propofol Ce (µg/mL)")
+    axL.legend(fontsize=8.5); axL.grid(alpha=0.25)
+
+    # RIGHT — sweep BMI (fix height 170, male, 50 y); Ce-peak under James vs Janmahasatian
+    height = 170.0
+    weights = np.linspace(50, 150, 40)
+    bmis = weights / (height / 100.0) ** 2
+    james_peak, jan_peak, james_inv = [], [], []
+    for w in weights:
+        c = covariate_divergence(ds, MID, patient=dict(age=50, weight=float(w), height=height, sex="M"), t=t)
+        byeq = {e.equation_id: e for e in c.by_equation}
+        james_peak.append(byeq["james_1976"].ce_peak)
+        jan_peak.append(byeq["janmahasatian_2005"].ce_peak)
+        james_inv.append(not byeq["james_1976"].in_envelope)
+    james_peak, jan_peak = np.array(james_peak), np.array(jan_peak)
+    james_inv = np.array(james_inv)
+    over = bmis > 37.0
+    if over.any():
+        axR.axvspan(bmis[over][0], bmis[-1], color="#d62728", alpha=0.07,
+                    label="James outside its envelope (BMI>37)")
+    # James: solid where in-envelope, greyed-dashed where inverted
+    axR.plot(bmis, np.where(james_inv, np.nan, james_peak), color="#d62728", lw=2.6,
+             label="James LBM (model's own)")
+    axR.plot(bmis, np.where(james_inv, james_peak, np.nan), color="#aaa", lw=2.6, ls="--",
+             label="James — inverted (greyed)")
+    axR.plot(bmis, jan_peak, color="#1f77b4", lw=2.4, label="Janmahasatian FFM (substitution)")
+    axR.set_title("The divergence opens where James leaves its envelope\n"
+                  "two equations, same θ — predictions track, then peel apart in obesity", fontsize=11)
+    axR.set_xlabel("BMI (kg/m², height 170 cm, male, 50 y)")
+    axR.set_ylabel("predicted Ce peak (µg/mL)")
+    axR.legend(fontsize=8.5); axR.grid(alpha=0.25)
+
+    fig.suptitle("Hypnos v0.7 C1 — covariate-equation divergence: model-selection risk that lives "
+                 f"INSIDE one model  ·  {_DISCLAIMER}", y=1.02, fontsize=10.5)
+    fig.text(0.5, -0.02, "RESEARCH / EDUCATION ONLY — the substitution is a labeled alternative, never "
+             "the model's own prediction; the inversion is surfaced, not silently fixed (v0.7 §10)",
+             ha="center", color="#c0392b", fontsize=9)
+    fig.tight_layout(); fig.savefig(IMAGES / "covariate_divergence.png", dpi=130, bbox_inches="tight")
+    plt.close(fig)
+
+
 def regenerate_figures(ds) -> bool:
     try:
         import matplotlib
@@ -616,9 +697,10 @@ def regenerate_figures(ds) -> bool:
     _fig_la_cardiotoxicity(ds, plt)
     _fig_la_saturation(ds, plt)
     _fig_covariate_equations(ds, plt)
+    _fig_covariate_divergence(ds, plt)
     print(f"figures: regenerated divergence, synergy, pediatric, mac_age, washin, washout, "
           f"variability, effect_band, la_double_uncertainty, la_cardiotoxicity, la_saturation, "
-          f"covariate_equations -> {IMAGES}/")
+          f"covariate_equations, covariate_divergence -> {IMAGES}/")
     return True
 
 

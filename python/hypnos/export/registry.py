@@ -26,6 +26,19 @@ def _req(patient: dict, key: str) -> float:
     return float(patient[key])
 
 
+def _maybe_override(patient: dict, quantity: str, value: float) -> float:
+    """Substitute a caller-supplied derived covariate (LBM/FFM) when present.
+
+    The v0.7 covariate-equation divergence view (``covariate_divergence``) re-runs a
+    kernel with the body-size descriptor computed by a *different* equation, to show
+    how much the choice of equation moves the prediction. It injects the substituted
+    value as ``patient["_<quantity>_override"]``; absent that key the kernel computes
+    its own (verbatim) equation, so default behavior is unchanged.
+    """
+    o = patient.get(f"_{quantity}_override")
+    return value if o is None else float(o)
+
+
 # --------------------------------------------------------------------------- #
 # Propofol — Marsh (1991): weight-proportional V1, fixed micro-rate constants
 # --------------------------------------------------------------------------- #
@@ -56,7 +69,7 @@ def propofol_schnider_1998(patient: dict) -> MicroParams:
     wgt = _req(patient, "weight")
     hgt = _req(patient, "height")
     sex = patient.get("sex", "M")
-    lbm = lbm_james(wgt, hgt, sex)
+    lbm = _maybe_override(patient, "lbm", lbm_james(wgt, hgt, sex))
 
     V1 = 4.27
     V2 = 18.9 - 0.391 * (age - 53.0)
@@ -78,7 +91,7 @@ def remifentanil_minto_1997(patient: dict) -> MicroParams:
     wgt = _req(patient, "weight")
     hgt = _req(patient, "height")
     sex = patient.get("sex", "M")
-    lbm = lbm_james(wgt, hgt, sex)
+    lbm = _maybe_override(patient, "lbm", lbm_james(wgt, hgt, sex))
 
     V1 = 5.1 - 0.0201 * (age - 40.0) + 0.072 * (lbm - 55.0)
     V2 = 9.82 - 0.0811 * (age - 40.0) + 0.108 * (lbm - 55.0)
@@ -208,6 +221,7 @@ def propofol_eleveld_2018(patient: dict) -> MicroParams:
         ffm = (0.88 + (1 - 0.88) / (1 + (age / 13.4) ** (-12.7))) * (9270 * wgt) / (6680 + 216 * bmi)
     else:
         ffm = (1.11 + (1 - 1.11) / (1 + (age / 7.1) ** (-1.1))) * (9270 * wgt) / (8780 + 244 * bmi)
+    ffm = _maybe_override(patient, "ffm", ffm)
     ffm_ref = (0.88 + (1 - 0.88) / (1 + (AGEref / 13.4) ** (-12.7))) * (9270 * WGTref) / (6680 + 216 * bmiref)
 
     v1_art = th[1] * fcentral(wgt) / fcentral(WGTref)
@@ -255,6 +269,7 @@ def remifentanil_eleveld_2017(patient: dict) -> MicroParams:
         ffm = (0.88 + (1 - 0.88) / (1 + (age / 13.4) ** (-12.7))) * (9270 * wgt) / (6680 + 216 * bmi)
     else:
         ffm = (1.11 + (1 - 1.11) / (1 + (age / 7.1) ** (-1.1))) * (9270 * wgt) / (8780 + 244 * bmi)
+    ffm = _maybe_override(patient, "ffm", ffm)
     ffm_ref = (0.88 + (1 - 0.88) / (1 + (AGEref / 13.4) ** (-12.7))) * (9270 * TBWref) / (6680 + 216 * bmiref)
 
     def faging(x: float) -> float:
@@ -306,6 +321,7 @@ def remifentanil_kim_2017(patient: dict) -> MicroParams:
         ffm = 9.27e3 * wgt / (6.68e3 + 216 * bmi)
     else:
         ffm = 9.27e3 * wgt / (8.78e3 + 244 * bmi)
+    ffm = _maybe_override(patient, "ffm", ffm)
 
     V1 = 4.76 * (wgt / 74.5) ** 0.658
     V2 = 8.4 * (ffm / 52.3) ** 0.573 - 0.0936 * (age - 37.0)

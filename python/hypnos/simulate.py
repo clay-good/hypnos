@@ -38,6 +38,7 @@ from .reference import (
     simulate as _simulate_ref,
 )
 from .export.registry import INTERACTION_KERNELS, KERNELS, parse_amount, parse_rate
+from .covariates import evaluate as _cov_eval
 
 Schedule = Sequence[Tuple[str, float, str]]
 
@@ -722,6 +723,145 @@ def compare(
             if band_part:
                 cmp.divergence.setdefault(k, {}).update(band_part)
     return cmp
+
+
+# --------------------------------------------------------------------------- #
+# covariate_divergence — divergence WITHIN one model, over covariate equations (v0.7 C1)
+# --------------------------------------------------------------------------- #
+@dataclass
+class EquationCurve:
+    """One model curve computed with a substituted body-size equation (v0.7 §7.1)."""
+
+    equation_id: str
+    quantity: str                  # the model's derived-input quantity the value plugs into
+    derived_value: float           # the equation's value (kg) for this patient
+    verbatim: bool                 # True => the model's OWN equation; False => a substitution
+    in_envelope: bool              # within the equation's own validity envelope
+    inverted: bool                 # the James-style non-physical inversion
+    tier: str
+    cp: np.ndarray
+    ce: np.ndarray
+    status: str
+
+    # alias so the shared `_divergence` machinery can name the driver by equation id
+    @property
+    def model_id(self) -> str:
+        return self.equation_id
+
+    @property
+    def cp_peak(self) -> float:
+        return float(np.max(self.cp))
+
+    @property
+    def ce_peak(self) -> float:
+        return float(np.max(self.ce))
+
+
+@dataclass
+class CovariateDivergence:
+    model_id: str
+    derived_equation: str          # the model's own equation (verbatim)
+    quantity: str
+    patient: Dict[str, Any]
+    t: np.ndarray
+    key: str                       # "ce" (effect-site model) or "cp" (PK-only)
+    by_equation: List[EquationCurve] = field(default_factory=list)
+    divergence: Dict[str, Any] = field(default_factory=dict)
+    concentration_unit: str = "ug/mL"
+
+    @property
+    def conc_factor(self) -> float:
+        return concentration_factor(self.concentration_unit)
+
+    @property
+    def own(self) -> EquationCurve:
+        return next(c for c in self.by_equation if c.verbatim)
+
+
+# body-size descriptors that are mutually substitutable into one covariate slot — the
+# documented pump-to-pump substitution (e.g. a TCI implementing "Schnider" with
+# Janmahasatian FFM instead of James LBM) is exactly an LBM<->FFM swap (v0.7 §1).
+_SUBSTITUTABLE_QUANTITIES = ("lbm", "ffm", "nfm", "ibw")
+
+
+def covariate_divergence(
+    ds: Dataset,
+    model_id: str,
+    *,
+    patient: Dict[str, Any],
+    schedule: Optional[Schedule] = None,
+    t: Optional[np.ndarray] = None,
+    candidates: Optional[List[str]] = None,
+) -> CovariateDivergence:
+    """Divergence *within* one model: overlay its predicted curve under each admissible
+    covariate equation, greying any equation outside its own validity envelope (v0.7 §7.1).
+
+    v0.1's :func:`compare` overlays *different models*; this overlays the *same model* under
+    *different body-size equations* — the substitution some TCI pumps make silently. The
+    model's own equation is marked ``verbatim``; substitutions are ``verbatim=False`` and
+    shown only here, never as the model's own prediction (the never-invent rule, §10). When
+    the model's own equation has inverted (James above BMI ≈ 37), this view shows the
+    documented Schnider-in-obesity failure mode *at its covariate source*.
+    """
+    from .presets import default_schedule_for
+
+    model = ds[model_id]
+    cm = model.covariate_model
+    if cm is None:
+        raise ValueError(
+            f"{model_id} declares no covariate_model — there is no covariate-equation "
+            "divergence axis (it scales on raw covariates, or the binding is uncurated)"
+        )
+    if not model.kernel_implemented or model.kernel_function not in KERNELS:
+        raise NotImplementedError(
+            f"{model_id}: covariate_divergence needs an implemented IV-disposition kernel"
+        )
+
+    di = cm.derived_inputs[0]          # every curated covariate-scaled model has exactly one
+    quantity = di.quantity
+    own = di.equation
+
+    lib = ds.covariate_equations
+    if candidates is None:
+        candidates = [eid for eid, rec in lib.items()
+                      if rec.get("quantity") in _SUBSTITUTABLE_QUANTITIES]
+    # the model's own equation always leads, substitutions follow (stable order)
+    ordered = [own] + sorted(c for c in candidates if c != own)
+
+    drug = model.drug_name
+    schedule = schedule if schedule is not None else default_schedule_for(drug)
+    t = np.asarray(t if t is not None else np.linspace(0.0, 60.0, 361), dtype=float)
+    weight = float(patient.get("weight", 70.0))
+    dosing = build_dosing(schedule, weight)
+    kernel = KERNELS[model.kernel_function]
+
+    curves: List[EquationCurve] = []
+    for eid in ordered:
+        if eid not in lib:
+            continue
+        r = _cov_eval(eid, patient, ds=ds)
+        params = kernel({**patient, f"_{quantity}_override": r.value})
+        traj = _simulate_ref(params, dosing, t)
+        verbatim = eid == own
+        if not r.out_of_envelope:
+            status = "in-envelope" + ("" if verbatim else " (substitution; verbatim=false)")
+        elif r.inverted:
+            status = "OUTSIDE equation envelope — INVERSION (greyed)"
+        else:
+            status = "OUTSIDE equation envelope (greyed)"
+        curves.append(EquationCurve(
+            equation_id=eid, quantity=r.quantity, derived_value=r.value,
+            verbatim=verbatim, in_envelope=not r.out_of_envelope, inverted=r.inverted,
+            tier=r.tier, cp=traj.cp, ce=traj.ce, status=status,
+        ))
+
+    key = "ce" if (curves and curves[0].ce.max() > 0) else "cp"
+    div = _divergence(curves, key) if len(curves) >= 2 else {}
+    return CovariateDivergence(
+        model_id=model_id, derived_equation=own, quantity=quantity, patient=dict(patient),
+        t=t, key=key, by_equation=curves, divergence=div,
+        concentration_unit=(ds.drug(drug) or {}).get("concentration_unit", "ug/mL"),
+    )
 
 
 # --------------------------------------------------------------------------- #

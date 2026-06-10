@@ -111,6 +111,9 @@ def validate_dataset(ds: Optional[Dataset] = None) -> List[str]:
         # --- variability layer (v0.2 spec §9) -----------------------------
         problems.extend(_check_variability(m, known_citations))
 
+        # --- external-validation layer (v0.4 spec §4) ---------------------
+        problems.extend(_check_external_validation(m))
+
     return problems
 
 
@@ -181,6 +184,64 @@ def _check_variability(m, known_citations) -> List[str]:
                 "omega_block is present (should be 'full')"
             )
 
+    return problems
+
+
+# mode -> the targets it may carry (the Varvel quantity must match the modality)
+_MODE_TARGETS = {
+    "pk_concentration": {"cp", "ce"},
+    "pd_bis": {"bis"},
+    "pd_tof": {"tof"},
+}
+
+
+def _check_external_validation(m) -> List[str]:
+    """External-validation consistency checks (v0.4 spec §4): validation_status
+    matches the curated entries, and each entry's mode/target/CI are coherent.
+
+    These are dormant until a model carries computed metrics; they enforce the
+    block's invariants the moment one does, so a Hypnos-computed artifact can never
+    be mislabeled (e.g. a BIS validation filed as a concentration validation)."""
+    problems: List[str] = []
+    entries = m.external_validation
+    status = m.validation_status
+
+    if entries and status == "none":
+        problems.append(
+            f"[validation] {m.id}: external_validation present but validation_status 'none'"
+        )
+
+    has_pk = any(e.get("mode") == "pk_concentration" for e in entries)
+    has_pd = any(e.get("mode") in ("pd_bis", "pd_tof") for e in entries)
+    if status in ("external_pk", "external_both") and not has_pk:
+        problems.append(
+            f"[validation] {m.id}: validation_status '{status}' requires a "
+            "pk_concentration external_validation entry"
+        )
+    if status in ("external_pd", "external_both") and not has_pd:
+        problems.append(
+            f"[validation] {m.id}: validation_status '{status}' requires a "
+            "pd_bis/pd_tof external_validation entry"
+        )
+
+    for i, e in enumerate(entries):
+        mode = e.get("mode")
+        target = e.get("target")
+        allowed = _MODE_TARGETS.get(mode, set())
+        if target not in allowed:
+            problems.append(
+                f"[validation] {m.id}: external_validation[{i}] target '{target}' "
+                f"inconsistent with mode '{mode}' (expected one of {sorted(allowed)})"
+            )
+        for met in e.get("metrics", []):
+            ci = met.get("ci95")
+            if ci:
+                lo, hi = ci.get("low"), ci.get("high")
+                if lo is not None and hi is not None and lo > hi:
+                    problems.append(
+                        f"[validation] {m.id}: external_validation[{i}] metric "
+                        f"{met.get('name')} ci95 low {lo} > high {hi}"
+                    )
     return problems
 
 

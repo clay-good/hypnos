@@ -8,6 +8,47 @@ version is pinned in `dataset/VERSION` and stamped into every export as
 
 ## [Unreleased]
 
+### External-validation metric engine — Varvel's framework (v0.4 VE0) (2026-06-10)
+- **New `hypnos.analysis` metric engine** implementing the field-standard anesthesia
+  PK/PD validation methodology (Varvel 1992): `performance_error(c_obs, c_pred)` (the
+  signed PE%, with the non-positive-prediction guard the metric requires) and
+  `varvel_metrics(pe, times)` → **MDPE** (bias), **MDAPE** (inaccuracy), **wobble**
+  (intra-individual variability), and **divergence** (the %/h drift of `|PE|` with time).
+  `pooled_performance(...)` rolls subject-level metrics up to a population median with a
+  **seeded** nonparametric bootstrap 95% CI — identical `(subjects, seed)` → identical CIs
+  (v0.4 §3 determinism), with all-nan metric columns handled quietly (never imputed).
+- **`validate_against_cohort(ds, model_id, subjects, target=...)`** — the adapter-agnostic
+  harness: it drives the *existing* forward solver from each subject's **recorded** dose
+  history + covariates, interpolates the prediction to the observation timestamps, and
+  computes the metrics. Forward-only — it runs the recorded doses and never searches for a
+  dose (v0.4 §10). Source-specific adapters (Open-TCI, VitalDB) sit above this and are
+  deferred to VE1/VE2 with their data-manifest + ethics handling (v0.4 §3); the engine
+  itself needs no credentialed data, so CI stays green on synthetic fixtures.
+- **Schema (additive, backward-compatible):** new model-root `external_validation[]`
+  (Hypnos-**computed** Varvel metric sets — reproducible, kept strictly separate from the
+  human-curated publisher-reported `predictive_performance`, per v0.4 §4.1) and
+  `validation_status` rollup (`none | internal_only | external_pk | external_pd |
+  external_both`), plus `external_validation_entry` / `validation_metric` `$defs`. No
+  existing record changes meaning; no model carries the block yet (the metrics are a
+  *generated* artifact, produced only by running the engine against real data under its
+  access terms). `CohortValidation.to_record()` serializes a run into a schema-valid entry.
+- **`hypnos validate` gains dormant-until-populated consistency checks** (v0.4 §4): a
+  computed block can never be mislabeled — `validation_status` must match the curated
+  entries, each entry's `target` must match its `mode` (a BIS validation can't be filed as
+  a concentration validation), and metric CIs must be well-ordered.
+- **Tested against hand-computed answers** on synthetic fixtures (the textbook edge cases:
+  a single sample, all-zero error, monotone drift for divergence, a non-positive
+  prediction) **and** end-to-end against the real Eleveld kernel via a self-consistency
+  fixture (a model's own prediction fed back as the observations scores ~0 error; a uniform
+  +20% offset scores MDPE = MDAPE = 20% exactly) — proving the alignment + solver wiring
+  without curating or inventing a single clinical concentration. 23 new tests.
+- *Why VE0 (v0.4) landed ahead of the v0.3 estimation-uncertainty curation:* VE0 is pure
+  algorithm and needs **no** new curated numbers, whereas v0.3 E0's headline requires
+  transcribing each model's per-parameter RSE table from the source PDF — exactly the
+  human-verification step the project refuses to let an LLM perform. Building the
+  fabrication-free engine first, and leaving the RSE *curation* as the explicit
+  human-PDF gap, is the never-invent ethos applied to the roadmap itself.
+
 ### Verification checklist surfaces (and flags missing) per-parameter source locators (2026-06-10)
 - **`hypnos verify <id>` now shows each structural parameter's curated `source_locator`**
   (`@ Schnider 1998, Table 2`) — provenance that was already in the dataset but hidden

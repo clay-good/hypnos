@@ -135,6 +135,16 @@
       "description": "Rollup of how much of the NLME random-effects structure is curated; drives band eligibility (v0.2 spec §5).",
       "enum": ["none", "partial", "diagonal", "full"]
     },
+    "external_validation": {
+      "type": "array",
+      "description": "Hypnos-COMPUTED Varvel metrics against open data, reproducible and distinct from the human-curated publisher-reported predictive_performance (v0.4 spec §4.1).",
+      "items": { "$ref": "#/$defs/external_validation_entry" }
+    },
+    "validation_status": {
+      "type": "string",
+      "description": "Rollup of external-validation coverage; UI badge + tier-falsification input (v0.4 spec §4.3).",
+      "enum": ["none", "internal_only", "external_pk", "external_pd", "external_both"]
+    },
     "tier": { "type": "string", "enum": ["A", "B", "C", "D"] },
     "extraction": { "$ref": "#/$defs/extraction" },
     "primary_citation": { "type": "string" },
@@ -231,6 +241,61 @@
         "tier": { "type": "string", "enum": ["A", "B", "C", "D"] },
         "extraction": { "$ref": "#/$defs/extraction" },
         "primary_citation": { "type": "string" }
+      }
+    },
+    "external_validation_entry": {
+      "type": "object",
+      "description": "One Hypnos-computed metric set for one model against one open dataset, in one validation mode and cohort stratum (v0.4 spec §4.1).",
+      "required": ["dataset", "mode", "target", "metrics", "provenance"],
+      "additionalProperties": false,
+      "properties": {
+        "dataset": { "type": "string", "description": "Identifier of the open source (e.g. 'opentci_propofol', 'vitaldb')." },
+        "dataset_version": { "type": ["string", "null"] },
+        "dataset_doi": { "type": ["string", "null"] },
+        "mode": { "type": "string", "enum": ["pk_concentration", "pd_bis", "pd_tof"] },
+        "target": { "type": "string", "enum": ["cp", "ce", "bis", "tof"] },
+        "cohort": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "n_subjects": { "type": ["integer", "null"] },
+            "filter": { "type": ["string", "null"], "description": "'all' or a covariate predicate, e.g. 'bmi > 35'." },
+            "in_envelope": { "type": ["boolean", "null"], "description": "The envelope-stratification axis (v0.4 spec §4.2)." }
+          }
+        },
+        "metrics": { "type": "array", "items": { "$ref": "#/$defs/validation_metric" } },
+        "provenance": {
+          "type": "object",
+          "description": "What makes the metric reproducible — NOT a human PDF verification.",
+          "required": ["computed_by"],
+          "additionalProperties": false,
+          "properties": {
+            "computed_by": { "type": "string" },
+            "hypnos_version": { "type": ["string", "null"] },
+            "git_commit": { "type": ["string", "null"] },
+            "seed": { "type": ["integer", "null"] },
+            "manifest_checksum": { "type": ["string", "null"] }
+          }
+        },
+        "reproducible": { "type": "boolean", "description": "Distinguishes this computed block from the human-curated predictive_performance." }
+      }
+    },
+    "validation_metric": {
+      "type": "object",
+      "required": ["name", "value", "units"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "enum": ["MDPE", "MDAPE", "wobble", "divergence"] },
+        "value": { "type": ["number", "null"] },
+        "units": { "type": "string" },
+        "ci95": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "properties": {
+            "low": { "type": ["number", "null"] },
+            "high": { "type": ["number", "null"] }
+          }
+        }
       }
     },
     "range": {

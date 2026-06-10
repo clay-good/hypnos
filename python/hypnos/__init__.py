@@ -12,7 +12,20 @@ __version__ = "0.2.0"
 
 CLINICAL_USE = "PROHIBITED — research/education/simulation only"
 
-from .analysis import DecrementTime, PeakEffect, decrement_time, time_to_peak_effect  # noqa: E402
+from .analysis import (  # noqa: E402
+    CohortValidation,
+    DecrementTime,
+    PeakEffect,
+    PopulationPerformance,
+    SubjectRecord,
+    VarvelResult,
+    decrement_time,
+    performance_error,
+    pooled_performance,
+    time_to_peak_effect,
+    validate_against_cohort,
+    varvel_metrics,
+)
 from .filter import performance_table, select, summary  # noqa: E402
 from .inhalational import (  # noqa: E402
     MacResult,
@@ -81,6 +94,14 @@ __all__ = [
     "PeakEffect",
     "decrement_time",
     "DecrementTime",
+    "performance_error",
+    "varvel_metrics",
+    "pooled_performance",
+    "validate_against_cohort",
+    "VarvelResult",
+    "PopulationPerformance",
+    "SubjectRecord",
+    "CohortValidation",
     "validate_dataset",
     "assert_valid",
     "worst_tier",

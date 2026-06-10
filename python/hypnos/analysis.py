@@ -1,11 +1,20 @@
 """Derived PK/PD characterizations (forward-only, safe by construction).
 
-Currently: **time to peak effect** (``tpeak``), the spec's ``effect_link``
-"time-to-peak-effect parameterization" (§3). After a bolus, the effect-site
-concentration peaks when its rate of change is zero, i.e. exactly when the
-effect-site concentration equals the plasma concentration (Ce = Cp). ``tpeak``
-characterizes a drug/model's *onset* and is independent of dose magnitude (the
-system is linear). It is computed by pure forward simulation.
+Two families live here:
+
+* **Onset / offset** — **time to peak effect** (``tpeak``, the spec's
+  ``effect_link`` §3) and the forward **decrement time** after a fixed-rate
+  infusion. After a bolus the effect-site concentration peaks when its rate of
+  change is zero, i.e. exactly when ``Ce == Cp``; ``tpeak`` characterizes a
+  model's onset and is dose-independent (the system is linear).
+
+* **External-validation metrics** (v0.4 §6) — **Varvel's** performance error and
+  the four derived metrics (MDPE, MDAPE, wobble, divergence) that quantify how
+  well a model's *predicted* concentration/effect matches *observed* data, plus a
+  seeded population roll-up. ``validate_against_cohort`` drives the existing
+  forward solver from each subject's recorded dose history and compares to the
+  recorded observations. This is the engine v0.4 builds; the source-specific data
+  adapters (Open-TCI, VitalDB) sit on top of it and are not part of this layer.
 
 **Why no context-sensitive half-time (CSHT).** The classic CSHT is the time for
 plasma to fall 50% after a target-controlled infusion that held plasma
@@ -13,12 +22,13 @@ plasma to fall 50% after a target-controlled infusion that held plasma
 maintains a target concentration, which is inverse control: exactly the step
 Hypnos refuses to take (spec §10). Onset (``tpeak``) and the decline after a
 *fixed* dose history are forward problems and in scope; constant-concentration
-CSHT is not.
+CSHT is not. The validation engine is likewise forward-only: it runs the
+*recorded* dose history and never searches for a dose (v0.4 §10).
 """
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 
@@ -145,4 +155,293 @@ def decrement_time(
         model_id=model_id, infusion=infusion, duration_min=float(duration),
         fraction=fraction, conc_at_stop=c_stop, decrement_min=decrement,
         tier=worst_tier([model.tier, tier_floor]), warnings=warnings,
+    )
+
+
+# --------------------------------------------------------------------------- #
+# External-validation metrics — Varvel's framework (v0.4 §6)
+# --------------------------------------------------------------------------- #
+#
+# Given a series of observed vs. predicted concentrations (or effects), Varvel's
+# canonical anesthesia PK/PD validation methodology computes, per sample j of
+# subject i:
+#
+#   performance error   PE_ij = 100 * (C_obs,ij - C_pred,ij) / C_pred,ij   (%)
+#
+# and, per subject, four summaries:
+#
+#   MDPE   = median_j(PE_ij)               — bias        (signed)
+#   MDAPE  = median_j(|PE_ij|)             — inaccuracy  (magnitude)
+#   wobble = median_j(|PE_ij - MDPE_i|)    — intra-individual variability
+#   divergence = slope of |PE_ij| vs t_j   — drift of error with time (%/h)
+#
+# The population roll-up is the median (with a seeded nonparametric bootstrap CI)
+# of each across subjects. C_pred is exactly what the reference kernels already
+# produce; this module adds only the alignment + the metric math (pure NumPy).
+
+
+@dataclass(frozen=True)
+class VarvelResult:
+    """The four Varvel metrics for one subject (or one pooled observation set)."""
+
+    mdpe: float          # median performance error (%), signed — bias
+    mdape: float         # median absolute performance error (%) — inaccuracy
+    wobble: float        # median |PE - MDPE| (%) — intra-individual variability
+    divergence: float    # slope of |PE| vs time (%/h) — drift; nan if < 2 valid samples
+    n: int               # number of valid (finite-PE) samples that entered the metrics
+
+
+@dataclass(frozen=True)
+class PopulationPerformance:
+    """Population roll-up of subject-level Varvel metrics with seeded bootstrap CIs."""
+
+    mdpe: float
+    mdape: float
+    wobble: float
+    divergence: float
+    n_subjects: int
+    ci95: Dict[str, Tuple[float, float]]   # metric name -> (low, high)
+    seed: int
+
+
+@dataclass(frozen=True)
+class SubjectRecord:
+    """One subject's recorded case: covariates, dose history, and observations.
+
+    This is the common shape every source-specific adapter (Open-TCI, VitalDB)
+    maps its native records to; the metric math downstream is adapter-agnostic.
+    ``observations`` are ``(time_min, value, kind)`` with ``kind`` naming the
+    measured quantity (``"cp"``, ``"ce"``, ``"bis"``, ``"tof"``).
+    """
+
+    covariates: Dict[str, Any]
+    schedule: Sequence[Tuple[str, float, str]]
+    observations: Sequence[Tuple[float, float, str]]
+    subject_id: Optional[str] = None
+
+
+@dataclass
+class CohortValidation:
+    """Hypnos-computed external validation of one model against a cohort (v0.4 §4.1)."""
+
+    model_id: str
+    dataset: str
+    mode: str            # pk_concentration | pd_bis | pd_tof
+    target: str          # cp | ce | bis | tof
+    n_subjects: int
+    population: PopulationPerformance
+    per_subject: List[VarvelResult] = field(default_factory=list)
+    in_envelope: Optional[bool] = None
+    seed: int = 0
+
+    def to_record(self) -> Dict[str, Any]:
+        """Serialize to a schema ``external_validation[]`` entry (v0.4 §4.1).
+
+        The provenance block is intentionally partial here: ``hypnos_version`` and
+        ``git_commit`` are stamped by the caller that commits the artifact, never
+        by wall-clock or environment reads inside the engine (v0.4 §3 determinism).
+        """
+        p = self.population
+        metrics = [
+            {"name": "MDPE", "value": _round(p.mdpe), "units": "%",
+             "ci95": _ci(p.ci95.get("mdpe"))},
+            {"name": "MDAPE", "value": _round(p.mdape), "units": "%",
+             "ci95": _ci(p.ci95.get("mdape"))},
+            {"name": "wobble", "value": _round(p.wobble), "units": "%",
+             "ci95": _ci(p.ci95.get("wobble"))},
+            {"name": "divergence", "value": _round(p.divergence), "units": "%/h",
+             "ci95": _ci(p.ci95.get("divergence"))},
+        ]
+        return {
+            "dataset": self.dataset,
+            "mode": self.mode,
+            "target": self.target,
+            "cohort": {"n_subjects": self.n_subjects, "filter": "all",
+                       "in_envelope": self.in_envelope},
+            "metrics": metrics,
+            "provenance": {"computed_by": "hypnos", "seed": self.seed},
+            "reproducible": True,
+        }
+
+
+def _nanmedian(col: np.ndarray) -> float:
+    """nan-aware median that returns nan (quietly) for an all-nan column."""
+    if not np.isfinite(col).any():
+        return float("nan")
+    return float(np.nanmedian(col))
+
+
+def _round(x: Optional[float], nd: int = 4) -> Optional[float]:
+    if x is None or not np.isfinite(x):
+        return None
+    return float(round(x, nd))
+
+
+def _ci(pair: Optional[Tuple[float, float]]) -> Optional[Dict[str, Optional[float]]]:
+    if pair is None:
+        return None
+    return {"low": _round(pair[0]), "high": _round(pair[1])}
+
+
+def performance_error(c_obs: Sequence[float], c_pred: Sequence[float]) -> np.ndarray:
+    """Elementwise Varvel performance error ``PE = 100*(obs - pred)/pred`` (%).
+
+    The prediction is the denominator, so where it is non-positive the PE is
+    undefined; those samples become ``nan`` and are dropped by the metrics (the
+    near-zero-prediction guard the metric requires — v0.4 §6). Returns an array
+    the same shape as the inputs.
+    """
+    obs = np.asarray(c_obs, dtype=float)
+    pred = np.asarray(c_pred, dtype=float)
+    if obs.shape != pred.shape:
+        raise ValueError(
+            f"c_obs and c_pred must have the same shape ({obs.shape} != {pred.shape})"
+        )
+    with np.errstate(divide="ignore", invalid="ignore"):
+        pe = 100.0 * (obs - pred) / pred
+    pe = np.where(pred > 0, pe, np.nan)
+    return pe
+
+
+def varvel_metrics(pe: Sequence[float], times: Optional[Sequence[float]] = None) -> VarvelResult:
+    """MDPE, MDAPE, wobble, and divergence for one subject's performance errors.
+
+    ``pe`` is the per-sample PE% (e.g. from :func:`performance_error`); ``nan``
+    entries are ignored. ``times`` (minutes) are required for ``divergence`` (the
+    least-squares slope of ``|PE|`` vs time, reported in %/h); without them, or
+    with fewer than two distinct valid times, ``divergence`` is ``nan``.
+    """
+    pe = np.asarray(pe, dtype=float)
+    valid = np.isfinite(pe)
+    pev = pe[valid]
+    n = int(pev.size)
+    if n == 0:
+        return VarvelResult(float("nan"), float("nan"), float("nan"), float("nan"), 0)
+    mdpe = float(np.median(pev))
+    mdape = float(np.median(np.abs(pev)))
+    wobble = float(np.median(np.abs(pev - mdpe)))
+    divergence = float("nan")
+    if times is not None:
+        t = np.asarray(times, dtype=float)
+        if t.shape != valid.shape:
+            raise ValueError("times must match the shape of pe")
+        tv = t[valid]
+        if tv.size >= 2 and float(np.ptp(tv)) > 0:
+            # slope of |PE| (%) vs time (min) -> %/min, reported as %/h.
+            slope_per_min = float(np.polyfit(tv, np.abs(pev), 1)[0])
+            divergence = slope_per_min * 60.0
+    return VarvelResult(mdpe, mdape, wobble, divergence, n)
+
+
+def pooled_performance(
+    per_subject: Sequence[VarvelResult], *, seed: int, n_boot: int = 2000
+) -> PopulationPerformance:
+    """Population median of each Varvel metric across subjects, with seeded CIs.
+
+    The point estimate is the (nan-aware) median across subjects; the 95% CI is a
+    seeded nonparametric bootstrap over subjects (resample subjects with
+    replacement, recompute the median, take the 2.5/97.5 percentiles). Identical
+    ``(per_subject, seed, n_boot)`` -> identical CIs (v0.4 §3 determinism). A
+    subject whose divergence is ``nan`` (a single sample) is simply ignored by the
+    nan-aware median for that one metric, never imputed.
+    """
+    subs = [r for r in per_subject if r.n > 0]
+    k = len(subs)
+    names = ("mdpe", "mdape", "wobble", "divergence")
+    if k == 0:
+        nanci = {name: (float("nan"), float("nan")) for name in names}
+        return PopulationPerformance(
+            float("nan"), float("nan"), float("nan"), float("nan"), 0, nanci, seed
+        )
+    cols = {name: np.array([getattr(r, name) for r in subs], dtype=float) for name in names}
+    point = {name: _nanmedian(cols[name]) for name in names}
+
+    rng = np.random.default_rng(seed)
+    ci: Dict[str, Tuple[float, float]] = {}
+    if k == 1:
+        # one subject: the median is that subject; a bootstrap CI is degenerate.
+        ci = {name: (point[name], point[name]) for name in names}
+    else:
+        idx = rng.integers(0, k, size=(n_boot, k))
+        for name in names:
+            col = cols[name]
+            if not np.isfinite(col).any():   # all-nan metric (e.g. divergence, no times)
+                ci[name] = (float("nan"), float("nan"))
+                continue
+            boot = np.nanmedian(col[idx], axis=1)
+            boot = boot[np.isfinite(boot)]
+            if boot.size:
+                lo, hi = np.percentile(boot, [2.5, 97.5])
+                ci[name] = (float(lo), float(hi))
+            else:
+                ci[name] = (float("nan"), float("nan"))
+    return PopulationPerformance(
+        point["mdpe"], point["mdape"], point["wobble"], point["divergence"], k, ci, seed
+    )
+
+
+_TARGET_MODE = {"cp": "pk_concentration", "ce": "pk_concentration",
+                "bis": "pd_bis", "tof": "pd_tof"}
+
+
+def validate_against_cohort(
+    ds: Dataset,
+    model_id: str,
+    subjects: Sequence[SubjectRecord],
+    *,
+    target: str = "cp",
+    pd_model: Optional[str] = None,
+    dataset: str = "in_memory",
+    seed: int = 0,
+    grid_min_points: int = 200,
+) -> CohortValidation:
+    """Run a model forward against a cohort and compute its Varvel metrics (v0.4 §6).
+
+    For each subject: simulate the model from the *recorded* dose history and
+    covariates, interpolate the prediction to the observation timestamps, compute
+    the performance error against the observed values, then the per-subject
+    metrics. The population roll-up aggregates across subjects with a seeded
+    bootstrap CI. Forward-only and deterministic — it never tunes a dose (v0.4 §10).
+
+    ``target`` selects the predicted quantity (``cp``/``ce`` plasma/effect-site
+    concentration, ``bis`` depth-of-anaesthesia effect — which needs ``pd_model``).
+    Only observations whose ``kind`` matches ``target`` are scored. The
+    source-specific adapters that produce :class:`SubjectRecord`\\ s live above this
+    function; this is the adapter-agnostic engine.
+    """
+    from .simulate import simulate as _simulate
+
+    if target not in _TARGET_MODE:
+        raise ValueError(f"target must be one of {sorted(_TARGET_MODE)}; got {target!r}")
+    if target in ("bis", "tof") and pd_model is None:
+        raise ValueError(f"target={target!r} requires a pd_model (PK->effect->{target.upper()} stack)")
+
+    per_subject: List[VarvelResult] = []
+    for subj in subjects:
+        obs = [(float(t), float(v)) for (t, v, kind) in subj.observations if kind == target]
+        if not obs:
+            continue
+        obs_t = np.array([t for t, _ in obs], dtype=float)
+        obs_v = np.array([v for _, v in obs], dtype=float)
+        # grid spans the observation window and includes the observation instants.
+        tmax = float(obs_t.max())
+        grid = np.linspace(0.0, max(tmax, 1e-6), max(grid_min_points, 2))
+        t = np.union1d(grid, obs_t)
+        res = _simulate(ds, model_id, patient=subj.covariates,
+                        schedule=list(subj.schedule), t=t, pd_model=pd_model)
+        pred_curve = {"cp": res.cp, "ce": res.ce, "bis": res.effect,
+                      "tof": res.effect}[target]
+        if pred_curve is None:
+            raise ValueError(
+                f"{model_id}: no '{target}' prediction available "
+                f"(did you pass pd_model for an effect target?)"
+            )
+        pred_at_obs = np.interp(obs_t, t, pred_curve)
+        pe = performance_error(obs_v, pred_at_obs)
+        per_subject.append(varvel_metrics(pe, obs_t))
+
+    pop = pooled_performance(per_subject, seed=seed)
+    return CohortValidation(
+        model_id=model_id, dataset=dataset, mode=_TARGET_MODE[target], target=target,
+        n_subjects=len(per_subject), population=pop, per_subject=per_subject, seed=seed,
     )

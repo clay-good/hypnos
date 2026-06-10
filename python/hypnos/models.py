@@ -318,6 +318,23 @@ class Model:
     def predictive_performance(self) -> List[Dict[str, Any]]:
         return self.raw.get("predictive_performance", [])
 
+    # --- external validation (v0.4 layer) ---------------------------------
+    @property
+    def external_validation(self) -> List[Dict[str, Any]]:
+        """Hypnos-computed Varvel metric sets — reproducible, distinct from the
+        publisher-reported ``predictive_performance`` (v0.4 spec §4.1)."""
+        return self.raw.get("external_validation", [])
+
+    @property
+    def validation_status(self) -> str:
+        """Rollup: 'none' | 'internal_only' | 'external_pk' | 'external_pd' |
+        'external_both' (v0.4 spec §4.3). Defaults to 'none'."""
+        return self.raw.get("validation_status", "none")
+
+    @property
+    def has_external_validation(self) -> bool:
+        return bool(self.external_validation)
+
     @property
     def predictive_mdape(self) -> List[Dict[str, Any]]:
         """Published MDAPE (inaccuracy) entries that apply *in envelope*.

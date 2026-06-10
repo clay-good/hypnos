@@ -102,6 +102,54 @@ effect (Propofol PD — Eleveld two-slope BIS sigmoid): min 30.4
 
 > **Safety, tightened in proportion.** A band makes the output *look* more like a clinical tool, so the guardrails tighten: **no quantile-targeting** ("the dose that keeps the 95th percentile below X" is inverse control wearing a statistical hat — still forbidden), and every band is labeled a statement about *the model's stated uncertainty*, not a claim about a real individual. `clinicalUse = "PROHIBITED"` remains universal.
 
+## v0.4: the external-validation metric engine — claims vs. evidence
+
+v0.1 curates what a model *claims* about itself (the point estimate, its envelope); v0.2 adds *which patient, within a model* (the prediction band). Both are the model's own story. v0.4 builds the engine that asks the orthogonal question only data can answer: **when run forward against real recorded cases, how well does each model actually predict?** This is the [external-validation layer](docs/specs/v0.4/external_validation.md); **VE0 — the metric engine — ships now.**
+
+The field's standard is **Varvel's framework**, the canonical anesthesia PK/PD validation methodology. From a series of *observed* vs. *predicted* concentrations it computes, per sample `j` of subject `i`:
+
+```text
+performance error   PE_ij = 100 · (C_obs,ij − C_pred,ij) / C_pred,ij     (%)
+                                                ▲ prediction is the denominator
+per subject:
+  MDPE_i      = median_j(PE_ij)                — bias        (signed)
+  MDAPE_i     = median_j(|PE_ij|)              — inaccuracy  (magnitude)
+  wobble_i    = median_j(|PE_ij − MDPE_i|)     — intra-individual variability
+  divergence_i= slope of |PE_ij| vs t_j        — drift of error with time (%/h)
+population: median (+ seeded-bootstrap 95% CI) of each across subjects i
+```
+
+`C_pred` is exactly what Hypnos's reference kernels already produce. The engine adds only the alignment + the metric math (pure NumPy), and it is **forward-only**: it drives the recorded dose history and never searches for a dose (spec §10).
+
+```text
+  SubjectRecord                          reference kernel (existing)
+  ┌───────────────────────┐              ┌───────────────────────────┐
+  │ covariates            │──────────────▶│  simulate(recorded dose)  │
+  │ recorded dose history │              │  → Cp / Ce / BIS trajectory│
+  │ observations (t,v,kind)│             └─────────────┬─────────────┘
+  └───────────┬───────────┘                            │ interpolate to obs times
+              │ observed values                         ▼
+              └───────────────────────▶  performance_error  →  varvel_metrics (per subject)
+                                                                      │
+                                          pooled_performance (median + seeded bootstrap CI)
+                                                                      ▼
+                                          external_validation[] record  ·  validation_status
+```
+
+Because no open patient dataset is bundled (spec §3 — Hypnos commits *derived metrics + a manifest*, never raw records), the engine is proven two ways with **no invented clinical numbers**: against hand-computed answers on synthetic fixtures (the textbook edge cases — a single sample, all-zero error, monotone drift, a non-positive prediction), and **end-to-end against the real Eleveld kernel** by a self-consistency fixture — feed a model's own prediction back as the "observations" and the error is identically zero; inflate the observations by a uniform +20% and `MDPE = MDAPE = 20%` falls out exactly:
+
+```python
+from hypnos.analysis import SubjectRecord, validate_against_cohort
+ds = hypnos.load()
+# observations here are a +20% offset of the model's own predictions (a known-answer fixture;
+# a real run would supply Open-TCI concentrations or VitalDB BIS under their access terms)
+cv = validate_against_cohort(ds, "hypnotics_iv.propofol.eleveld_2018", subjects, target="cp", seed=7)
+cv.population.mdpe      # 20.0   (bias)        cv.population.ci95["mdpe"]   # seeded bootstrap CI
+cv.population.mdape     # 20.0   (inaccuracy)  cv.to_record()               # schema external_validation[] entry
+```
+
+The design's load-bearing decision: the **computed** metrics live in a new `external_validation[]` block, kept strictly separate from the human-curated, publisher-reported `predictive_performance` — so the two can be *reconciled*, never *conflated* (spec §4.1). `hypnos validate` enforces the separation's invariants (a BIS validation can never be filed as a concentration validation). The source-specific adapters (Open-TCI for plasma concentration, VitalDB for BIS) and the reproducible cross-model leaderboard sit *on top of* this engine and are the next phases (VE1–VE3); they need credentialed data, which CI never touches.
+
 ## Drug–drug interaction: the propofol–remifentanil synergy surface
 
 The clinically dominant TIVA pairing is propofol + remifentanil, and their hypnotic interaction is **supra-additive** (synergistic): adding remifentanil markedly deepens hypnosis at the same propofol dose. Hypnos models this with a Greco-type response surface and a two-drug forward simulator (`simulate_interaction`), composing two independent PK models into one effect.
@@ -426,9 +474,9 @@ hypnos export --format bibtex --output exports/               # citations.bib
 python scripts/regenerate.py                                  # regenerate every export + figures
 ```
 
-## Current coverage (v0.2.0 — v0.1 A–E complete · v0.2 variability V0–V3 export code)
+## Current coverage (v0.2.0 — v0.1 A–E complete · v0.2 variability V0–V3 · v0.4 VE0 validation engine)
 
-Honest status. A is the propofol spine; B adds the dominant opioid and the interaction surface; C widens to a new drug class and pediatrics; D brings in the non-IV families; E hardens for release (COMBINE `.omex`, BibTeX, reproducibility, verified MDPE/MDAPE) ([v0.1 roadmap](docs/specs/v0.1/spec.md#11-phased-roadmap)). **v0.2** adds the [population-variability layer](docs/specs/v0.2/variability.md) — Ω/Σ random effects, seeded prediction bands, and uncertainty-aware divergence (Eleveld propofol curated; bands + separation index + variance decomposition live; **every export — NONMEM `$OMEGA`/`$OMEGA BLOCK`/`$SIGMA`, PharmML, nlmixr2/rxode2, Pumas, TCI-JSON, and SBML (as `hypnos:` RDF) — carries the random-effects layer**). The only V3 item left is the never-invent BSV *data* backfill for the other models, blocked on source-table confirmation. **19 models · 9 drugs · 7 subsystems · 17 executable kernels · 9 export formats · 1 model with a curated random-effects layer.**
+Honest status. A is the propofol spine; B adds the dominant opioid and the interaction surface; C widens to a new drug class and pediatrics; D brings in the non-IV families; E hardens for release (COMBINE `.omex`, BibTeX, reproducibility, verified MDPE/MDAPE) ([v0.1 roadmap](docs/specs/v0.1/spec.md#11-phased-roadmap)). **v0.2** adds the [population-variability layer](docs/specs/v0.2/variability.md) — Ω/Σ random effects, seeded prediction bands, and uncertainty-aware divergence (Eleveld propofol curated; bands + separation index + variance decomposition live; **every export — NONMEM `$OMEGA`/`$OMEGA BLOCK`/`$SIGMA`, PharmML, nlmixr2/rxode2, Pumas, TCI-JSON, and SBML (as `hypnos:` RDF) — carries the random-effects layer**). The only V3 item left is the never-invent BSV *data* backfill for the other models, blocked on source-table confirmation. **v0.4** adds the [external-validation metric engine](docs/specs/v0.4/external_validation.md) (VE0) — Varvel MDPE/MDAPE/wobble/divergence computed forward from the reference kernels, with the computed metrics kept strictly separate from the curated publisher-reported ones; the open-data adapters that feed it (VE1–VE3) are next and need credentialed data CI never touches. **19 models · 9 drugs · 7 subsystems · 17 executable kernels · 9 export formats · 1 model with a curated random-effects layer.**
 
 | Model | Record | Kernel | Tier | Notes |
 | --- | --- | --- | --- | --- |
@@ -502,7 +550,7 @@ hypnos/
 │   ├── reference.py             # pure-NumPy/SciPy PK/PD kernels
 │   ├── simulate.py              # forward simulation + compare + interaction (no inverse control)
 │   ├── inhalational.py          # volatile MAC API (age correction, fraction, N2O additivity) + wash-in/out (FA/FI · FA/FA₀)
-│   ├── analysis.py              # derived characterizations (time-to-peak-effect; forward-only)
+│   ├── analysis.py              # derived characterizations: onset/offset + Varvel external-validation metrics (forward-only)
 │   ├── verification.py          # verification checklists + coverage (guides humans; never promotes)
 │   ├── cli.py
 │   └── export/                  # registry · annotate · _variability(Ω/Σ projection) · nonmem · pharmml · sbml · tci_json · rxode2 · pumas · bibtex · csv_flat · combine(.omex)
@@ -514,6 +562,7 @@ hypnos/
 ├── docs/about/essay.md          # why model-selection risk is the load-bearing idea
 ├── docs/specs/v0.1/spec.md      # the design spec (typical-value layer)
 ├── docs/specs/v0.2/variability.md  # the population-variability layer (Ω/Σ, bands)
+├── docs/specs/v0.3..v0.6/        # design specs: estimation uncertainty · external validation (VE0 shipped) · breadth · LAST
 └── .github/workflows/ci.yml
 ```
 
@@ -558,6 +607,9 @@ hypnos.washin_comparison(ds)                                         # inhalatio
 hypnos.washout_comparison(ds)                                        # inhalational wash-out (FA/FA₀ emergence) across agents
 hypnos.time_to_peak_effect(ds, model_id, patient=..)                 # onset: tpeak after a bolus
 hypnos.decrement_time(ds, model_id, patient=.., infusion=.., duration=..)  # offset: plasma decrement
+hypnos.performance_error(c_obs, c_pred)                              # v0.4: Varvel PE% (pred is the denominator)
+hypnos.varvel_metrics(pe, times)                                    # v0.4: MDPE / MDAPE / wobble / divergence
+hypnos.validate_against_cohort(ds, model_id, subjects, target="cp", seed=7)  # v0.4: forward-validate on a cohort
 res.cp_peak_display, res.concentration_unit                          # conventional units (ng/mL for opioids)
 hypnos.verification_summary(ds)                                       # coverage + next-to-verify
 hypnos.model_verification(ds, model_id)                              # field-by-field checklist object
@@ -580,6 +632,8 @@ hypnos.validate_dataset(ds)                                           # -> list 
 | **D — Inhalational + NMB** | volatile MAC/partition/uptake; neuromuscular blockers + train-of-four; sugammadex reversal | ✅ core shipped (4 volatiles with MAC age-correction + additivity + solubility-driven wash-in (FA/FI uptake) and wash-out (FA/FA₀ emergence) all executable; rocuronium seeded with TOF PD; rocuronium PK kernel + sugammadex binding kinetics pending) |
 | **E — Hardening** | external-validation MDPE/MDAPE backfill; COMBINE `.omex`; Zenodo DOI | ✅ core shipped (deterministic `.omex` + BibTeX exporters; `scripts/regenerate.py`; `.zenodo.json` + `CHANGELOG.md`; external-validation MDPE/MDAPE backfilled across both headline drugs + dexmedetomidine, citation-integrity-checked and surfaced via `hypnos performance`; minted DOI on first tagged release) |
 | **v0.2 — Population-variability layer** | curate Ω/Σ random effects; seeded prediction bands; uncertainty-aware divergence (separation index + variance decomposition); export the NLME object ([spec](docs/specs/v0.2/variability.md)) | 🟢 V0–V3 export code shipped (Eleveld propofol Ω-diagonal + Σ curated `unverified` with the §4-trap validate checks; `simulate`/`compare --bands` draw seeded, reproducible bands with the never-synthesize rule; **every export carries the random-effects layer** — NONMEM `$OMEGA`/`$OMEGA BLOCK`/`$SIGMA`, PharmML `VariabilityModel`, nlmixr2/rxode2 + Pumas NLME companions, TCI-JSON, and SBML (Ω/Σ as `hypnos:` RDF); the **dashboard renders the bands as shaded ribbons** with the separation-index + variance-decomposition readout; the **PD effect (BIS) band** propagates PK BSV through the Hill link as an honest lower bound). **Remaining (data, not code):** BSV backfill for Schnider/opioids/dexmedetomidine and the PD-parameter (Ce50, γ) Ω — both await source-table confirmation, per never-invent |
+| **v0.3 — Estimation-uncertainty layer** | curate per-θ SE/RSE + estimate covariance, distinct from BSV; seeded *confidence* bands; the reducible/irreducible variance split ([spec](docs/specs/v0.3/estimation_uncertainty.md)) | ⬜ proposed — E0 (the Eleveld RSE curation) awaits human PDF transcription of each model's `RSE%` table, exactly the verification step an LLM must not perform; deferred behind v0.4 VE0, which needs no new numbers |
+| **v0.4 — External-validation layer** | recompute Varvel MDPE/MDAPE/wobble/divergence from open data, envelope-stratified; the reproducible cross-model leaderboard ([spec](docs/specs/v0.4/external_validation.md)) | 🟢 **VE0 shipped** — the Varvel metric engine (`performance_error`/`varvel_metrics`/`pooled_performance`), the forward-only `validate_against_cohort` harness, the `external_validation[]`/`validation_status` schema block (computed, kept separate from the curated `predictive_performance`), and the `validate` consistency checks; tested on hand-computed fixtures + a real-kernel self-consistency run. **Next (need credentialed data, not code):** Open-TCI / VitalDB adapters → the leaderboard, reconciliation, and envelope-stratified failure-mode confirmation (VE1–VE3) |
 
 ---
 

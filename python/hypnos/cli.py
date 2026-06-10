@@ -156,9 +156,9 @@ def cmd_compare(args) -> int:
             q = r.ce_quantiles if r.ce_peak > 0 else r.cp_quantiles
             if q is not None:
                 lo, hi = r.band_percentile
-                pk = float(np.max(q[50]))
-                bt = (f"  band-tier {r.band_tier}  {kind} {pk*cf:.2f} "
-                      f"[{float(np.max(q[lo]))*cf:.2f}, {float(np.max(q[hi]))*cf:.2f}]")
+                i = int(np.argmax(q[50]))   # band reported at the median-peak instant
+                bt = (f"  band-tier {r.band_tier}  {kind} {q[50][i]*cf:.2f} "
+                      f"[{q[lo][i]*cf:.2f}, {q[hi][i]*cf:.2f}]")
             else:
                 bt = "  band-tier — (no published BSV; line only)"
         print(f"  - {r.model_id:42s} tier {r.tier}  {kind} peak {peak:.3f} {cu}   {acc}{bt}")

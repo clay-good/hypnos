@@ -73,7 +73,7 @@ The static figure above is exactly what the **[Streamlit dashboard](dashboard/ap
 $ hypnos compare --drug propofol --age 72 --weight 60 --height 162 --sex F \
                  --bands --percentile 5,95 --samples 2000 --seed 7
 included (3):
-  - hypnotics_iv.propofol.eleveld_2018   tier A  Ce peak 3.57  band-tier B  Ce 2.99 [1.15, 7.98]
+  - hypnotics_iv.propofol.eleveld_2018   tier A  Ce peak 3.57  band-tier B  Ce 2.98 [0.87, 6.90]
   - hypnotics_iv.propofol.marsh_1991     tier B  Ce peak 3.74  band-tier — (no published BSV; line only)
   - hypnotics_iv.propofol.schnider_1998  tier B  Ce peak 8.15  band-tier — (no published BSV; line only)
 effect-site divergence … peak rel 169%  (driver: schnider_1998 vs marsh_1991)
@@ -507,7 +507,7 @@ hypnos/
 │   ├── cli.py
 │   └── export/                  # registry · annotate · _variability(Ω/Σ projection) · nonmem · pharmml · sbml · tci_json · rxode2 · pumas · bibtex · csv_flat · combine(.omex)
 ├── scripts/regenerate.py        # deterministically regenerate all exports + figures
-├── notebooks/                   # reference notebooks executed in CI (nbmake)
+├── notebooks/                   # reference notebooks executed in CI (nbmake): divergence + v0.2 variability
 ├── CHANGELOG.md · .zenodo.json   # release metadata (Zenodo DOI on first tagged release)
 ├── python/tests/                # analytic-vs-numeric, round-trip, envelope, tier, CLI, verification
 ├── dashboard/app.py             # Streamlit: divergence + seeded band ribbons (v0.2) + onset + synergy + volatiles

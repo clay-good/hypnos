@@ -8,6 +8,22 @@ version is pinned in `dataset/VERSION` and stamped into every export as
 
 ## [Unreleased]
 
+### Fix the `compare --bands` band readout + add the v0.2 reference notebook (2026-06-09)
+- **Fixed a band-display bug in `hypnos compare --bands`.** The per-model band was
+  printed as `[max(q_lo), max(q_hi)]` — the *independent temporal maxima* of the 5th-
+  and 95th-percentile curves, which peak at different instants, producing an incoherent
+  interval (e.g. Eleveld's elderly-patient Ce band read `[1.20, 8.20]`). It now reports
+  the band at the **median-peak instant** `i = argmax(q[50])` → `[q_lo[i], q_hi[i]]`,
+  matching `hypnos simulate` and the dashboard ribbon exactly (`[0.87, 6.90]`). The
+  underlying quantile arrays were always correct; only this one CLI summary line was
+  wrong. New regression test (`test_compare_band_matches_simulate_at_peak`) asserts the
+  two views agree. Stale README band number refreshed.
+- **New reference notebook** `notebooks/02_population_variability.ipynb`, executed in CI
+  via `nbmake` (the v0.2 sibling of the divergence notebook). It reproduces the seeded
+  prediction bands, the never-synthesize rule (no band for a no-BSV model), seed
+  determinism (and the refusal of unseeded bands), the variance decomposition, and the
+  PD effect band — entirely from curated data, with assertions that lock the behavior.
+
 ### v0.2 — the population-variability layer (V0–V3 export code complete) (2026-06-09)
 Curate the **random-effects** structure of population models — between-subject
 variability (η / Ω) and residual error (ε / Σ) — alongside the typical-value

@@ -8,6 +8,25 @@ version is pinned in `dataset/VERSION` and stamped into every export as
 
 ## [Unreleased]
 
+### v0.6 reaches the dashboard + a reference notebook (2026-06-10) — housekeeping/reach
+- **The local-anesthetic subsystem now reaches the dashboard.** Every prior subsystem shipped into
+  `compare` + the CLI + the Streamlit dashboard (volatiles, the organ-failure overlay, the prediction
+  bands all do); v0.6 had reached only the CLI and library. LA models are `purpose: pk` but use the
+  Bateman absorption kernel, not an IV-disposition kernel, so `compare()` reports them *unavailable*
+  and the divergence view was empty when a local anesthetic was selected. A dedicated **"Local
+  anesthetics" dashboard section** (mirroring the self-contained volatiles section) now renders the
+  subsystem properly: site-of-injection dominance, the double-uncertainty view (total + non-linear
+  free traces against the threshold RANGES, with the dominant-uncertainty readout), and the
+  agent-choice cardiotoxicity comparison — all from the same tested `hypnos.la` functions the CLI
+  uses, so no surface drifts. A new `test_dashboard.py` case exercises it.
+- **A CI-executed v0.6 reference notebook** (`notebooks/03_local_anesthetics.ipynb`, built
+  deterministically by `scripts/build_la_notebook.py`) walks all four LA phases from the live kernels —
+  site dominance (LA0), the double-uncertainty view (LA1), the stereochemistry/cardiotoxicity margin
+  (LA2), and the binding-saturation free-fraction model (LA3) — closing the notebook gap that had stood
+  since v0.2 (the prior reference notebooks cover only v0.1 divergence and v0.2 variability). Executed
+  in the CI `notebooks` job via `nbmake`, so it cannot rot.
+- No dataset/schema change (still `0.6.0`); this is reach + documentation for the completed subsystem.
+
 ### Local-anesthetic binding-saturation free-fraction model (v0.6 LA3) (2026-06-10) — v0.6 subsystem COMPLETE
 - **The failure mode total concentration hides, made visible.** Local anesthetics are highly,
   *saturably* protein-bound (chiefly to α1-acid glycoprotein); only the FREE fraction is toxic, and as

@@ -302,6 +302,85 @@ if drug == "propofol":
         c2.metric("BIS min — + remifentanil", f"{ir.effect_min:.1f}")
         c3.metric("Composed tier", ir.tier)
 
+# --- Local anesthetics: systemic absorption + the double-uncertainty view (v0.6) ---
+# LA models are purpose: pk but use the la_absorption (Bateman) kernel, not the IV
+# disposition kernel, so they sit OUTSIDE the divergence view above (compare() reports
+# them unavailable). This self-contained section renders the subsystem properly — site
+# dominance, the double-uncertainty view, and the agent-choice cardiotoxicity comparison —
+# all from the same tested hypnos.la functions the CLI uses. Systemic concentration only;
+# NOT block efficacy, NOT a dosing tool, no maximum dose (v0.6 §7).
+la_models = sorted(m.id for m in ds if m.subsystem == "local_anesthetics")
+if la_models:
+    from hypnos.la import (cardiotoxicity_comparison, concentration_at_site,
+                           double_uncertainty, free_concentration, site_comparison)
+
+    st.divider()
+    st.subheader("Local anesthetics — systemic absorption & the double-uncertainty view (v0.6)")
+    st.caption("Site-driven systemic absorption (the mg/kg ceiling is the wrong model), the "
+               "toxicity-threshold **RANGES** + the double-uncertainty view, the agent-choice "
+               "cardiotoxicity margin, and the binding-saturation free trace. Systemic "
+               "concentration only — NOT block efficacy, NOT a dosing tool, no maximum dose (v0.6 §7).")
+    la_drugs = sorted({ds[m].drug_name for m in la_models})
+    lac1, lac2, lac3 = st.columns(3)
+    la_drug = lac1.selectbox("LA agent", la_drugs,
+                             index=la_drugs.index("bupivacaine") if "bupivacaine" in la_drugs else 0)
+    la_id = next(m for m in la_models if ds[m].drug_name == la_drug)
+    la_dose = lac2.slider("Dose (mg)", 20, 400, 100, step=10)
+    sites = [s["site"] for s in (ds[la_id].absorption or {}).get("site_rates", []) if s.get("ka")]
+    la_site = lac3.selectbox("Injection site", sites,
+                             index=sites.index("lumbar_epidural") if "lumbar_epidural" in sites else 0)
+    la_t = 90.0
+
+    # 1. site dominance — the SAME dose at every site, the headline safety message
+    rows = site_comparison(ds, la_id, dose_mg=la_dose, t_min=la_t)
+    site_df = pd.DataFrame({"t (min)": rows[0].t})
+    for r in rows:
+        site_df[r.site] = r.cp
+    st.markdown(f"**Site-of-injection dominance** — the same {la_dose:g} mg by site (tier {rows[0].tier})")
+    st.line_chart(site_df, x="t (min)", y_label="total plasma conc. (µg/mL)")
+    hi, lo = rows[0], rows[-1]
+    st.caption(f"Same dose → Cmax {hi.cmax:.2f} at {hi.site} vs {lo.cmax:.2f} µg/mL at {lo.site} "
+               f"({hi.cmax / lo.cmax:.1f}×): absorption is site-driven, so the mg/kg ceiling is the wrong model.")
+
+    # 2. the double-uncertainty view — predicted total + (non-linear) free vs threshold RANGES
+    if ds[la_id].has_toxicity_thresholds:
+        du = double_uncertainty(ds, la_id, site=la_site, dose_mg=la_dose, t_min=la_t)
+        run = concentration_at_site(ds, la_id, site=la_site, dose_mg=la_dose, t_min=la_t)
+        fc = free_concentration(run.cp, ds.drug(la_drug).get("protein_binding"))
+        st.markdown(f"**Double-uncertainty view** — {la_drug} {la_dose:g} mg at {la_site} (tier {du.tier})")
+        trace_df = pd.DataFrame({"t (min)": run.t, "total plasma": run.cp})
+        if fc.c_free is not None:
+            trace_df["free (non-linear)" if fc.model == "capacity_limited" else "free"] = fc.c_free
+        if fc.c_free_linear is not None and fc.model == "capacity_limited":
+            trace_df["free (linear under-estimate)"] = fc.c_free_linear
+        st.line_chart(trace_df, x="t (min)", y_label="concentration (µg/mL)")
+        thr_df = pd.DataFrame([
+            {"endpoint": e.endpoint, "basis": e.basis,
+             "threshold range (µg/mL)": f"[{e.low:g}, {e.high:g}]",
+             "predicted peak": round(e.predicted_peak, 4) if e.predicted_peak is not None else None,
+             "position": e.position, "tier": e.tier}
+            for e in du.endpoints])
+        st.dataframe(thr_df, hide_index=True)
+        st.info(f"**{du.dominant_uncertainty}**")
+        for w in du.warnings:
+            if w.startswith(("CARDIOTOXICITY", "FREE-FRACTION", "binding is SATURABLE")):
+                st.warning(w)
+        st.caption("Thresholds are curated as RANGES, never lines — the view exists to prevent the "
+                   "single-line reading. Research / education only; it computes no dose, ceiling, or margin.")
+
+    # 3. agent-choice cardiotoxicity comparison (stereochemistry / CNS-to-CVS margin)
+    cardio = cardiotoxicity_comparison(ds)
+    if cardio:
+        st.markdown("**Agent-choice cardiotoxicity** — why a similar CNS threshold can hide a different "
+                    "cardiovascular margin")
+        st.dataframe(pd.DataFrame([
+            {"drug": a.drug, "class": a.rank, "stereochemistry": a.stereochemistry,
+             "CNS→CVS margin": a.cns_to_cvs_margin,
+             "fold": f"{a.cns_to_cvs_fold:.1f}×" if a.cns_to_cvs_fold else "—"}
+            for a in cardio]), hide_index=True)
+        st.caption("Most cardiotoxic first. Racemic bupivacaine's narrow margin is the reason the "
+                   "S-enantiomers were developed — the comparison is comparative/educational, never a dose.")
+
 # --- Inhalational agents: a different (non-compartmental) parameter convention ---
 # Volatiles are characterized by MAC + its age correction + the blood:gas-driven
 # wash-in, not compartmental PK — so they live outside the divergence view above.

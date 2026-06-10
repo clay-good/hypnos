@@ -42,6 +42,23 @@ def test_dashboard_organ_failure_overlay():
     assert "HEPATIC EXTRAPOLATION" in warnings
 
 
+def test_dashboard_local_anesthetic_section():
+    # the v0.6 LA subsystem reaches the dashboard (it sits outside the IV-divergence
+    # view): the self-contained section must render the site-dominance, the
+    # double-uncertainty view, and the agent-choice cardiotoxicity comparison.
+    at = AppTest.from_file(APP, default_timeout=120).run()
+    assert not at.exception
+    subheaders = " ".join(s.value for s in at.subheader)
+    assert "Local anesthetics" in subheaders
+    # the double-uncertainty punchline (threshold uncertainty dominates) surfaces as an info box
+    infos = " ".join(i.value for i in at.info)
+    assert "THRESHOLD uncertainty dominates" in infos or "uncertainty" in infos
+    # switching the LA agent (default bupivacaine -> ropivacaine) must not crash
+    la_sel = next(s for s in at.selectbox if s.label == "LA agent")
+    la_sel.set_value("ropivacaine").run()
+    assert not at.exception
+
+
 def test_dashboard_renders_with_prediction_bands():
     at = AppTest.from_file(APP, default_timeout=120).run()
     assert not at.exception

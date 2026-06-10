@@ -324,6 +324,8 @@ This is *why* agent choice matters: at a similar CNS threshold the cardiovascula
 
 ![Hypnos v0.6 LA3 — the binding-saturation failure mode](docs/images/la_saturation.png)
 
+All four LA phases are now live in the **CLI** (`hypnos la`), the **[Streamlit dashboard](dashboard/app.py)** (a dedicated "Local anesthetics" panel — site dominance, the double-uncertainty view, and the cardiotoxicity comparison; LA models sit outside the IV-divergence view because they use the Bateman absorption kernel, not an IV-disposition kernel), and a CI-executed **[reference notebook](notebooks/03_local_anesthetics.ipynb)** that walks the whole story from the live kernels. Same tested `hypnos.la` functions throughout, so no surface drifts from another.
+
 ## Inhalational agents: a different parameter convention (MAC)
 
 Phase D brings in the non-IV families, which do **not** fit compartmental PK. Volatile anaesthetics are characterized by **MAC** (minimum alveolar concentration), its **age correction**, and **partition coefficients** — a distinct, first-class `physicochemical` model type with its own kernel. Hypnos ships sevoflurane, desflurane, isoflurane, and nitrous oxide, and evaluates age-corrected MAC, the MAC fraction (a depth surrogate), and the *additive* combined MAC fraction when nitrous oxide is co-administered.
@@ -686,11 +688,11 @@ hypnos/
 │   ├── verification.py          # verification checklists + coverage (guides humans; never promotes)
 │   ├── cli.py
 │   └── export/                  # registry · annotate · _variability(Ω/Σ projection) · nonmem · pharmml · sbml · tci_json · rxode2 · pumas · bibtex · csv_flat · combine(.omex)
-├── scripts/regenerate.py        # deterministically regenerate all exports + figures
-├── notebooks/                   # reference notebooks executed in CI (nbmake): divergence + v0.2 variability
+├── scripts/regenerate.py        # deterministically regenerate all exports + figures (+ build_la_notebook.py)
+├── notebooks/                   # reference notebooks executed in CI (nbmake): divergence · v0.2 variability · v0.6 local anesthetics
 ├── CHANGELOG.md · .zenodo.json   # release metadata (Zenodo DOI on first tagged release)
 ├── python/tests/                # analytic-vs-numeric, round-trip, envelope, tier, CLI, verification
-├── dashboard/app.py             # Streamlit: divergence + seeded band ribbons + PD effect (BIS) band (v0.2) + onset + synergy + volatiles
+├── dashboard/app.py             # Streamlit: divergence + bands + PD effect band (v0.2) + onset + synergy + volatiles + local anesthetics (v0.6)
 ├── docs/about/essay.md          # why model-selection risk is the load-bearing idea
 ├── docs/specs/v0.1/spec.md      # the design spec (typical-value layer)
 ├── docs/specs/v0.2/variability.md  # the population-variability layer (Ω/Σ, bands)

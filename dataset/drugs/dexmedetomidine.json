@@ -10,5 +10,11 @@
   "drug_class": "selective alpha-2 adrenergic agonist (sedative)",
   "subsystem": "alpha2_agonists",
   "notes": "Sedation without significant respiratory depression; concentrations reported in ng/mL (the conventional unit; kernels compute the internal ug/mL).",
-  "concentration_unit": "ng/mL"
+  "concentration_unit": "ng/mL",
+  "protein_binding": {
+    "fraction_bound": 0.94,
+    "binding_sensitive": true,
+    "citation": "weerink-2017-dexmedetomidine",
+    "note": "~94% bound (albumin and α1-acid glycoprotein). In hypoalbuminemia the free fraction rises; a given total concentration drives more effect than a normal-binding model predicts. Surfaced as a documented failure mode (v0.5 §B3), not modeled."
+  }
 }

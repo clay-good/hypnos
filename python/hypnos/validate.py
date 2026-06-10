@@ -124,6 +124,16 @@ def validate_dataset(ds: Optional[Dataset] = None) -> List[str]:
         # --- external-validation layer (v0.4 spec §4) ---------------------
         problems.extend(_check_external_validation(m))
 
+    # drug-level protein-binding citations resolve (v0.5 §B3 binding failure mode —
+    # a binding-sensitivity claim must be traceable, like every other curated claim)
+    for d in getattr(ds, "drugs", {}).values():
+        pb = d.get("protein_binding") or {}
+        cid = pb.get("citation")
+        if cid and cid not in known_citations:
+            problems.append(
+                f"[cite] drug {d.get('name')}: protein_binding cites unknown '{cid}'"
+            )
+
     return problems
 
 

@@ -8,6 +8,37 @@ version is pinned in `dataset/VERSION` and stamped into every export as
 
 ## [Unreleased]
 
+### The protein-binding / free-fraction failure mode (v0.5 S1) (2026-06-11)
+- **The albumin axis of the v0.5 organ envelope now says *why* it matters, with a citation.**
+  S0 greyed every model under hypoalbuminemia with a generic message. For a **binding-sensitive**
+  drug, the view now adds the specific, safety-relevant failure mode: a highly protein-bound drug's
+  **free (active) fraction rises** when albumin falls, so a model fit in normal-albumin patients
+  **under-estimates** effect from a given *total* concentration (v0.5 §B3/§B7). The free-fraction
+  shift is **surfaced, never silently modeled** — the never-invent rule: Hypnos flags the documented
+  failure mode rather than fabricating a free-fraction correction it cannot source.
+- **Drug-level `protein_binding` curated for the three binding-sensitive anesthetics** — propofol
+  (~98% bound; **Zamacona 1997**, *Acta Anaesthesiol Scand* 41:1267-72, the critically-ill
+  protein-binding study), fentanyl (~84%; **Meuldermans 1982**, *Arch Int Pharmacodyn Ther* 257:4-19),
+  and dexmedetomidine (~94%; **Weerink 2017**, *Clin Pharmacokinet* 56:893-913) — each
+  `{fraction_bound, binding_sensitive, citation, note}`, three new citation records. Remifentanil
+  (~70% bound) is deliberately **not** flagged — no claim without standing.
+- **`evaluate_safety(model, patient, drug_meta=None)`** gains the optional drug record; when a
+  hypoalbuminemia organ-finding fires and the drug is binding-sensitive, it appends the cited
+  `BINDING-SENSITIVE:` caveat. `simulate`/`compare` thread the drug record automatically, so the
+  caveat appears in the CLI and the dashboard's organ-failure overlay with no UI change. Backward
+  compatible — callers that pass no `drug_meta` (and normal-albumin patients) are unaffected.
+- **`hypnos validate`** now resolves every drug-level `protein_binding` citation (the same
+  never-assert-bare rule the rest of the dataset follows).
+- 12 new tests (curated chemistry, the caveat firing only for a binding-sensitive drug + low
+  albumin, backward-compatible defaults, the end-to-end `simulate` path, citation resolution).
+- **Fix:** the per-model BibTeX export now collects the **organ-tolerance** (model-level) and
+  **protein-binding** (drug-level) citations too — `hypnos export --format bibtex` was silently
+  dropping the 5 v0.5 references (Dershwitz/Hoke/Zamacona/Meuldermans/Weerink), emitting 19 of 24.
+  The dataset-level `.omex`/combine export already carried all of them; only the per-model
+  ref-collection lagged. Regression test added.
+- **Housekeeping:** removed a pre-existing unused `load` import in `simulate.py` (flagged by ruff;
+  it lived only in a docstring word).
+
 ### The organ-function envelope — making Hypnos speak on organ failure (v0.5 S0) (2026-06-10)
 - **The *physiological* envelope now speaks.** v0.1's envelope greys a model when a
   patient's *demographic* covariates (age/weight/BMI) fall outside the derivation range;

@@ -22,7 +22,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 
-from .load import Dataset, load
+from .load import Dataset
 from .models import Model, concentration_factor, worst_tier
 from .reference import (
     Dosing,
@@ -208,8 +208,16 @@ def _apply_pd(pdm: Model, ce: np.ndarray, patient: Dict[str, Any]) -> np.ndarray
     return sigmoid_emax(ce, pp["E0"], pp["Emax"], pp["Ce50"], pp["gamma"])
 
 
-def evaluate_safety(model: Model, patient: Dict[str, Any]) -> Tuple[str, List[str], bool]:
-    """Return (tier_floor, warnings, envelope_violated)."""
+def evaluate_safety(
+    model: Model, patient: Dict[str, Any], drug_meta: Optional[Dict[str, Any]] = None
+) -> Tuple[str, List[str], bool]:
+    """Return (tier_floor, warnings, envelope_violated).
+
+    ``drug_meta`` (the drug record) is optional; when supplied and the patient is
+    hypoalbuminemic, a *binding-sensitive* drug surfaces the cited protein-binding /
+    free-fraction failure mode (v0.5 §B3) — the free-fraction shift is named, never
+    silently modeled.
+    """
     warnings: List[str] = []
     tier_floor = model.tier
     envelope_violated = False
@@ -232,13 +240,31 @@ def evaluate_safety(model: Model, patient: Dict[str, Any]) -> Tuple[str, List[st
     # a model with standing (e.g. remifentanil's esterase clearance) carries an explaining
     # note instead. Independent of the demographic check above — organ failure can violate
     # the envelope even when age/weight/BMI are in range.
+    albumin_flagged = False
     for f in model.applicability_envelope.organ_check(patient):
+        if f.axis == "albumin":
+            albumin_flagged = True
         if f.extrapolation:
             envelope_violated = True
             tier_floor = "D"
             warnings.append(f"ORGAN ENVELOPE: {f.message}")
         else:
             warnings.append(f"ORGAN NOTE: {f.message}")
+
+    # Protein-binding / free-fraction failure mode (v0.5 §B3): for a binding-sensitive
+    # drug, hypoalbuminemia raises the free (active) fraction, so the TOTAL-concentration
+    # prediction under-estimates effect. Surfaced with its citation, never modeled.
+    pb = (drug_meta or {}).get("protein_binding") or {}
+    if albumin_flagged and pb.get("binding_sensitive"):
+        fb = pb.get("fraction_bound")
+        bound = f"~{fb * 100:g}% protein-bound" if fb is not None else "highly protein-bound"
+        cite = pb.get("citation")
+        warnings.append(
+            f"BINDING-SENSITIVE: {model.drug_name} is {bound}; in hypoalbuminemia the free "
+            "(active) fraction rises, so the total-concentration prediction UNDER-estimates "
+            "effect — a documented failure mode, surfaced not modeled"
+            + (f" [{cite}]" if cite else "")
+        )
 
     env = _covariate_env(patient)
     for fm in model.known_failure_modes:
@@ -449,10 +475,10 @@ def simulate(
     dosing = build_dosing(schedule, weight)
     traj: Trajectory = _simulate_ref(params, dosing, t)
 
-    tier_floor, warnings, excluded = evaluate_safety(model, patient)
+    drug_meta = ds.drug(model.drug_name) or {}
+    tier_floor, warnings, excluded = evaluate_safety(model, patient, drug_meta)
     tier = worst_tier([model.tier, tier_floor])
 
-    drug_meta = ds.drug(model.drug_name) or {}
     result = SimulationResult(
         model_id=model_id, t=t, cp=traj.cp, ce=traj.ce, tier=tier,
         warnings=warnings, excluded=excluded, params=params, patient=dict(patient),

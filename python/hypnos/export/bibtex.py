@@ -56,7 +56,8 @@ def build_for_model(model, ds=None, patient=None) -> str:
 def build(ds, models: Optional[list] = None) -> str:
     """BibTeX export. With ``models=None`` emits the entire citation library; with
     a model subset, emits only the citations those models reference (primary,
-    per-parameter, failure-mode, and predictive-performance)."""
+    per-parameter, failure-mode, predictive-performance, organ-tolerance, and the
+    drug's protein-binding source)."""
     if models is None:
         ids: List[str] = list(ds.citations.keys())
     else:
@@ -66,6 +67,9 @@ def build(ds, models: Optional[list] = None) -> str:
             refs += [p.primary_citation for p in m.parameters]
             refs += [fm.citation for fm in m.known_failure_modes]
             refs += [pp.get("citation") for pp in m.predictive_performance]
+            # v0.5: organ-failure standing (model-level) + protein binding (drug-level)
+            refs += [ot.get("citation") for ot in m.applicability_envelope.organ_tolerance]
+            refs.append(((ds.drug(m.drug_name) or {}).get("protein_binding") or {}).get("citation"))
             for cid in refs:
                 if cid and cid not in ids:
                     ids.append(cid)

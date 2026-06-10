@@ -9,5 +9,11 @@
   "drug_class": "synthetic opioid (mu agonist)",
   "subsystem": "opioids",
   "notes": "Longer context-sensitive half-time than remifentanil. Concentrations conventionally in ng/mL.",
-  "concentration_unit": "ng/mL"
+  "concentration_unit": "ng/mL",
+  "protein_binding": {
+    "fraction_bound": 0.84,
+    "binding_sensitive": true,
+    "citation": "meuldermans-1982-opioid-binding",
+    "note": "~84% bound (albumin and α1-acid glycoprotein). Hypoalbuminemia / raised α1-AG in acute illness shift the free fraction; a given total concentration then maps to a different effect than a normal-binding model assumes. Surfaced as a documented failure mode (v0.5 §B3), not modeled."
+  }
 }

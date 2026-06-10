@@ -10,5 +10,11 @@
   "drug_class": "IV hypnotic (GABA-A potentiator)",
   "subsystem": "hypnotics_iv",
   "notes": "Most-modeled IV anesthetic; the canonical case for model-selection risk (Marsh vs Schnider vs Eleveld).",
-  "concentration_unit": "ug/mL"
+  "concentration_unit": "ug/mL",
+  "protein_binding": {
+    "fraction_bound": 0.98,
+    "binding_sensitive": true,
+    "citation": "zamacona-1997-propofol-binding",
+    "note": "~98% albumin-bound. In hypoalbuminemia / critical illness the free (active) fraction rises, so a given TOTAL plasma concentration drives more effect than a model fit in normal-albumin patients predicts. Surfaced as a documented failure mode (v0.5 §B3), never silently folded into a clearance number — the free-fraction shift is not modeled here."
+  }
 }

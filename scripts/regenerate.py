@@ -519,6 +519,82 @@ def _fig_la_saturation(ds, plt) -> None:
     plt.close(fig)
 
 
+def _fig_covariate_equations(ds, plt) -> None:
+    """v0.7 C0 — the covariate equation as a first-class, validity-bounded object.
+
+    LEFT: the derived body-size quantity vs total body weight (height 170 cm, male,
+    50 y), straight from the live equation library. James (1976) LBM rises, PEAKS,
+    and then DECLINES with weight — the non-physical inversion, a tested property —
+    while the Janmahasatian (2005) and Al-Sallami (2015) FFM equations stay monotone.
+    The BMI>37 region (outside James's own validity envelope) is shaded.
+
+    RIGHT: the CONSEQUENCE — Schnider's metabolic clearance Cl1, which scales on LBM,
+    computed with the model's own James equation (inverts → clearance INFLATES in
+    obesity) vs the same θ with Janmahasatian FFM substituted. This is the documented
+    'same model, different answer' divergence at its actual source: a covariate
+    equation no one was looking at. Comparative / educational (v0.7 §10).
+    """
+    from hypnos import covariates as cov
+
+    height, age, sex = 170.0, 50.0, "M"
+    weights = np.linspace(45, 190, 200)
+    bmis = weights / (height / 100.0) ** 2
+
+    def derived(eq):
+        return np.array([cov.evaluate(eq, dict(age=age, weight=float(w), height=height, sex=sex),
+                                      ds=ds).value for w in weights])
+
+    lbm = derived("james_1976")
+    jan = derived("janmahasatian_2005")
+    als = derived("al_sallami_2015")
+
+    fig, (axL, axR) = plt.subplots(1, 2, figsize=(13, 4.8))
+
+    # envelope shading for James (BMI > 37)
+    over = bmis > 37.0
+    if over.any():
+        axL.axvspan(weights[over][0], weights[-1], color="#d62728", alpha=0.07,
+                    label="James outside its envelope (BMI>37)")
+    axL.plot(weights, lbm, color="#d62728", lw=2.6, label="James 1976 LBM (inverts)")
+    axL.plot(weights, jan, color="#1f77b4", lw=2.4, label="Janmahasatian 2005 FFM")
+    axL.plot(weights, als, color="#2ca02c", lw=2.4, ls="--", label="Al-Sallami 2015 FFM")
+    peak = int(np.argmax(lbm))
+    axL.scatter([weights[peak]], [lbm[peak]], color="#d62728", zorder=4, s=55)
+    axL.annotate(f"James peak\n({weights[peak]:.0f} kg, BMI {bmis[peak]:.0f})",
+                 (weights[peak], lbm[peak]), textcoords="offset points", xytext=(6, -28),
+                 fontsize=8.5, color="#d62728")
+    axL.set_title("Body-composition equations are part of the model\n"
+                  "James LBM peaks then DECLINES with weight (non-physical inversion)", fontsize=11)
+    axL.set_xlabel("total body weight (kg) — height 170 cm, male, 50 y")
+    axL.set_ylabel("derived mass (kg)")
+    axL.legend(fontsize=8.5); axL.grid(alpha=0.25)
+
+    # RIGHT — Schnider Cl1 under James (own) vs Janmahasatian (substituted)
+    # Cl1 = 1.89 + 0.0456*(W-77) - 0.0681*(LBM-59) + 0.0264*(H-177)
+    def schnider_cl1(mass):
+        return 1.89 + 0.0456 * (weights - 77.0) - 0.0681 * (mass - 59.0) + 0.0264 * (height - 177.0)
+
+    cl1_james = schnider_cl1(lbm)
+    cl1_jan = schnider_cl1(jan)
+    axR.axvspan(weights[over][0], weights[-1], color="#d62728", alpha=0.07) if over.any() else None
+    axR.plot(weights, cl1_james, color="#d62728", lw=2.6, label="Schnider Cl1 with James (model's own)")
+    axR.plot(weights, cl1_jan, color="#1f77b4", lw=2.4, ls="--",
+             label="Schnider Cl1 with Janmahasatian (substituted)")
+    axR.set_title("The consequence: Schnider clearance INFLATES in obesity\n"
+                  "because its LBM term rests on the inverted James equation", fontsize=11)
+    axR.set_xlabel("total body weight (kg)")
+    axR.set_ylabel("metabolic clearance Cl1 (L/min)")
+    axR.legend(fontsize=8.5); axR.grid(alpha=0.25)
+
+    fig.suptitle("Hypnos v0.7 — the covariate-equation layer: which equation turns a patient into "
+                 f"the model's inputs  ·  {_DISCLAIMER}", y=1.02, fontsize=10.5)
+    fig.text(0.5, -0.02, "RESEARCH / EDUCATION ONLY — the inversion is SURFACED, never silently "
+             "'fixed'; a substituted equation appears only as a labeled divergence (v0.7 §10)",
+             ha="center", color="#c0392b", fontsize=9)
+    fig.tight_layout(); fig.savefig(IMAGES / "covariate_equations.png", dpi=130, bbox_inches="tight")
+    plt.close(fig)
+
+
 def regenerate_figures(ds) -> bool:
     try:
         import matplotlib
@@ -539,8 +615,10 @@ def regenerate_figures(ds) -> bool:
     _fig_la_double_uncertainty(ds, plt)
     _fig_la_cardiotoxicity(ds, plt)
     _fig_la_saturation(ds, plt)
+    _fig_covariate_equations(ds, plt)
     print(f"figures: regenerated divergence, synergy, pediatric, mac_age, washin, washout, "
-          f"variability, effect_band, la_double_uncertainty, la_cardiotoxicity, la_saturation -> {IMAGES}/")
+          f"variability, effect_band, la_double_uncertainty, la_cardiotoxicity, la_saturation, "
+          f"covariate_equations -> {IMAGES}/")
     return True
 
 

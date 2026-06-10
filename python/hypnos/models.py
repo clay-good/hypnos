@@ -239,6 +239,36 @@ class FailureMode:
 
 
 @dataclass(frozen=True)
+class DerivedInput:
+    """One binding of a model's consumed derived covariate to a named equation (v0.7 §3.1).
+
+    The binding fact: this model scales ``used_for`` parameters on ``quantity``
+    (e.g. LBM) computed by the exact published ``equation`` (e.g. ``james_1976``).
+    ``verbatim`` asserts the equation is the authors' own choice; a ``false`` value
+    flags a documented, cited substitution shown only in the divergence view."""
+
+    quantity: str                          # lbm | ffm | bsa | ibw | nfm | allometric_size
+    equation: str                          # resolves to dataset/covariate_equations/<id>.json
+    used_for: List[str] = field(default_factory=list)
+    verbatim: bool = True
+    tier: str = "D"
+    primary_citation: Optional[str] = None
+    extraction: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class CovariateModel:
+    """Which named body-size/composition equations a model is DERIVED with (v0.7 §3.1)."""
+
+    derived_inputs: List[DerivedInput] = field(default_factory=list)
+
+    @property
+    def tier(self) -> str:
+        """Worst tier among the bound derived-input equations (None-safe -> D)."""
+        return worst_tier([d.tier for d in self.derived_inputs]) if self.derived_inputs else "D"
+
+
+@dataclass(frozen=True)
 class OrganFinding:
     """One organ-function-envelope finding for a patient (v0.5 §B).
 
@@ -484,6 +514,42 @@ class Model:
     @property
     def covariates(self) -> Dict[str, Any]:
         return self.raw.get("covariates", {})
+
+    # --- covariate-model sublayer (v0.7 layer) ----------------------------
+    @property
+    def covariate_model(self) -> Optional[CovariateModel]:
+        """The named derived-covariate equations this model is derived with (v0.7 §3.1),
+        or None when the model declares none (an explicit gap — never an assumption
+        that raw weight was used)."""
+        raw = self.raw.get("covariate_model")
+        if not raw:
+            return None
+        inputs = [
+            DerivedInput(
+                quantity=d["quantity"],
+                equation=d["equation"],
+                used_for=list(d.get("used_for", [])),
+                verbatim=bool(d.get("verbatim", True)),
+                tier=d.get("tier", "D"),
+                primary_citation=d.get("primary_citation"),
+                extraction=d.get("extraction", {}),
+            )
+            for d in raw.get("derived_inputs", [])
+        ]
+        return CovariateModel(derived_inputs=inputs)
+
+    @property
+    def covariate_sensitivity_status(self) -> str:
+        """Rollup: 'none' | 'declared' | 'computed' (v0.7 §5). Default 'none'.
+
+        'none' => the model scales on raw covariates only (no derived equation);
+        'declared' => it names its derived-input equations; 'computed' is caller-side
+        (a covariate-value distribution was supplied) and never lives in the dataset."""
+        return self.raw.get("covariate_sensitivity_status", "none")
+
+    @property
+    def has_covariate_model(self) -> bool:
+        return self.covariate_model is not None
 
     @property
     def applicability_envelope(self) -> Envelope:

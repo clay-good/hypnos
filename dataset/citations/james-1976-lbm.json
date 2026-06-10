@@ -1,0 +1,12 @@
+{
+  "id": "james-1976-lbm",
+  "type": "book",
+  "authors": ["James WPT"],
+  "title": "Research on Obesity: A Report of the DHSS/MRC Group",
+  "container": "Her Majesty's Stationery Office (HMSO), London",
+  "year": 1976,
+  "doi": null,
+  "pmid": null,
+  "url": null,
+  "note": "Source of the James lean-body-mass equation (sex-specific, with the -(W/H)^2 term) used by the Schnider 1998 and Minto 1997 covariate models. The (W/H)^2 term is the origin of the documented high-BMI LBM inversion."
+}

@@ -8,6 +8,44 @@ version is pinned in `dataset/VERSION` and stamped into every export as
 
 ## [Unreleased]
 
+### v0.7 C0 — the covariate-equation library + bindings (2026-06-10)
+- **The fourth hidden uncertainty becomes a first-class object.** v0.1 made model-selection
+  uncertainty first-class; v0.2 between-subject; v0.3 estimation. v0.7 C0 curates the uncertainty
+  that sits *underneath* all of them — the **covariate transform** every covariate-scaled model
+  silently depends on. The choice of, e.g., the James (1976) vs. Janmahasatian (2005) lean-mass
+  equation reparameterizes a model with no change to a single published θ, and is the field's
+  best-documented "same model, different pump, different concentration" divergence. C0 turns v0.1's
+  lone `covariates.lbm_equation` string into a validated, cited, validity-bounded library. ([Full
+  design spec.](docs/specs/v0.7/covariate_uncertainty.md))
+- **A shared equation library** (`dataset/covariate_equations/`): `james_1976` (LBM), `janmahasatian_2005`
+  and `al_sallami_2015` (FFM) — the three equations Hypnos's curated models are actually derived with —
+  each carrying its `form`, sex branches, units, **its own `validity_envelope`**, `known_failure_modes`,
+  tier, and citation (new: James, Janmahasatian, Al-Sallami). Curated once and shared, exactly like
+  `dataset/citations/`. The Du-Bois/Mosteller/Devine equations the spec names are deferred until a
+  curated model binds one (no untested, unbound equations — the never-invent rule).
+- **`covariate_model` bindings on every covariate-scaled model** (Schnider, Minto → James; Kim →
+  Janmahasatian; Eleveld propofol + remifentanil → Al-Sallami): each names the exact published equation
+  per derived covariate, what θ it scales (`used_for`), whether it is the authors' `verbatim` choice, with
+  its own tier and a `covariate_sensitivity_status` rollup. Schema-additive (`covariate_model` $def +
+  `covariate_equation.schema.json`); no v0.1–v0.6 record changes meaning.
+- **`hypnos.covariates.evaluate`** generalizes `reference.lbm_james` into a small registered, individually-
+  validated library (James/Janmahasatian/Al-Sallami), each a verbatim transcription that checks its own
+  validity envelope and **surfaces** the James inversion (never silently "fixes" it). The inversion is a
+  *tested property*: James LBM is verified to peak-then-decline above its envelope, and `evaluate` flags it
+  (`inverted`, Tier-D, a cited warning). `hypnos covariates` exposes the library on the CLI (list / evaluate
+  for a patient / show a model's bindings, surfacing the inversion at its source).
+- **`hypnos validate`** gains the covariate layer: every `derived_inputs[].equation` resolves to a library
+  record, every `used_for` symbol resolves to a real parameter, the equation's inputs are available to the
+  model, `covariate_sensitivity_status` matches contents, every covariate-layer citation resolves, and each
+  library record is schema-checked + verified to be implemented in code (data/code stay in sync). The
+  verification checklist gains a `covariate_equation` group with the five §4 transcription traps (named
+  equation, units, sex coding, equation envelope, fixed-vs-fitted exponents) as explicit human line items.
+- New `docs/images/covariate_equations.png` (CI-regenerated from the live library): James LBM peaking then
+  inverting vs the monotone FFM equations, and the consequence — Schnider's clearance inflating in obesity
+  because its LBM term rests on the inverted equation. 17 new tests. Dataset/schema → `0.7.0`. C0 is the
+  self-contained increment the spec blesses; C1 (equation-divergence view), C2 (covariate-value bands + the
+  fifth variance component) and C3 (exports compute LBM the model's way) remain.
+
 ### v0.4 VE1 — the first external-data adapter (VitalDB) (2026-06-10)
 - **The first source-specific adapter for the Varvel engine.** [VitalDB](https://vitaldb.net) is an
   open intra-operative database; its cases carry the TCI pump's propofol delivery and the *measured*

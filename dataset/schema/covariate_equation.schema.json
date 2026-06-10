@@ -1,0 +1,72 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/clay-good/hypnos/dataset/schema/covariate_equation.schema.json",
+  "title": "Hypnos covariate-equation record",
+  "description": "One named, citation-backed auxiliary body-size/composition equation a model is derived with (lean body mass, fat-free mass, body-surface area, ...). The unit of curation for the v0.7 covariate sublayer. Equations are SHARED across models (many models use James), so they are curated once, exactly like dataset/citations/.",
+  "type": "object",
+  "required": ["id", "quantity", "form", "inputs", "units", "tier", "extraction", "primary_citation"],
+  "additionalProperties": false,
+  "properties": {
+    "id": { "type": "string", "pattern": "^[a-z0-9_]+$", "description": "Stable identifier referenced by a model's covariate_model.derived_inputs[].equation." },
+    "quantity": { "type": "string", "enum": ["lbm", "ffm", "bsa", "ibw", "nfm", "allometric_size"], "description": "The derived body-size/composition quantity this equation computes." },
+    "label": { "type": "string" },
+    "form": { "type": "string", "description": "Human-readable, verbatim form (machine-parseable where single-branch; sex branches in sex_specific)." },
+    "sex_specific": {
+      "type": "object",
+      "description": "Sex-branched verbatim forms when the equation has sex-specific coefficients (Trap 3).",
+      "additionalProperties": false,
+      "properties": { "male": { "type": "string" }, "female": { "type": "string" } }
+    },
+    "inputs": { "type": "array", "items": { "type": "string" }, "description": "The input covariate variables the equation consumes (e.g. weight, height_cm, age, sex)." },
+    "units": { "type": "object", "description": "Explicit unit per input variable and the result — height cm-vs-m flips the (W/H)^2 term by 10^4 (Trap 2).", "additionalProperties": { "type": "string" } },
+    "validity_envelope": {
+      "type": "object",
+      "description": "The equation's OWN derivation range; outside it the equation may misbehave INDEPENDENTLY of the disposition envelope (Trap 4). Evaluating outside it tiers the covariate layer (hence the composed simulation) down to D.",
+      "additionalProperties": false,
+      "properties": {
+        "age_years": { "$ref": "#/$defs/range" },
+        "weight_kg": { "$ref": "#/$defs/range" },
+        "height_cm": { "$ref": "#/$defs/range" },
+        "bmi_kg_m2": { "$ref": "#/$defs/range" }
+      }
+    },
+    "known_failure_modes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["condition", "behavior", "action"],
+        "additionalProperties": false,
+        "properties": {
+          "condition": { "type": "string" },
+          "behavior": { "type": "string" },
+          "action": { "type": "string", "enum": ["tier_down_to_D", "warn", "exclude"] },
+          "citation": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "tier": { "type": "string", "enum": ["A", "B", "C", "D"] },
+    "extraction": {
+      "type": "object",
+      "required": ["review_status"],
+      "additionalProperties": false,
+      "properties": {
+        "review_status": { "type": "string", "enum": ["unverified", "verified", "contested"] },
+        "tier_rationale": { "type": "string" },
+        "source_locator": { "type": "string" },
+        "verified_by": { "type": ["string", "null"] },
+        "verified_date": { "type": ["string", "null"] }
+      }
+    },
+    "primary_citation": { "type": "string" }
+  },
+  "$defs": {
+    "range": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "min": { "type": ["number", "null"] },
+        "max": { "type": ["number", "null"] }
+      }
+    }
+  }
+}

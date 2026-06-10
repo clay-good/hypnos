@@ -21,8 +21,8 @@ class ValidationError(Exception):
     pass
 
 
-def _load_schema(root: Path) -> dict:
-    schema_path = root / "schema" / "model.schema.json"
+def _load_schema(root: Path, name: str = "model.schema.json") -> dict:
+    schema_path = root / "schema" / name
     with schema_path.open(encoding="utf-8") as fh:
         return json.load(fh)
 
@@ -44,6 +44,14 @@ def validate_dataset(ds: Optional[Dataset] = None) -> List[str]:
             for err in sorted(validator.iter_errors(m.raw), key=lambda e: e.path):
                 loc = "/".join(str(p) for p in err.path)
                 problems.append(f"[schema] {m.id}: {loc}: {err.message}")
+        # covariate-equation library records (v0.7 §3.2) against their own schema
+        eq_schema_path = root / "schema" / "covariate_equation.schema.json"
+        if eq_schema_path.is_file():
+            eq_validator = jsonschema.Draft7Validator(_load_schema(root, "covariate_equation.schema.json"))
+            for eid, rec in getattr(ds, "covariate_equations", {}).items():
+                for err in sorted(eq_validator.iter_errors(rec), key=lambda e: e.path):
+                    loc = "/".join(str(p) for p in err.path)
+                    problems.append(f"[schema] covariate_equation {eid}: {loc}: {err.message}")
     except ImportError:  # pragma: no cover - jsonschema is a hard dependency
         problems.append("[schema] jsonschema not installed; skipped schema validation")
 
@@ -148,6 +156,12 @@ def validate_dataset(ds: Optional[Dataset] = None) -> List[str]:
 
         # --- estimation-uncertainty layer (v0.3 spec §9) ------------------
         problems.extend(_check_estimation(m, known_citations))
+
+        # --- covariate-model layer (v0.7 spec §9) -------------------------
+        problems.extend(_check_covariate_model(m, ds, known_citations))
+
+    # --- covariate-equation library (v0.7 spec §9) ------------------------
+    problems.extend(_check_covariate_equations(ds, known_citations))
 
     # drug-level protein-binding citations resolve (v0.5 §B3 binding failure mode —
     # a binding-sensitivity claim must be traceable, like every other curated claim)
@@ -404,6 +418,121 @@ def _check_estimation(m, known_citations) -> List[str]:
                 "parameter carrying an estimation SE"
             )
 
+    return problems
+
+
+# Equation input variables that are universally available from a standard patient
+# (so a model need not list them in covariates.required to bind an equation needing them).
+_STANDARD_COVARIATES = {"weight", "height", "height_cm", "age", "sex", "bmi"}
+# Map an equation input variable to the model-covariate name that supplies it.
+_INPUT_TO_COVARIATE = {"height_cm": "height"}
+
+
+def _check_covariate_model(m, ds, known_citations) -> List[str]:
+    """Covariate-model layer checks (v0.7 spec §9):
+
+    1. every ``derived_inputs[].equation`` resolves to a library record;
+    2. every ``used_for`` symbol resolves to a real parameter;
+    3. the equation's input covariates are available to the model (Trap 2 — the
+       dimensional/availability half a machine can check; the cm-vs-m unit check is
+       the human line item);
+    4. ``covariate_sensitivity_status`` matches the curated contents;
+    5. every covariate-layer ``primary_citation`` resolves.
+    """
+    problems: List[str] = []
+    cm = m.covariate_model
+    status = m.covariate_sensitivity_status
+
+    # (4a) 'computed' is caller-side and must never appear in the dataset
+    if status == "computed":
+        problems.append(
+            f"[covariate] {m.id}: covariate_sensitivity_status 'computed' is caller-side "
+            "(a supplied covariate-value distribution) and must not appear in the dataset"
+        )
+    # (4b) declared <-> covariate_model presence
+    if cm is None:
+        if status == "declared":
+            problems.append(
+                f"[covariate] {m.id}: covariate_sensitivity_status 'declared' but no "
+                "covariate_model block is present"
+            )
+        return problems
+    if status != "declared":
+        problems.append(
+            f"[covariate] {m.id}: covariate_model present but covariate_sensitivity_status "
+            f"is '{status}' (expected 'declared')"
+        )
+
+    param_symbols = {p.symbol for p in m.parameters}
+    declared_covs = set(m.covariates.get("required", [])) | set(m.covariates.get("optional", []))
+    eq_lib = getattr(ds, "covariate_equations", {})
+
+    for d in cm.derived_inputs:
+        # (1) equation resolves to a library record
+        rec = eq_lib.get(d.equation)
+        if rec is None:
+            problems.append(
+                f"[covariate] {m.id}: derived input '{d.quantity}' binds equation "
+                f"'{d.equation}' which is not in covariate_equations/"
+            )
+        else:
+            # (1b) the equation's quantity matches the binding's declared quantity
+            if rec.get("quantity") and rec.get("quantity") != d.quantity:
+                problems.append(
+                    f"[covariate] {m.id}: derived input declares quantity '{d.quantity}' but "
+                    f"equation '{d.equation}' computes '{rec.get('quantity')}'"
+                )
+            # (3) the equation's inputs are available to the model
+            for var in rec.get("inputs", []):
+                cov = _INPUT_TO_COVARIATE.get(var, var)
+                if cov not in _STANDARD_COVARIATES and cov not in declared_covs:
+                    problems.append(
+                        f"[covariate] {m.id}: equation '{d.equation}' needs covariate '{var}' "
+                        f"but the model does not declare it (covariates.required/optional)"
+                    )
+        # (2) used_for symbols resolve to real parameters
+        for sym in d.used_for:
+            if sym not in param_symbols:
+                problems.append(
+                    f"[covariate] {m.id}: derived input '{d.equation}' used_for '{sym}' "
+                    "is not a parameter of this model"
+                )
+        # (5) covariate-layer citation resolves
+        if d.primary_citation and d.primary_citation not in known_citations:
+            problems.append(
+                f"[cite] {m.id}: covariate_model '{d.equation}' cites unknown "
+                f"'{d.primary_citation}'"
+            )
+    return problems
+
+
+def _check_covariate_equations(ds, known_citations) -> List[str]:
+    """Covariate-equation library checks (v0.7 spec §9): each record's citation and
+    failure-mode citations resolve, its validity envelope is well-ordered, and it is
+    actually implemented in the pure equation registry (data/code stay in sync — an
+    equation a model could bind but the code cannot evaluate is a silent trap)."""
+    from .covariates import EQUATIONS  # local import to avoid a cycle
+
+    problems: List[str] = []
+    for eid, rec in getattr(ds, "covariate_equations", {}).items():
+        cid = rec.get("primary_citation")
+        if cid and cid not in known_citations:
+            problems.append(f"[cite] covariate_equation {eid}: primary_citation '{cid}' not in citations/")
+        for fm in rec.get("known_failure_modes", []):
+            fcid = fm.get("citation")
+            if fcid and fcid not in known_citations:
+                problems.append(f"[cite] covariate_equation {eid}: failure-mode cites unknown '{fcid}'")
+        env = rec.get("validity_envelope") or {}
+        for axis, rng in env.items():
+            if isinstance(rng, dict):
+                lo, hi = rng.get("min"), rng.get("max")
+                if lo is not None and hi is not None and lo > hi:
+                    problems.append(f"[covariate] equation {eid}: {axis} min {lo} > max {hi}")
+        if eid not in EQUATIONS:
+            problems.append(
+                f"[covariate] equation {eid}: curated in the library but not implemented in "
+                "hypnos.covariates.EQUATIONS (data/code out of sync)"
+            )
     return problems
 
 

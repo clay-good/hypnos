@@ -147,6 +147,12 @@
         }
       }
     },
+    "covariate_model": { "$ref": "#/$defs/covariate_model" },
+    "covariate_sensitivity_status": {
+      "type": "string",
+      "description": "Rollup of how the model's derived-covariate equations are curated; drives the v0.7 covariate-equation divergence view + the UI badge (v0.7 spec §3.1/§5). 'none' => scales on raw covariates only; 'declared' => names its derived-input equations; 'computed' is caller-side (a covariate-value distribution was supplied) and never appears in the dataset.",
+      "enum": ["none", "declared", "computed"]
+    },
     "residual_error": { "$ref": "#/$defs/residual_error" },
     "omega_block": { "$ref": "#/$defs/omega_block" },
     "estimate_covariance": { "$ref": "#/$defs/estimate_covariance" },
@@ -182,6 +188,32 @@
     "notes": { "type": "string" }
   },
   "$defs": {
+    "covariate_model": {
+      "type": "object",
+      "description": "Which named auxiliary body-size/composition equations this model is DERIVED with (v0.7 spec §3.1). Promotes and structures the lone covariates.lbm_equation string into a validated binding: each derived covariate the model consumes names the exact published equation (by id into dataset/covariate_equations/), what it scales, and whether it is the authors' verbatim choice. Silent substitution of one of these equations is the field's best-documented 'same model, different answer' divergence.",
+      "required": ["derived_inputs"],
+      "additionalProperties": false,
+      "properties": {
+        "derived_inputs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["quantity", "equation", "used_for", "verbatim", "tier", "extraction"],
+            "additionalProperties": false,
+            "properties": {
+              "quantity": { "type": "string", "enum": ["lbm", "ffm", "bsa", "ibw", "nfm", "allometric_size"] },
+              "equation": { "type": "string", "description": "Resolves to a dataset/covariate_equations/ record id (checked by hypnos validate)." },
+              "used_for": { "type": "array", "items": { "type": "string" }, "minItems": 1, "description": "Which structural parameter symbols scale on this derived quantity (each must resolve to a real parameter; drives the §7 sensitivity)." },
+              "verbatim": { "type": "boolean", "description": "true => the model's authors used exactly this equation; false => a documented, cited substitution (only ever shown in the divergence view, never as the model's own prediction)." },
+              "tier": { "type": "string", "enum": ["A", "B", "C", "D"] },
+              "extraction": { "$ref": "#/$defs/extraction" },
+              "primary_citation": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
     "parameter_variability": {
       "type": "object",
       "description": "Between-subject (and optional inter-occasion) variability for ONE structural parameter (v0.2 spec §3.1). Has its own tier and extraction, independent of the point-estimate tier.",

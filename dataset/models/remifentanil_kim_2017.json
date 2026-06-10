@@ -62,6 +62,24 @@
     }
   ],
   "covariates": { "required": ["age", "weight", "height", "sex"], "optional": ["ffm"], "lbm_equation": "janmahasatian_2005" },
+  "covariate_sensitivity_status": "declared",
+  "covariate_model": {
+    "derived_inputs": [
+      {
+        "quantity": "ffm",
+        "equation": "janmahasatian_2005",
+        "used_for": ["V2"],
+        "verbatim": true,
+        "tier": "B",
+        "extraction": {
+          "review_status": "unverified",
+          "tier_rationale": "Kim 2017 (remifentanil in obesity) scales the rapid peripheral volume on Janmahasatian (2005) fat-free mass — NOT Al-Sallami. The choice of FFM equation is the cardinal disambiguation (Trap 1).",
+          "source_locator": "Kim 2017, Methods/covariate model (FFM by Janmahasatian)"
+        },
+        "primary_citation": "kim-2017-remifentanil"
+      }
+    ]
+  },
   "applicability_envelope": {
     "age_years": { "min": 20, "max": 85 },
     "weight_kg": { "min": 45, "max": 200 },

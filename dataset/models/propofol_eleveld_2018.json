@@ -112,6 +112,24 @@
     }
   ],
   "covariates": { "required": ["age", "weight", "height", "sex"], "optional": ["opiate_coadministration", "arterial", "postmenstrual_age"], "lbm_equation": "al_sallami_2015" },
+  "covariate_sensitivity_status": "declared",
+  "covariate_model": {
+    "derived_inputs": [
+      {
+        "quantity": "ffm",
+        "equation": "al_sallami_2015",
+        "used_for": ["V3"],
+        "verbatim": true,
+        "tier": "A",
+        "extraction": {
+          "review_status": "unverified",
+          "tier_rationale": "Eleveld 2018 scales the slow peripheral volume on Al-Sallami (2015) age-aware FFM — the age multiplier is what lets one model span neonate->adult; monotone in weight (no James-style inversion).",
+          "source_locator": "Eleveld 2018, covariate model (FFM by Al-Sallami)"
+        },
+        "primary_citation": "eleveld-2018-propofol"
+      }
+    ]
+  },
   "applicability_envelope": {
     "age_years": { "min": 0, "max": 88 },
     "weight_kg": { "min": 5, "max": 160 },

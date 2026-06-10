@@ -8,7 +8,7 @@ See spec §10.
 """
 from __future__ import annotations
 
-__version__ = "0.6.0"
+__version__ = "0.7.0"
 
 CLINICAL_USE = "PROHIBITED — research/education/simulation only"
 
@@ -29,6 +29,11 @@ from .analysis import (  # noqa: E402
     validate_against_cohort,
     varvel_metrics,
 )
+from .covariates import (  # noqa: E402
+    EquationResult,
+    covariate_layer_tier,
+    evaluate as evaluate_covariate,
+)
 from .filter import performance_table, select, summary  # noqa: E402
 from .inhalational import (  # noqa: E402
     MacResult,
@@ -42,6 +47,8 @@ from .inhalational import (  # noqa: E402
 )
 from .load import Dataset, load  # noqa: E402
 from .models import (  # noqa: E402
+    CovariateModel,
+    DerivedInput,
     EstimateCovariance,
     EstimationUncertainty,
     Model,
@@ -82,6 +89,11 @@ __all__ = [
     "EstimationUncertainty",
     "EstimateCovariance",
     "ToxicityThreshold",
+    "CovariateModel",
+    "DerivedInput",
+    "evaluate_covariate",
+    "covariate_layer_tier",
+    "EquationResult",
     "select",
     "summary",
     "performance_table",

@@ -1,0 +1,28 @@
+{
+  "id": "janmahasatian_2005",
+  "quantity": "ffm",
+  "label": "Fat-free mass — Janmahasatian (2005)",
+  "form": "male: 9270*weight / (6680 + 216*bmi) ; female: 9270*weight / (8780 + 244*bmi)",
+  "sex_specific": {
+    "male": "9270*weight / (6680 + 216*bmi)",
+    "female": "9270*weight / (8780 + 244*bmi)"
+  },
+  "inputs": ["weight", "height_cm", "sex"],
+  "units": { "weight": "kg", "height_cm": "cm", "result": "kg" },
+  "validity_envelope": { "age_years": { "min": 18, "max": null }, "bmi_kg_m2": { "min": 17, "max": 70 } },
+  "known_failure_modes": [
+    {
+      "condition": "age < ~18 y (pediatric)",
+      "behavior": "derived in adults; the maturation of body composition in children is not captured, so FFM is mis-stated below the derivation age. Al-Sallami (2015) extends the same form into childhood.",
+      "action": "warn",
+      "citation": "janmahasatian-2005-ffm"
+    }
+  ],
+  "tier": "B",
+  "extraction": {
+    "review_status": "unverified",
+    "tier_rationale": "Well-behaved monotone FFM (no James-style inversion); derived in a broad adult cohort including the obese. BMI uses height in cm via bmi = 10000*weight/height_cm^2. Awaits human confirmation of the sex-specific denominators.",
+    "source_locator": "Janmahasatian S et al., Clin Pharmacokinet 2005; the form Kim 2017 scales on"
+  },
+  "primary_citation": "janmahasatian-2005-ffm"
+}

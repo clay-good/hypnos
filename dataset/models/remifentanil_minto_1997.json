@@ -70,6 +70,24 @@
     }
   ],
   "covariates": { "required": ["age", "weight", "height", "sex"], "optional": [], "lbm_equation": "james_1976" },
+  "covariate_sensitivity_status": "declared",
+  "covariate_model": {
+    "derived_inputs": [
+      {
+        "quantity": "lbm",
+        "equation": "james_1976",
+        "used_for": ["V1", "V2", "Cl1"],
+        "verbatim": true,
+        "tier": "B",
+        "extraction": {
+          "review_status": "unverified",
+          "tier_rationale": "Minto 1997 Methods: V1, V2 and metabolic clearance scale on James (1976) LBM; the same James inversion drives Minto's documented morbid-obesity failure mode.",
+          "source_locator": "Minto 1997 Part I (Methods, LBM); covariate table"
+        },
+        "primary_citation": "minto-1997-remifentanil"
+      }
+    ]
+  },
   "applicability_envelope": {
     "age_years": { "min": 20, "max": 85 },
     "weight_kg": { "min": 45, "max": 120 },

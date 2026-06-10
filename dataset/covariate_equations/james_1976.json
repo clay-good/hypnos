@@ -1,0 +1,28 @@
+{
+  "id": "james_1976",
+  "quantity": "lbm",
+  "label": "Lean body mass — James (1976)",
+  "form": "male: 1.1*weight - 128*(weight/height_cm)^2 ; female: 1.07*weight - 148*(weight/height_cm)^2",
+  "sex_specific": {
+    "male": "1.1*weight - 128*(weight/height_cm)^2",
+    "female": "1.07*weight - 148*(weight/height_cm)^2"
+  },
+  "inputs": ["weight", "height_cm", "sex"],
+  "units": { "weight": "kg", "height_cm": "cm", "result": "kg" },
+  "validity_envelope": { "bmi_kg_m2": { "min": 18, "max": 37 } },
+  "known_failure_modes": [
+    {
+      "condition": "bmi_kg_m2 > ~37 (sex-dependent)",
+      "behavior": "the -(weight/height)^2 term comes to dominate; computed LBM PEAKS and then DECREASES with rising weight (a non-physical inversion). Composed with the negative LBM coefficient in Schnider's Cl1 this inflates predicted clearance in obesity.",
+      "action": "tier_down_to_D",
+      "citation": "absalom-2009-schnider-obese"
+    }
+  ],
+  "tier": "B",
+  "extraction": {
+    "review_status": "unverified",
+    "tier_rationale": "Widely used, but its high-BMI inversion is a documented, tested failure mode. Sex-specific coefficients and the (W/H)^2 term await human confirmation against James 1976.",
+    "source_locator": "James WPT, Research on Obesity (1976); the standard transcription used by Schnider 1998 and Minto 1997"
+  },
+  "primary_citation": "james-1976-lbm"
+}

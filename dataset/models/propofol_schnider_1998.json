@@ -70,6 +70,24 @@
     }
   ],
   "covariates": { "required": ["age", "weight", "height", "sex"], "optional": [], "lbm_equation": "james_1976" },
+  "covariate_sensitivity_status": "declared",
+  "covariate_model": {
+    "derived_inputs": [
+      {
+        "quantity": "lbm",
+        "equation": "james_1976",
+        "used_for": ["Cl1"],
+        "verbatim": true,
+        "tier": "B",
+        "extraction": {
+          "review_status": "unverified",
+          "tier_rationale": "Schnider 1998 Methods: metabolic clearance scales on James (1976) LBM. The negative LBM coefficient composed with James's high-BMI inversion is the documented Schnider-in-obesity failure mode.",
+          "source_locator": "Schnider 1998, p. 1503 (Methods, LBM); Table 2 (Cl1 covariate term)"
+        },
+        "primary_citation": "schnider-1998-propofol-pk"
+      }
+    ]
+  },
   "applicability_envelope": {
     "age_years": { "min": 25, "max": 81 },
     "weight_kg": { "min": 44, "max": 123 },

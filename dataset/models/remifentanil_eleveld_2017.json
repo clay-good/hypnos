@@ -70,6 +70,24 @@
     }
   ],
   "covariates": { "required": ["age", "weight", "height", "sex"], "optional": [], "lbm_equation": "al_sallami_2015" },
+  "covariate_sensitivity_status": "declared",
+  "covariate_model": {
+    "derived_inputs": [
+      {
+        "quantity": "ffm",
+        "equation": "al_sallami_2015",
+        "used_for": ["V1", "V2", "V3", "Cl1", "Cl2", "Cl3"],
+        "verbatim": true,
+        "tier": "A",
+        "extraction": {
+          "review_status": "unverified",
+          "tier_rationale": "Eleveld 2017 builds its allometric SIZE descriptor from Al-Sallami (2015) age-aware FFM; every volume and clearance scales on it. Monotone in weight (no James inversion).",
+          "source_locator": "Eleveld 2017, covariate model (size = FFM by Al-Sallami)"
+        },
+        "primary_citation": "eleveld-2017-remifentanil"
+      }
+    ]
+  },
   "applicability_envelope": {
     "age_years": { "min": 0, "max": 88 },
     "weight_kg": { "min": 3, "max": 160 },

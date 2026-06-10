@@ -33,6 +33,30 @@ def lbm_james(weight: float, height_cm: float, sex: str) -> float:
     return 1.07 * weight - 148.0 * ratio
 
 
+def ffm_janmahasatian(weight: float, height_cm: float, sex: str) -> float:
+    """Janmahasatian (2005) fat-free mass (kg). BMI-driven, sex-specific.
+
+    The form Kim 2017's remifentanil disposition model scales on (and the size
+    kernel of the Eleveld models is built from). ``sex`` in {'M','F'}.
+    """
+    b = bmi(weight, height_cm)
+    if str(sex).upper().startswith("M"):
+        return 9.27e3 * weight / (6.68e3 + 216.0 * b)
+    return 9.27e3 * weight / (8.78e3 + 244.0 * b)
+
+
+def ffm_al_sallami(weight: float, height_cm: float, age: float, sex: str) -> float:
+    """Al-Sallami (2015) fat-free mass (kg) — the age-aware FFM the Eleveld models use.
+
+    An age-dependent multiplier on the Janmahasatian (2005) FFM that extends validity
+    into childhood (where Janmahasatian was not derived). ``sex`` in {'M','F'}.
+    """
+    jan = ffm_janmahasatian(weight, height_cm, sex)
+    if str(sex).upper().startswith("M"):
+        return (0.88 + (1.0 - 0.88) / (1.0 + (age / 13.4) ** (-12.7))) * jan
+    return (1.11 + (1.0 - 1.11) / (1.0 + (age / 7.1) ** (-1.1))) * jan
+
+
 def bmi(weight: float, height_cm: float) -> float:
     return weight / ((height_cm / 100.0) ** 2)
 

@@ -1,0 +1,21 @@
+{
+  "id": "al_sallami_2015",
+  "quantity": "ffm",
+  "label": "Fat-free mass — Al-Sallami (2015), age-aware",
+  "form": "male: (0.88 + 0.12/(1 + (age/13.4)^-12.7)) * janmahasatian_ffm ; female: (1.11 - 0.11/(1 + (age/7.1)^-1.1)) * janmahasatian_ffm",
+  "sex_specific": {
+    "male": "(0.88 + (1-0.88)/(1 + (age/13.4)^-12.7)) * (9270*weight/(6680+216*bmi))",
+    "female": "(1.11 + (1-1.11)/(1 + (age/7.1)^-1.1)) * (9270*weight/(8780+244*bmi))"
+  },
+  "inputs": ["weight", "height_cm", "age", "sex"],
+  "units": { "weight": "kg", "height_cm": "cm", "age": "years", "result": "kg" },
+  "validity_envelope": { "age_years": { "min": 0, "max": null }, "bmi_kg_m2": { "min": 13, "max": 70 } },
+  "known_failure_modes": [],
+  "tier": "B",
+  "extraction": {
+    "review_status": "unverified",
+    "tier_rationale": "An age-dependent multiplier on the Janmahasatian (2005) FFM that extends validity into childhood; monotone in weight (no inversion). The size descriptor the Eleveld (2017/2018) general-purpose models are built on. Awaits human confirmation of the sex-specific age factors.",
+    "source_locator": "Al-Sallami HS et al., Clin Pharmacokinet 2015; the FFM used by Eleveld 2017/2018"
+  },
+  "primary_citation": "al-sallami-2015-ffm"
+}

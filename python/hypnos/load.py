@@ -72,6 +72,9 @@ class Dataset:
         self._models_raw = _load_json_dir(root / "models")
         self.drugs = _load_json_dir(root / "drugs")
         self.citations = _load_json_dir(root / "citations")
+        # Shared, citation-backed covariate-equation library (v0.7 §6); keyed by id.
+        # Empty in a pre-v0.7 checkout — an absent library is not an error.
+        self.covariate_equations = _load_json_dir(root / "covariate_equations")
         self._models = {mid: Model(raw) for mid, raw in self._models_raw.items()}
         self.version = self._read_version(root)
 

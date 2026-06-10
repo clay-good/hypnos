@@ -348,6 +348,68 @@ def cmd_verify(args) -> int:
     return 0
 
 
+def cmd_covariates(args) -> int:
+    """The v0.7 covariate-equation library: inspect the named body-size/composition
+    equations a model is derived with, and evaluate one for a patient (surfacing the
+    James LBM inversion at its source). Forward-only — an equation maps a patient to a
+    derived covariate; nothing inverts one (spec §10)."""
+    from .covariates import EQUATIONS, covariate_layer_tier, evaluate as cov_eval
+
+    ds = load()
+
+    if args.model:
+        if args.model not in ds:
+            print(f"unknown model {args.model!r}", file=sys.stderr)
+            return 2
+        m = ds[args.model]
+        cm = m.covariate_model
+        print(f"model: {m.id}   covariate_sensitivity_status: {m.covariate_sensitivity_status}")
+        if cm is None:
+            print("  no covariate_model declared (scales on raw covariates, or an uncurated gap).")
+            return 0
+        patient = _patient_from_args(args)
+        for d in cm.derived_inputs:
+            r = cov_eval(d.equation, patient, ds=ds)
+            flag = "  ⚠️ INVERTED/out-of-envelope" if (r.inverted or r.out_of_envelope) else ""
+            print(f"  {d.quantity:6s} = {d.equation:22s} -> {', '.join(d.used_for):20s} "
+                  f"value {r.value:7.2f} kg  tier {r.tier}{flag}")
+            for w in r.warnings:
+                print(f"      {w}")
+        ltier = covariate_layer_tier(m, patient, ds)
+        if ltier:
+            print(f"  covariate-layer tier at this patient: {ltier}")
+        return 0
+
+    if args.equation:
+        if args.equation not in EQUATIONS:
+            print(f"unknown equation {args.equation!r} (known: {', '.join(sorted(EQUATIONS))})",
+                  file=sys.stderr)
+            return 2
+        patient = _patient_from_args(args)
+        r = cov_eval(args.equation, patient, ds=ds)
+        print(f"{args.equation} ({r.quantity}) for "
+              f"age={patient['age']:g} weight={patient['weight']:g} height={patient['height']:g} "
+              f"sex={patient['sex']}:")
+        print(f"  value {r.value:.3f} kg   tier {r.tier}   "
+              f"inverted={r.inverted}   out_of_envelope={r.out_of_envelope}")
+        for w in r.warnings:
+            print(f"  WARNING: {w}")
+        return 0
+
+    # default: list the library
+    print(f"{'equation':24s} {'quantity':6s} {'tier':4s} validity envelope            citation")
+    for eid in sorted(ds.covariate_equations):
+        rec = ds.covariate_equations[eid]
+        env = rec.get("validity_envelope") or {}
+        env_s = ", ".join(f"{k.split('_')[0]} [{v.get('min')},{v.get('max')}]"
+                          for k, v in env.items()) or "—"
+        print(f"{eid:24s} {rec.get('quantity', '?'):6s} {rec.get('tier', '?'):4s} "
+              f"{env_s:28s} {rec.get('primary_citation', '?')}")
+    print("\nevaluate one:  hypnos covariates --equation james_1976 --weight 130 --height 170 --sex M")
+    print("a model's bindings:  hypnos covariates --model hypnotics_iv.propofol.schnider_1998 --weight 130")
+    return 0
+
+
 def cmd_models(args) -> int:
     ds = load()
     models = select(ds, drug=args.drug) if args.drug else list(ds)
@@ -660,6 +722,13 @@ def build_parser() -> argparse.ArgumentParser:
     pp = sub.add_parser("performance", help="published predictive-performance metrics (MDPE/MDAPE/…)")
     pp.add_argument("--drug", default=None)
     pp.set_defaults(func=cmd_performance)
+
+    cvp = sub.add_parser("covariates", help="the v0.7 covariate-equation library (LBM/FFM): list, "
+                         "evaluate for a patient, or show a model's bindings (surfaces the James inversion)")
+    cvp.add_argument("--equation", default=None, help="evaluate this equation id for the patient")
+    cvp.add_argument("--model", default=None, help="show this model's covariate_model bindings for the patient")
+    _add_patient_args(cvp)
+    cvp.set_defaults(func=cmd_covariates)
 
     vcp = sub.add_parser("validate-cohort", help="Hypnos-COMPUTED Varvel metrics (MDPE/MDAPE/wobble/"
                          "divergence) for a model vs a cohort of observations (v0.4 §6) — the "

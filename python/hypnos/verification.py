@@ -22,7 +22,7 @@ REVIEW_STATES = ("unverified", "verified", "contested")
 
 @dataclass
 class ChecklistItem:
-    group: str           # "structural" | "covariate" | "envelope" | "population" | "estimation" | "citation"
+    group: str           # "structural" | "covariate" | "covariate_equation" | "envelope" | "population" | "estimation" | "local_anesthetic" | "citation"
     label: str
     value: str           # the current value a verifier must confirm against the PDF
     confirmed: bool = False
@@ -67,6 +67,29 @@ def _checklist_for(model: Model, ds: Dataset) -> List[ChecklistItem]:
     cov = model.covariates
     if cov.get("lbm_equation"):
         items.append(ChecklistItem("covariate", "LBM/FFM equation", cov["lbm_equation"]))
+    # 2b. covariate-equation bindings (v0.7 §9) — the five transcription traps, the
+    #     part most often re-implemented from memory rather than copied from a table.
+    cm = model.covariate_model
+    if cm is not None:
+        for d in cm.derived_inputs:
+            loc = (d.extraction or {}).get("source_locator")
+            items.append(ChecklistItem(
+                "covariate_equation",
+                f"{d.quantity} equation (verbatim? — Trap 1, the cardinal disambiguation)",
+                f"{d.equation} -> {', '.join(d.used_for)}  (verbatim={d.verbatim}, tier {d.tier})",
+                locator=loc))
+        items.append(ChecklistItem(
+            "covariate_equation", "equation units — height cm vs m, (W/H)^2 scale (Trap 2)",
+            "confirm the equation's input units match the model's covariate units"))
+        items.append(ChecklistItem(
+            "covariate_equation", "sex coding & the right sex branch applied (Trap 3)",
+            "confirm the male/female coefficient branch matches the source"))
+        items.append(ChecklistItem(
+            "covariate_equation", "patient outside the EQUATION's own validity envelope? (Trap 4)",
+            "independent of the disposition envelope — James above BMI~37 has inverted"))
+        items.append(ChecklistItem(
+            "covariate_equation", "allometric exponents fixed (theory) vs fitted (Trap 5)",
+            "confirm each scaling exponent is labeled fixed-3/4 or empirically fitted"))
     # 3. derivation population and n
     env = model.applicability_envelope
     if env.populations:
@@ -225,11 +248,12 @@ def checklist_markdown(mv: ModelVerification) -> str:
         "double-checking; that is where published-vs-implemented divergence hides.",
         "",
     ]
-    groups = ["structural", "covariate", "population", "envelope", "estimation",
-              "local_anesthetic", "citation"]
+    groups = ["structural", "covariate", "covariate_equation", "population", "envelope",
+              "estimation", "local_anesthetic", "citation"]
     titles = {
         "structural": "Structural parameters",
         "covariate": "Covariate equations (incl. exact LBM/FFM form)",
+        "covariate_equation": "Covariate-model bindings (named equation, units, sex, envelope, exponents — the 5 traps)",
         "population": "Derivation population & n",
         "envelope": "Stated applicability range",
         "estimation": "Estimation uncertainty (RSE/SE vs BSV CV — read the column header)",

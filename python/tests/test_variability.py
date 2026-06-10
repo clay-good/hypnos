@@ -422,6 +422,38 @@ def test_pharmml_no_variability_for_marsh(ds):
     assert "<VariabilityModel" not in text
 
 
+def test_sbml_carries_variability_rdf(ds):
+    import xml.dom.minidom as minidom
+
+    _, text = export_model("sbml", ds[ELEVELD], ds)
+    minidom.parseString(text)  # well-formed even with the added hypnos: predicates
+    assert "<hypnos:variabilityStatus>diagonal</hypnos:variabilityStatus>" in text
+    assert "<hypnos:bandTier>B</hypnos:bandTier>" in text
+    assert 'hypnos:parameter="V1" hypnos:omega2="0.61"' in text
+    assert 'hypnos:residualError hypnos:model="log" hypnos:logSd="0.191"' in text
+    # honest about the format's limit: a deterministic consumer sees only the typical patient
+    assert "deterministic SBML consumer sees only the typical patient" in text
+
+
+def test_sbml_no_variability_for_marsh(ds):
+    _, text = export_model("sbml", ds[MARSH], ds)
+    assert "betweenSubjectVariability" not in text
+    assert "variabilityStatus" not in text
+
+
+def test_sbml_variability_annotation_does_not_break_round_trip(ds):
+    # the Omega/Sigma ride in the annotation, NOT the <parameter> block, so the
+    # micro-constants must still round-trip exactly (the v0.1 guarantee is preserved).
+    import xml.etree.ElementTree as ET
+
+    patient = {"age": 50, "weight": 77, "height": 177, "sex": "M"}
+    _, text = export_model("sbml", ds[ELEVELD], ds, patient)
+    root = ET.fromstring(text)
+    params = {el.attrib["id"]: float(el.attrib["value"])
+              for el in root.iter() if el.tag.rsplit("}", 1)[-1] == "parameter"}
+    assert {"k10", "k12", "k21", "k13", "k31", "ke0", "V1"} <= set(params)
+
+
 # --------------------------------------------------------------------------- #
 # V3 — NONMEM $OMEGA BLOCK (off-diagonal Omega), exercised with a curated block
 # --------------------------------------------------------------------------- #

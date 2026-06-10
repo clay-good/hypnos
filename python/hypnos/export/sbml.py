@@ -20,13 +20,25 @@ _HEADER = '<?xml version="1.0" encoding="UTF-8"?>\n'
 
 def build(model, ds=None, patient: Optional[Dict[str, Any]] = None) -> str:
     pat = resolve_patient(model, patient)
+    # v0.2: the curated Ω/Σ ride as hypnos: RDF predicates inside the model annotation.
+    # SBML core is deterministic, so this is metadata only — a downstream solver sees
+    # the typical patient; the random-effects layer travels with the model (spec §8).
+    var_rdf = annotate.variability_rdf(model, indent="  ")
+    ann = annotate.rdf_annotation_xml(model, ds, extra_predicates=var_rdf)
+    var_note = (
+        "    <!-- v0.2 population variability: the curated Omega/Sigma are carried as "
+        "hypnos: RDF in the model annotation above. SBML core cannot express population "
+        "random effects, so a deterministic SBML consumer sees only the typical patient "
+        "(parameters + rate rules). -->\n"
+        if var_rdf else ""
+    )
     if not (model.kernel_implemented and model.kernel_function in KERNELS):
         # Emit a stub SBML carrying provenance only; no dynamics without a kernel.
         return (
             _HEADER
             + '<sbml xmlns="http://www.sbml.org/sbml/level3/version2/core" level="3" version="2">\n'
             + f'  <model id="{safe_name(model)}" name="{model.label}">\n'
-            + annotate.rdf_annotation_xml(model, ds)
+            + ann
             + "\n  </model>\n</sbml>\n"
         )
 
@@ -105,7 +117,8 @@ def build(model, ds=None, patient: Optional[Dict[str, Any]] = None) -> str:
         _HEADER
         + '<sbml xmlns="http://www.sbml.org/sbml/level3/version2/core" level="3" version="2">\n'
         + f'  <model id="{name}" name="{model.label}">\n'
-        + annotate.rdf_annotation_xml(model, ds) + "\n"
+        + ann + "\n"
+        + var_note
         + units + "\n"
         + "    <listOfParameters>\n" + params + "\n" + states + "\n    </listOfParameters>\n"
         + "    <listOfRules>\n" + rules + "\n    </listOfRules>\n"

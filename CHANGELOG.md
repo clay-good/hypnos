@@ -88,6 +88,14 @@ v0.1 record stays valid; the variability block is optional).
   - **Pumas** gains a `<id>_pop` `@model` with `@param` ω² + `@random` η, the V/Cl
     `@pre` with `exp(η)`, and the residual `dv ~` distribution in `@derived`.
   - **TCI-JSON** carries the `variability` block losslessly (unchanged).
+  - **SBML** — whose L3v2 core is deterministic and cannot express population random
+    effects — now carries the curated Ω diagonal, Σ, and any off-diagonal correlations
+    as `hypnos:` RDF predicates inside the model annotation (`hypnos:betweenSubjectVariability`
+    / `hypnos:residualError` / `hypnos:omegaCorrelation`), with an inline SBML comment that
+    a downstream deterministic consumer (COPASI/Tellurium) sees only the typical patient.
+    The Ω/Σ ride in the annotation, not the `<parameter>` block, so the v0.1 micro-constant
+    round-trip is untouched. With this, **every** Hypnos export carries the random-effects
+    layer — closing the §8 matrix (SBML was the last "deferred" row).
   Remaining for V3 is **data, not code**: BSV backfill for Schnider, the remifentanil
   trio, and dexmedetomidine awaits source-table confirmation (the common-toolchain
   Schnider CV%s look like RSEs, not BSV), per the never-invent rule — the exporters
@@ -95,7 +103,7 @@ v0.1 record stays valid; the variability block is optional).
 - **Safety.** Unchanged and tightened in proportion: bands describe a *given* forward
   dose history and never invert one (no quantile-targeting), and every band is labeled
   a statement about the *model's stated uncertainty*, not a claim about a real patient.
-  `clinicalUse = "PROHIBITED"` remains universal. 44 variability tests; CI suite 233
+  `clinicalUse = "PROHIBITED"` remains universal. 47 variability tests; CI suite 236
   green (+2 dashboard `AppTest` smoke tests that run wherever the dashboard extra is
   installed, skipped in the dev-only CI `test` job).
 

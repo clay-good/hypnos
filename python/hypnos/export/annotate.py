@@ -109,14 +109,16 @@ def variability_rdf(model: Model, indent: str = "  ") -> str:
     return "\n".join(lines)
 
 
-def la_rdf(model: Model, indent: str = "  ") -> str:
+def la_rdf(model: Model, drug: Optional[Dict[str, Any]] = None, indent: str = "  ") -> str:
     """``hypnos:`` RDF predicates for the local-anesthetic blocks (v0.6 §9).
 
-    Carries the site-absorption rank order and the toxicity-threshold *ranges* as
-    metadata so they travel with an SBML/PharmML model whose core is deterministic.
-    Threshold ranges export **as ranges** — there is no format projection that
-    collapses them to a single value (v0.6 §9). Returns ``""`` for a non-LA model
-    (and emits nothing for blocks the model does not carry)."""
+    Carries the site-absorption rank order, the toxicity-threshold *ranges*, and (v0.6
+    LA2) the drug's ``cardiotoxicity_class`` as metadata so they travel with an
+    SBML/PharmML model whose core is deterministic. Threshold ranges export **as
+    ranges** — there is no format projection that collapses them to a single value
+    (v0.6 §9). ``drug`` is the resolved drug record (for the cardiotoxicity class);
+    pass ``None`` to omit it. Returns ``""`` for a non-LA model (and emits nothing for
+    blocks the model does not carry)."""
     if not model.is_safety_critical:
         return ""
     pad = f"{indent}    "
@@ -137,6 +139,12 @@ def la_rdf(model: Model, indent: str = "  ") -> str:
             f'{pad}<hypnos:toxicityThresholdRange hypnos:endpoint="{th.endpoint}" '
             f'hypnos:basis="{th.basis}" hypnos:low="{th.low:.10g}" hypnos:high="{th.high:.10g}" '
             f'hypnos:units="{th.units}" hypnos:tier="{th.tier}"/>')
+    cc = (drug or {}).get("cardiotoxicity_class") if drug else None
+    if cc:
+        lines.append(
+            f'{pad}<hypnos:cardiotoxicityClass hypnos:rank="{cc.get("rank")}" '
+            f'hypnos:stereochemistry="{cc.get("stereochemistry")}" '
+            f'hypnos:cnsToCvsMargin="{cc.get("cns_to_cvs_margin")}"/>')
     return "\n".join(lines)
 
 

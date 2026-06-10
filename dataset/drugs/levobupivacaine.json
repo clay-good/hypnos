@@ -1,0 +1,27 @@
+{
+  "name": "levobupivacaine",
+  "synonyms": ["Chirocaine", "S-bupivacaine", "levo-bupivacaine"],
+  "unii": null,
+  "atc": "N01BB10",
+  "cas": "27262-47-1",
+  "drug_class": "amide local anesthetic (S-enantiomer of bupivacaine)",
+  "subsystem": "local_anesthetics",
+  "notes": "The pure S(-)-enantiomer of bupivacaine, developed specifically to reduce racemic bupivacaine's cardiotoxicity while keeping its local-anesthetic potency and long duration. PK is essentially that of bupivacaine; cardiotoxicity is INTERMEDIATE — less than racemic bupivacaine, more than ropivacaine (the agent-choice differentiation, v0.6 LA2). Highly bound (~97%). Concentrations in ug/mL.",
+  "concentration_unit": "ug/mL",
+  "protein_binding": {
+    "fraction_bound": 0.97,
+    "binding_protein": "alpha1_acid_glycoprotein_and_albumin",
+    "saturable": true,
+    "binding_sensitive": false,
+    "citation": "bardsley-1998-levobupivacaine",
+    "note": "~97% bound, principally to α1-acid glycoprotein; binding saturates as for bupivacaine/ropivacaine. LA-specific free-fraction story is v0.6 LA1/LA3, distinct from the v0.5 albumin axis (binding_sensitive=false)."
+  },
+  "cardiotoxicity_class": {
+    "rank": "intermediate",
+    "stereochemistry": "S_enantiomer",
+    "cns_to_cvs_margin": "moderate",
+    "mechanism": "S(-)-enantiomer of bupivacaine: less avid cardiac Na-channel binding and less negative inotropy than the racemate at equivalent dose, so the cardiovascular margin is wider than racemic bupivacaine's but the agent retains bupivacaine-like potency and lipophilicity (more cardiotoxic than ropivacaine).",
+    "citation": "bardsley-1998-levobupivacaine",
+    "note": "Bardsley 1998: at equal i.v. doses in volunteers, levobupivacaine produced smaller cardiovascular changes than rac-bupivacaine — the direct evidence for the intermediate ranking. The DIRECTION (between bupivacaine and ropivacaine) is the curated claim; the exact margin is Tier-C."
+  }
+}

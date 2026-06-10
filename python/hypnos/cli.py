@@ -387,8 +387,35 @@ def cmd_mac(args) -> int:
 
 
 def cmd_la(args) -> int:
-    from .la import double_uncertainty, site_comparison
+    from .la import cardiotoxicity_comparison, double_uncertainty, site_comparison
     ds = load()
+    if args.agents:
+        rows = cardiotoxicity_comparison(ds)
+        if not rows:
+            print("no curated cardiotoxicity classes", file=sys.stderr)
+            return 2
+        print("local-anesthetic cardiotoxicity comparison (v0.6 LA2) — most cardiotoxic first")
+        print("  the agent-choice axis: why a similar CNS threshold can hide a very different "
+              "cardiovascular margin")
+        print(f"{'drug':16s} {'class':>13s} {'stereochem':>13s} {'CNS->CVS margin':>16s} {'fold':>6s}")
+        for a in rows:
+            fold = f"{a.cns_to_cvs_fold:.1f}x" if a.cns_to_cvs_fold is not None else "n/a"
+            print(f"{a.drug:16s} {a.rank:>13s} {a.stereochemistry:>13s} {a.cns_to_cvs_margin:>16s} {fold:>6s}")
+        amides = [a for a in rows if a.rank in ("high", "intermediate")
+                  or a.stereochemistry == "S_enantiomer"]
+        if len(amides) >= 2:
+            worst, best = amides[0], amides[-1]
+            print(f"agent choice (long-acting amides): {worst.drug} (margin {worst.cns_to_cvs_margin}, "
+                  f"{worst.cns_to_cvs_fold:.1f}x) vs {best.drug} (margin {best.cns_to_cvs_margin}, "
+                  f"{best.cns_to_cvs_fold:.1f}x) — at SIMILAR local-anesthetic potency the cardiovascular "
+                  "margin differs by stereochemistry, which is why the S-enantiomers displaced racemic "
+                  "bupivacaine where cardiotoxicity risk dominates.")
+        print("RESEARCH/EDUCATION — comparative only; no dose is ranked or recommended (v0.6 §7).")
+        return 0
+    if not args.drug:
+        print("provide --drug <name> (or --agents for the cross-agent cardiotoxicity comparison)",
+              file=sys.stderr)
+        return 2
     mid = args.drug if "." in args.drug else f"local_anesthetics.{args.drug.replace(' ', '_')}.systemic"
     try:
         rows = site_comparison(ds, mid, dose_mg=args.dose, t_min=args.tmax)
@@ -431,6 +458,10 @@ def cmd_la(args) -> int:
         print(str(e), file=sys.stderr)
         return 2
     print(f"\ndouble-uncertainty view — {du.drug} {du.dose_mg:g} mg at {du.site} (tier {du.tier}):")
+    if du.cardiotoxicity:
+        cc = du.cardiotoxicity
+        print(f"  cardiotoxicity: {cc.get('rank')} ({cc.get('stereochemistry')}) · "
+              f"CNS-to-CVS margin {cc.get('cns_to_cvs_margin')} (v0.6 LA2; `hypnos la --agents` to compare)")
     fp = f"{du.peak_free:.4f}" if du.peak_free is not None else "n/a"
     print(f"  predicted peak: total {du.peak_total:.3f} ug/mL  ·  free {fp} ug/mL  ·  Tmax {du.tmax_min:.0f} min")
     print(f"  {'endpoint':18s} {'basis':12s} {'threshold range':>18s} {'predicted peak':>15s}  position")
@@ -629,12 +660,16 @@ def build_parser() -> argparse.ArgumentParser:
     wp.set_defaults(func=cmd_washin)
 
     lap = sub.add_parser("la", help="local-anesthetic systemic concentration by injection site + "
-                                    "the double-uncertainty threshold view (v0.6 LA0/LA1)")
-    lap.add_argument("--drug", required=True, help="lidocaine | bupivacaine | ropivacaine (or full model id)")
+                                    "the double-uncertainty threshold view + the cardiotoxicity "
+                                    "agent comparison (v0.6 LA0/LA1/LA2)")
+    lap.add_argument("--drug", default=None, help="lidocaine | bupivacaine | levobupivacaine | "
+                     "ropivacaine (or full model id)")
     lap.add_argument("--dose", type=float, default=150.0, help="dose in mg")
     lap.add_argument("--tmax", type=float, default=90.0, help="horizon (min)")
     lap.add_argument("--site", default=None, help="injection site for the double-uncertainty view "
                      "(e.g. lumbar_epidural); omit to list the site table + threshold ranges")
+    lap.add_argument("--agents", action="store_true", help="cross-agent cardiotoxicity comparison "
+                     "(stereochemistry / CNS-to-CVS margin); v0.6 LA2")
     lap.set_defaults(func=cmd_la)
 
     op = sub.add_parser("washout", help="inhalational wash-out (FA/FA0) — solubility-driven emergence")

@@ -226,6 +226,7 @@ class DoubleUncertainty:
     site_cmax_spread: Optional[float]        # max/min Cmax across sites — the PK (site) spread
     endpoints: List[EndpointReadout] = field(default_factory=list)
     dominant_uncertainty: str = ""
+    cardiotoxicity: Optional[Dict] = None    # the drug's cardiotoxicity_class (v0.6 LA2), or None
     tier: str = "D"
     warnings: List[str] = field(default_factory=list)
 
@@ -308,6 +309,12 @@ def double_uncertainty(
     # drop it here so the warning set stays accurate to this context.
     warnings = [w for w in abs_run.warnings if "no toxicity threshold is drawn" not in w]
     warnings += list(free.warnings)
+    cardiotox = (ds.drug(model.drug_name) or {}).get("cardiotoxicity_class") if hasattr(ds, "drug") else None
+    if cardiotox and cardiotox.get("cns_to_cvs_margin") == "narrow":
+        warnings.append(
+            f"CARDIOTOXICITY ({cardiotox.get('rank')}): the CNS-to-CVS margin is NARROW — "
+            "cardiovascular toxicity can occur with little or no CNS prodrome; the agent-choice "
+            "comparison is `hypnos la --agents` (v0.6 LA2).")
     warnings.append(
         "RESEARCH/EDUCATION ONLY — this is a double-uncertainty view, NOT a dosing tool: "
         "no maximum dose, no margin-as-guarantee, no 'is this safe?' answer (v0.6 §7).")
@@ -315,5 +322,67 @@ def double_uncertainty(
         model_id=model_id, drug=model.drug_name, site=site, dose_mg=float(dose_mg),
         peak_total=abs_run.cmax, peak_free=peak_free, tmax_min=abs_run.tmax_min,
         site_cmax_spread=site_spread, endpoints=endpoints, dominant_uncertainty=dominant,
-        tier=worst_tier(tiers), warnings=warnings,
+        cardiotoxicity=cardiotox, tier=worst_tier(tiers), warnings=warnings,
     )
+
+
+# --------------------------------------------------------------------------- #
+# v0.6 LA2 — stereochemistry / cardiotoxicity differentiation (the agent-choice axis)
+# --------------------------------------------------------------------------- #
+_CARDIOTOX_RANK = {"high": 0, "intermediate": 1, "low": 2}   # most cardiotoxic first
+
+
+@dataclass
+class AgentCardiotoxicity:
+    """One local anesthetic's cardiotoxicity standing (v0.6 §3.4 / LA2).
+
+    The agent-choice axis: why two agents at a *similar CNS threshold* can have very
+    different cardiovascular margins. ``cns_to_cvs_fold`` is the curated numeric
+    margin (cardiovascular midpoint / CNS-first-symptoms midpoint, total basis) where
+    both are curated — a higher fold = a wider, safer CNS-warning margin."""
+
+    model_id: str
+    drug: str
+    rank: str                                # high | intermediate | low
+    stereochemistry: str
+    cns_to_cvs_margin: str                   # qualitative: narrow | moderate | wide
+    cns_to_cvs_fold: Optional[float]         # numeric margin where curated
+    mechanism: str
+    citation: Optional[str]
+    tier: str
+
+
+def _total_midpoint(model, endpoint: str) -> Optional[float]:
+    vals = [th.midpoint for th in model.toxicity_thresholds
+            if th.endpoint == endpoint and th.basis == "total_plasma"]
+    return vals[0] if vals else None
+
+
+def cardiotoxicity_comparison(ds: Dataset) -> List[AgentCardiotoxicity]:
+    """The LA2 agent-choice view (v0.6 §3.4 / §6): every local anesthetic carrying a
+    curated ``cardiotoxicity_class``, sorted most-cardiotoxic first, with its numeric
+    CNS-to-CVS margin where both thresholds are curated. Shows *why agent choice
+    changes the cardiovascular margin* — the key educational comparison — and never
+    ranks or recommends a dose (forward, comparative, research-only; v0.6 §7)."""
+    out: List[AgentCardiotoxicity] = []
+    for model in ds:
+        if model.subsystem != "local_anesthetics":
+            continue
+        cc = (ds.drug(model.drug_name) or {}).get("cardiotoxicity_class")
+        if not cc:
+            continue
+        cns = _total_midpoint(model, "cns_first_symptoms")
+        cvs = _total_midpoint(model, "cardiovascular")
+        fold = (cvs / cns) if (cns and cvs and cns > 0) else None
+        out.append(AgentCardiotoxicity(
+            model_id=model.id, drug=model.drug_name, rank=cc.get("rank", "?"),
+            stereochemistry=cc.get("stereochemistry", "?"),
+            cns_to_cvs_margin=cc.get("cns_to_cvs_margin", "?"), cns_to_cvs_fold=fold,
+            mechanism=cc.get("mechanism", ""), citation=cc.get("citation"), tier=model.tier,
+        ))
+    # most-cardiotoxic first: by class rank, then by the numeric CNS-to-CVS margin
+    # (a narrower margin = more dangerous = earlier); uncurated margins sort last.
+    out.sort(key=lambda a: (_CARDIOTOX_RANK.get(a.rank, 9),
+                            a.cns_to_cvs_fold if a.cns_to_cvs_fold is not None else float("inf"),
+                            a.drug))
+    return out

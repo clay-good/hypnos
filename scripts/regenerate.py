@@ -418,6 +418,53 @@ def _fig_la_double_uncertainty(ds, plt) -> None:
     plt.close(fig)
 
 
+def _fig_la_cardiotoxicity(ds, plt) -> None:
+    """v0.6 LA2 — the agent-choice cardiotoxicity comparison: why a similar CNS
+    threshold can hide a very different cardiovascular margin.
+
+    For each amide, the CNS-first-symptoms range and the cardiovascular range are
+    drawn as bands on a shared (log) total-plasma axis; the GAP between them is the
+    margin. It widens monotonically bupivacaine -> levobupivacaine -> ropivacaine ->
+    lidocaine, mirroring the curated cardiotoxicity class. Comparative / educational,
+    never a dose recommendation (v0.6 §7).
+    """
+    from hypnos.la import cardiotoxicity_comparison
+
+    rows = cardiotoxicity_comparison(ds)
+    fig, ax = plt.subplots(figsize=(11, 4.8))
+    cns_c, cvs_c = "#f0ad4e", "#c0392b"
+    for i, a in enumerate(rows):
+        m = ds[a.model_id]
+        cns = next((t for t in m.toxicity_thresholds
+                    if t.endpoint == "cns_first_symptoms" and t.basis == "total_plasma"), None)
+        cvs = next((t for t in m.toxicity_thresholds if t.endpoint == "cardiovascular"), None)
+        if cns is None or cvs is None:
+            continue
+        y = len(rows) - 1 - i
+        ax.barh(y, cns.high - cns.low, left=cns.low, height=0.32, color=cns_c,
+                label="CNS first symptoms" if i == 0 else None)
+        ax.barh(y, cvs.high - cvs.low, left=cvs.low, height=0.32, color=cvs_c,
+                label="cardiovascular" if i == 0 else None)
+        fold = f"{a.cns_to_cvs_fold:.1f}x" if a.cns_to_cvs_fold else "?"
+        ax.text(cvs.high * 1.05, y, f"margin {a.cns_to_cvs_margin} ({fold})  ·  {a.rank}",
+                va="center", fontsize=9, color="#333")
+        ax.text(cns.low * 0.95, y, a.drug, va="center", ha="right", fontsize=9.5, fontweight="bold")
+    ax.set_xscale("log")
+    ax.set_xlim(0.8, 60)
+    ax.set_yticks([])
+    ax.set_xlabel("total plasma concentration (µg/mL, log scale) — toxicity-threshold RANGES, never lines")
+    ax.set_title("Hypnos v0.6 LA2 — stereochemistry & the agent-choice cardiotoxicity margin\n"
+                 "the CNS→cardiovascular gap widens bupivacaine → levobupivacaine → ropivacaine → lidocaine "
+                 f"·  {_DISCLAIMER}", fontsize=10.5)
+    ax.legend(loc="upper left", bbox_to_anchor=(1.005, 1.0), fontsize=9, frameon=True)
+    ax.grid(alpha=0.25, axis="x")
+    fig.text(0.5, -0.02, "RESEARCH / EDUCATION ONLY — comparative agent differences, not a dose "
+             "recommendation; thresholds are wide, individual, Tier-C (v0.6 §7)",
+             ha="center", color="#c0392b", fontsize=9)
+    fig.tight_layout(); fig.savefig(IMAGES / "la_cardiotoxicity.png", dpi=130, bbox_inches="tight")
+    plt.close(fig)
+
+
 def regenerate_figures(ds) -> bool:
     try:
         import matplotlib
@@ -436,8 +483,9 @@ def regenerate_figures(ds) -> bool:
     _fig_variability(ds, plt)
     _fig_effect_band(ds, plt)
     _fig_la_double_uncertainty(ds, plt)
+    _fig_la_cardiotoxicity(ds, plt)
     print(f"figures: regenerated divergence, synergy, pediatric, mac_age, washin, washout, "
-          f"variability, effect_band, la_double_uncertainty -> {IMAGES}/")
+          f"variability, effect_band, la_double_uncertainty, la_cardiotoxicity -> {IMAGES}/")
     return True
 
 

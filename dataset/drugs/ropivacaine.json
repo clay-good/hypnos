@@ -15,5 +15,13 @@
     "binding_sensitive": false,
     "citation": "tucker-1979-la-pharmacokinetics",
     "note": "~94% bound, principally to α1-acid glycoprotein. As with bupivacaine the binding saturates; the LA-specific free-fraction story is v0.6 LA1/LA3, distinct from the v0.5 albumin axis (binding_sensitive=false)."
+  },
+  "cardiotoxicity_class": {
+    "rank": "low",
+    "stereochemistry": "S_enantiomer",
+    "cns_to_cvs_margin": "wide",
+    "mechanism": "Pure S-enantiomer with lower lipophilicity and less avid cardiac Na-channel binding than racemic bupivacaine — markedly less cardiotoxic at similar local-anesthetic potency. The cardiovascular margin over the CNS-warning range is wider, so CNS symptoms more reliably precede cardiovascular toxicity.",
+    "citation": "scott-1989-ropivacaine-bupivacaine-toxicity",
+    "note": "The agent-choice safety argument (v0.6 LA2): for the same block, ropivacaine's wider CNS-to-CVS margin is the reason it (and levobupivacaine) displaced racemic bupivacaine where cardiotoxicity risk dominates."
   }
 }

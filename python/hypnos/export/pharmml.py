@@ -90,6 +90,14 @@ def build(model, ds=None, patient: Optional[Dict[str, Any]] = None) -> str:
         f'units="{escape(th.units)}" tier="{th.tier}"/>\n'
         for th in model.toxicity_thresholds
     )
+    # v0.6 LA2: the drug's cardiotoxicity class (stereochemistry / CNS-to-CVS margin).
+    cc = (ds.drug(model.drug_name) or {}).get("cardiotoxicity_class") if ds is not None else None
+    if cc:
+        la_xml += (
+            f'      <hypnos:cardiotoxicityClass rank="{escape(cc.get("rank", ""))}" '
+            f'stereochemistry="{escape(cc.get("stereochemistry", ""))}" '
+            f'cnsToCvsMargin="{escape(cc.get("cns_to_cvs_margin", ""))}"/>\n'
+        )
     prov_xml = (
         "    <Annotation>\n"
         f'      <hypnos:clinicalUse>{escape(prov["hypnos:clinicalUse"])}</hypnos:clinicalUse>\n'

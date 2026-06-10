@@ -58,6 +58,8 @@ def build_dict(model, ds=None, patient: Optional[Dict[str, Any]] = None) -> Dict
             drug = ds.drug(model.drug_name) or {}
             if drug.get("protein_binding") is not None:
                 doc["protein_binding"] = drug["protein_binding"]
+            if drug.get("cardiotoxicity_class") is not None:
+                doc["cardiotoxicity_class"] = drug["cardiotoxicity_class"]   # v0.6 LA2
     if model.kernel_implemented and model.kernel_function in KERNELS:
         params = KERNELS[model.kernel_function](pat)
         doc["instantiated_parameters"] = {

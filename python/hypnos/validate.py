@@ -158,6 +158,24 @@ def validate_dataset(ds: Optional[Dataset] = None) -> List[str]:
             problems.append(
                 f"[cite] drug {d.get('name')}: protein_binding cites unknown '{cid}'"
             )
+        # drug-level cardiotoxicity_class (v0.6 LA2): a stereochemistry-driven claim
+        # that must be traceable + use the controlled rank/margin vocabulary.
+        cc = d.get("cardiotoxicity_class") or {}
+        if cc:
+            ccid = cc.get("citation")
+            if ccid and ccid not in known_citations:
+                problems.append(
+                    f"[cite] drug {d.get('name')}: cardiotoxicity_class cites unknown '{ccid}'"
+                )
+            if cc.get("rank") not in (None, "high", "intermediate", "low"):
+                problems.append(
+                    f"[cardiotoxicity] drug {d.get('name')}: invalid rank '{cc.get('rank')}'"
+                )
+            if cc.get("cns_to_cvs_margin") not in (None, "narrow", "moderate", "wide"):
+                problems.append(
+                    f"[cardiotoxicity] drug {d.get('name')}: invalid cns_to_cvs_margin "
+                    f"'{cc.get('cns_to_cvs_margin')}'"
+                )
 
     return problems
 

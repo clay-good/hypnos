@@ -15,5 +15,13 @@
     "binding_sensitive": false,
     "citation": "tucker-1979-la-pharmacokinetics",
     "note": "~95% bound, principally to α1-acid glycoprotein; binding SATURATES, so the free (toxic) fraction rises non-linearly when total concentration is highest. This LA-specific saturation failure mode is surfaced in v0.6 LA3; it is distinct from the v0.5 albumin/hypoalbuminemia axis (binding_sensitive=false)."
+  },
+  "cardiotoxicity_class": {
+    "rank": "high",
+    "stereochemistry": "racemate",
+    "cns_to_cvs_margin": "narrow",
+    "mechanism": "Racemic; avid 'fast-in/slow-out' use-dependent cardiac Na-channel binding plus high lipophilicity — the most cardiotoxic common amide. Cardiovascular collapse can occur with little or no CNS prodrome, so the CNS warning margin is narrow or absent.",
+    "citation": "knudsen-1997-la-toxicity",
+    "note": "The reference point against which the S-enantiomers (levobupivacaine, ropivacaine) were developed. Agent-choice differentiation surfaced in v0.6 LA2; the narrow margin is why the cardiovascular threshold matters even at a similar CNS threshold."
   }
 }

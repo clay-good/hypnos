@@ -8,6 +8,38 @@ version is pinned in `dataset/VERSION` and stamped into every export as
 
 ## [Unreleased]
 
+### Local-anesthetic stereochemistry & cardiotoxicity (v0.6 LA2) (2026-06-10)
+- **The agent-choice safety argument, made quantitative and honest.** Racemic bupivacaine is the
+  most cardiotoxic common amide ("fast-in/slow-out" avid cardiac Na-channel binding); its
+  S-enantiomers (levobupivacaine, ropivacaine) were developed to widen the cardiovascular margin at
+  similar local-anesthetic potency. LA2 curates that as a drug-level `cardiotoxicity_class` (`rank`
+  ∈ high/intermediate/low, `stereochemistry`, and the qualitative `cns_to_cvs_margin`) for
+  lidocaine, bupivacaine, and ropivacaine, and adds **levobupivacaine** (a new drug + systemic
+  model, Bardsley 1998) to anchor the intermediate point of the three-way comparison.
+- **`la.cardiotoxicity_comparison` / `hypnos la --agents` — the agent-choice axis (v0.6 §3.4/§6).**
+  Lists every LA carrying a cardiotoxicity class, most-cardiotoxic first, with its **numeric**
+  CNS-to-CVS fold-margin (cardiovascular midpoint / CNS-first-symptoms midpoint, total basis). The
+  numeric margin is monotone with the qualitative ranking — racemic bupivacaine **1.4×** <
+  levobupivacaine **1.7×** < ropivacaine **2.0×** < lidocaine **5.0×** — so the view shows *why* a
+  similar CNS threshold can hide a very different cardiovascular margin, without ranking or
+  recommending a dose (forward, comparative, research-only; §7).
+- **Consistency fix:** widened ropivacaine's curated cardiovascular range (4–8 → 5–10 µg/mL) so the
+  numeric fold-margin order matches the documented qualitative order (ropivacaine's margin is the
+  widest of the long-acting amides). The load-bearing claim is the margin *order*, not the precise
+  Tier-C numbers.
+- **Surfaced everywhere.** The double-uncertainty view (`la.double_uncertainty` / `hypnos la --site`)
+  now reports the agent's cardiotoxicity class and raises an explicit **NARROW-margin cardiotoxicity
+  warning** for bupivacaine (cardiovascular toxicity can occur with little/no CNS prodrome). `hypnos
+  verify` gains a cardiotoxicity checklist item; `hypnos validate` resolves the class citation and
+  enforces the rank/margin vocabulary. Export (§9): `hypnos:cardiotoxicityClass` rides in SBML/PharmML
+  RDF and TCI-JSON passes the block verbatim.
+- **README figure `la_cardiotoxicity.png`** (regenerated from the live kernels): the CNS and
+  cardiovascular threshold bands per agent on a shared log axis, the gap widening
+  bupivacaine → levobupivacaine → ropivacaine → lidocaine.
+- **Design note.** `cardiotoxicity_class` lives at the **drug** level beside `protein_binding` (both
+  intrinsic chemistry shared across a drug's models), rather than the model-schema `$def` the v0.6
+  spec §4 sketched — matching the established `protein_binding` precedent. 23 models · 13 drugs · 28 citations.
+
 ### Local-anesthetic toxicity thresholds + the double-uncertainty view (v0.6 LA1) (2026-06-10)
 - **Thresholds are RANGES, never lines — enforced by construction.** A new `toxicity_threshold`
   block (`endpoint` ∈ cns_first_symptoms / cns_seizure / cardiovascular; a `concentration_range`

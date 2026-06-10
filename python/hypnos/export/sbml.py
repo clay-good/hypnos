@@ -27,7 +27,8 @@ def build(model, ds=None, patient: Optional[Dict[str, Any]] = None) -> str:
     # v0.6: the LA site-absorption + toxicity-threshold RANGES + safetyCritical flag
     # ride beside the variability RDF (thresholds export AS ranges — never collapsed
     # to a single value; v0.6 §9).
-    la = annotate.la_rdf(model, indent="  ")
+    drug = ds.drug(model.drug_name) if ds is not None else None
+    la = annotate.la_rdf(model, drug=drug, indent="  ")
     extra = "\n".join(x for x in (var_rdf, la) if x)
     ann = annotate.rdf_annotation_xml(model, ds, extra_predicates=extra)
     var_note = (

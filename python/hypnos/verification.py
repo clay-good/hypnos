@@ -129,6 +129,13 @@ def _checklist_for(model: Model, ds: Dataset) -> List[ChecklistItem]:
         items.append(ChecklistItem(
             "local_anesthetic", "every threshold curated as a RANGE, never a line (§3.3)",
             f"{len(model.toxicity_thresholds)} threshold range(s); none collapsed to a single value"))
+    # (6) cardiotoxicity class (v0.6 LA2) — the stereochemistry/cardiotoxicity ranking
+    #     and the CNS-to-CVS margin must match the cited source and the margin ORDER.
+    cc = (drug or {}).get("cardiotoxicity_class") if drug else None
+    if cc:
+        items.append(ChecklistItem(
+            "local_anesthetic", "cardiotoxicity class & CNS-to-CVS margin (stereochemistry — §3.4)",
+            f"{cc.get('rank')} / {cc.get('stereochemistry')} / margin {cc.get('cns_to_cvs_margin')}"))
     # 6. citation resolves to the right paper
     cit = ds.citation(model.primary_citation) if ds is not None else None
     if cit:

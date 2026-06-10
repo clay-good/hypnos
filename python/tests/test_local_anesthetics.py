@@ -309,3 +309,88 @@ def test_ropivacaine_cvs_margin_wider_than_bupivacaine(ds):
         cvs = next(t for t in m.toxicity_thresholds if t.endpoint == "cardiovascular")
         return cvs.midpoint / cns.midpoint
     assert cvs_over_cns(ROPI) > cvs_over_cns(BUPI)
+
+
+# --------------------------------------------------------------------------- #
+# v0.6 LA2 — stereochemistry / cardiotoxicity differentiation
+# --------------------------------------------------------------------------- #
+LEVO = "local_anesthetics.levobupivacaine.systemic"
+
+
+def test_levobupivacaine_model_present_and_simulable(ds):
+    from hypnos.la import concentration_at_site
+    m = ds[LEVO]
+    assert m.subsystem == "local_anesthetics" and m.has_toxicity_thresholds
+    r = concentration_at_site(ds, LEVO, site="lumbar_epidural", dose_mg=100.0)
+    assert r.drug == "levobupivacaine" and r.cmax > 0
+
+
+@pytest.mark.parametrize("drug, rank, stereo, margin", [
+    ("bupivacaine", "high", "racemate", "narrow"),
+    ("levobupivacaine", "intermediate", "S_enantiomer", "moderate"),
+    ("ropivacaine", "low", "S_enantiomer", "wide"),
+    ("lidocaine", "low", "achiral", "wide")])
+def test_cardiotoxicity_class_curated(ds, drug, rank, stereo, margin):
+    cc = ds.drug(drug)["cardiotoxicity_class"]
+    assert cc["rank"] == rank and cc["stereochemistry"] == stereo
+    assert cc["cns_to_cvs_margin"] == margin
+    assert ds.citation(cc["citation"]) is not None
+
+
+def test_cardiotoxicity_comparison_ordering(ds):
+    from hypnos.la import cardiotoxicity_comparison
+    rows = cardiotoxicity_comparison(ds)
+    assert [a.drug for a in rows][:2] == ["bupivacaine", "levobupivacaine"]   # most cardiotoxic first
+    # the numeric CNS-to-CVS margin is MONOTONE with the qualitative ranking
+    folds = [a.cns_to_cvs_fold for a in rows]
+    assert folds == sorted(folds)
+    # bupivacaine has the narrowest curated margin; lidocaine the widest
+    bupi = next(a for a in rows if a.drug == "bupivacaine")
+    lido = next(a for a in rows if a.drug == "lidocaine")
+    assert bupi.cns_to_cvs_fold < lido.cns_to_cvs_fold
+
+
+def test_double_uncertainty_surfaces_cardiotoxicity(ds):
+    from hypnos.la import double_uncertainty
+    du = double_uncertainty(ds, BUPI, site="lumbar_epidural", dose_mg=100.0)
+    assert du.cardiotoxicity is not None and du.cardiotoxicity["rank"] == "high"
+    # the narrow-margin agent carries the explicit cardiotoxicity warning
+    assert any("CARDIOTOXICITY" in w and "NARROW" in w for w in du.warnings)
+    # a wide-margin agent does not raise that warning
+    du_lido = double_uncertainty(ds, LIDO, site="lumbar_epidural", dose_mg=100.0)
+    assert not any("CARDIOTOXICITY" in w for w in du_lido.warnings)
+
+
+def test_cardiotoxicity_export_carried(ds):
+    from hypnos.export import pharmml, sbml, tci_json
+    import json
+    m = ds[BUPI]
+    assert 'hypnos:cardiotoxicityClass' in sbml.build(m, ds)
+    assert 'cardiotoxicityClass rank="high"' in pharmml.build(m, ds)
+    d = json.loads(tci_json.build(m, ds))
+    assert d["cardiotoxicity_class"]["rank"] == "high"
+
+
+def test_validate_flags_bad_cardiotoxicity_rank():
+    from hypnos.validate import validate_dataset
+
+    class _DS:
+        def __init__(self):
+            self.citations = {"tucker-1979-la-pharmacokinetics": {}}
+            self.drugs = {"x": {"name": "x", "cardiotoxicity_class": {
+                "rank": "extreme", "cns_to_cvs_margin": "narrow",
+                "citation": "tucker-1979-la-pharmacokinetics"}}}
+
+        def __iter__(self):
+            return iter([])
+
+        def drug(self, n):
+            return self.drugs.get(n)
+    probs = validate_dataset(_DS())
+    assert any("invalid rank" in p for p in probs)
+
+
+def test_verification_checklist_has_cardiotoxicity_item(ds):
+    from hypnos.verification import model_verification
+    mv = model_verification(ds, BUPI)
+    assert any("cardiotoxicity class" in it.label.lower() for it in mv.checklist)

@@ -89,7 +89,7 @@ Compose a band-eligible PK model with a PD model and the same curated Ω that sc
 
 ![Hypnos PD effect band — PK BSV propagated through the Hill link](docs/images/effect_band.png)
 
-Because **PD-parameter BSV (Ce50, γ) is not curated**, the effect ribbon reports only the propagated PK variability and is labeled an honest **lower bound** on true effect spread — the never-invent rule, carried into effect space: report what is curated, name what is not. A no-BSV PK model draws no effect band at all (never-synthesize), even with a PD model attached.
+Because **PD-parameter BSV (Ce50, γ) is not curated**, the effect ribbon reports only the propagated PK variability and is labeled an honest **lower bound** on true effect spread — the never-invent rule, carried into effect space: report what is curated, name what is not. A no-BSV PK model draws no effect band at all (never-synthesize), even with a PD model attached. The **[dashboard](dashboard/app.py)** renders this same ribbon live (the band-eligible PK model composed with its matching PD model) whenever the prediction-band toggle is on.
 
 ```text
 $ hypnos simulate hypnotics_iv.propofol.eleveld_2018 --pd pd_effect.propofol.eleveld_bis \
@@ -268,7 +268,7 @@ flowchart TD
     DS["<b>dataset/</b> — source of truth<br/>JSON model records + JSON Schema + JSON-LD context<br/>drugs · models · covariate eqs · envelopes · tiers · citations"]
     DS --> PKG["<b>hypnos</b> Python package<br/>load · filter · validate<br/>simulate · compare (PK/PD + divergence + bands)<br/>sample_individual (seeded BSV draws)<br/>simulate_interaction (synergy surface)<br/>analysis (tpeak · decrement)<br/>inhalational (MAC · wash-in/out)<br/>verification (checklists, never promotes)"]
     PKG --> CLI["<b>hypnos</b> CLI<br/>validate · info · models · status · verify<br/>simulate · compare · interact<br/>tpeak · decrement · mac · washin · washout<br/>performance · export"]
-    PKG --> DASH["Streamlit dashboard<br/>drug-aware divergence + accuracy + driver<br/>seeded prediction-band ribbons + separation/variance readout<br/>onset table · synergy · volatiles (MAC + wash-in/out)"]
+    PKG --> DASH["Streamlit dashboard<br/>drug-aware divergence + accuracy + driver<br/>seeded prediction-band ribbons + separation/variance readout<br/>PD effect (BIS) band · onset table · synergy · volatiles (MAC + wash-in/out)"]
     PKG --> EXP["<b>hypnos.export</b><br/>format builders"]
     EXP --> NM["NONMEM control stream"]
     EXP --> PHARMML["PharmML projection"]
@@ -510,7 +510,7 @@ hypnos/
 ├── notebooks/                   # reference notebooks executed in CI (nbmake): divergence + v0.2 variability
 ├── CHANGELOG.md · .zenodo.json   # release metadata (Zenodo DOI on first tagged release)
 ├── python/tests/                # analytic-vs-numeric, round-trip, envelope, tier, CLI, verification
-├── dashboard/app.py             # Streamlit: divergence + seeded band ribbons (v0.2) + onset + synergy + volatiles
+├── dashboard/app.py             # Streamlit: divergence + seeded band ribbons + PD effect (BIS) band (v0.2) + onset + synergy + volatiles
 ├── docs/about/essay.md          # why model-selection risk is the load-bearing idea
 ├── docs/specs/v0.1/spec.md      # the design spec (typical-value layer)
 ├── docs/specs/v0.2/variability.md  # the population-variability layer (Ω/Σ, bands)

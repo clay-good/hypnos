@@ -227,6 +227,43 @@ with col2:
         st.subheader("Onset (time to peak effect)")
         st.dataframe(pd.DataFrame(onset), hide_index=True)
 
+# --- PD effect (BIS) prediction band: PK BSV propagated through the Hill link (v0.2 §14) ---
+# Compose the band-eligible PK model with a matching PD model: the same curated Ω that
+# scatters the concentration scatters the predicted effect. Quantiles are taken on the
+# effect draws directly (correct under the monotone Hill transform). PD-parameter BSV
+# (Ce50, γ) is not curated, so the ribbon is an honest LOWER BOUND on true effect spread.
+if show_bands:
+    pk_band = next((r for r in cmp.included
+                    if ds[r.model_id].has_published_variability), None)
+    pds = [m.id for m in ds if m.purpose == "pd" and f".{drug}." in m.id]
+    if pk_band is not None and pds:
+        author = pk_band.model_id.split(".")[-1].split("_")[0]
+        pd_id = next((p for p in pds if author in p), pds[0])
+        eff = hypnos.simulate(ds, pk_band.model_id, patient=patient, schedule=schedule, t=t,
+                              pd_model=pd_id, bands=True, percentile=(5, 95),
+                              samples=int(samples), seed=int(seed))
+        if eff.effect_quantiles is not None:
+            st.divider()
+            st.subheader(f"PD effect band — {eff.effect_label}")
+            st.caption(
+                f"PK between-subject variability from **{pk_band.model_id.split('.')[-1]}** "
+                f"pushed through the (fixed) Hill link. PD-parameter BSV (Ce50, γ) is not "
+                "curated, so this 5–95% ribbon is an honest **lower bound** on true effect "
+                "spread (never-invent, carried into effect space). NOT a per-patient range.")
+            eq = eff.effect_quantiles
+            band_df = pd.DataFrame({"t (min)": t, "lo": eq[5], "hi": eq[95]})
+            med_df = pd.DataFrame({"t (min)": t, "BIS": eq[50]})
+            ribbon = alt.Chart(band_df).mark_area(opacity=0.20, color="#9467bd").encode(
+                x="t (min):Q", y=alt.Y("lo:Q", title="effect (BIS — lower = deeper)"), y2="hi:Q")
+            line = alt.Chart(med_df).mark_line(color="#6a3d9a").encode(
+                x="t (min):Q", y="BIS:Q")
+            st.altair_chart(alt.layer(ribbon, line).properties(height=300),
+                            use_container_width=True)
+            j = int(np.argmin(eq[50]))   # peak effect = minimum median BIS
+            st.caption(f"Peak-effect BIS band: **{eq[50][j]:.1f}** "
+                       f"[{eq[5][j]:.1f}, {eq[95][j]:.1f}]  (band-tier {eff.band_tier}, "
+                       f"PK-BSV only — lower bound).")
+
 if drug == "propofol":
     st.divider()
     st.subheader("Propofol–remifentanil hypnotic synergy")

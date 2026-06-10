@@ -42,3 +42,9 @@ def test_dashboard_renders_with_prediction_bands():
     # so the never-synthesize "excluded from band math" warning must appear.
     warnings = " ".join(w.value for w in at.warning)
     assert "excluded from band math" in warnings
+    # the PD effect (BIS) band — PK BSV through the Hill link — must surface too
+    # (Eleveld PK + Eleveld BIS), as an honest lower bound.
+    subheaders = " ".join(s.value for s in at.subheader)
+    assert "PD effect band" in subheaders
+    captions = " ".join(c.value for c in at.caption)
+    assert "lower bound" in captions

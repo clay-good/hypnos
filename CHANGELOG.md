@@ -8,6 +8,18 @@ version is pinned in `dataset/VERSION` and stamped into every export as
 
 ## [Unreleased]
 
+### Dashboard surfaces the PD effect (BIS) prediction band (2026-06-10)
+- **The dashboard now renders the v0.2 effect band**, closing the same "feature in the
+  package but not in the UI" gap a prior commit closed for the volatiles. With the
+  prediction-band toggle on, it composes the band-eligible PK model with its matching
+  PD model (Eleveld PK + Eleveld BIS for propofol, discovered generically by drug +
+  shared author token) and draws the BIS effect ribbon — the curated PK between-subject
+  variability pushed through the (fixed) Hill link, quantiles taken on the effect draws
+  directly. Labeled an honest **lower bound** on true effect spread, because PD-parameter
+  BSV (Ce50, γ) is not curated (never-invent, carried into effect space). All compute is
+  the tested `simulate(..., pd_model=…, bands=True)` path, so the view never drifts from
+  the CLI/figure. The `AppTest` smoke test now asserts the panel renders.
+
 ### Fix the `compare --bands` band readout + add the v0.2 reference notebook (2026-06-09)
 - **Fixed a band-display bug in `hypnos compare --bands`.** The per-model band was
   printed as `[max(q_lo), max(q_hi)]` — the *independent temporal maxima* of the 5th-

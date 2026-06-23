@@ -1,89 +1,199 @@
 {
   "id": "local_anesthetics.bupivacaine.systemic",
   "subsystem": "local_anesthetics",
-  "drug": { "name": "bupivacaine", "unii": null, "atc": "N01BB01" },
+  "drug": {
+    "name": "bupivacaine",
+    "unii": null,
+    "atc": "N01BB01"
+  },
   "purpose": "pk",
   "label": "Bupivacaine — systemic disposition + site absorption",
-  "structure": { "compartments": 1, "parameterization": "volumes_clearances", "elimination": "linear", "effect_compartment": false },
-  "kernel": { "implemented": true, "function": "la_absorption" },
+  "structure": {
+    "compartments": 1,
+    "parameterization": "volumes_clearances",
+    "elimination": "linear",
+    "effect_compartment": false
+  },
+  "kernel": {
+    "implemented": true,
+    "function": "la_absorption"
+  },
   "parameters": [
     {
-      "symbol": "V1", "label": "apparent volume of distribution (reference adult)",
-      "value": { "central": 73.0, "low": null, "high": null, "units": "L" },
+      "symbol": "V1",
+      "label": "apparent volume of distribution (reference adult)",
+      "value": {
+        "central": 73.0,
+        "low": null,
+        "high": null,
+        "units": "L"
+      },
       "covariate_model": "reference-adult disposition (no covariate model in LA0; ~1.0 L/kg)",
       "tier": "C",
-      "extraction": { "review_status": "unverified", "tier_rationale": "Standard reference-adult LA disposition value (Tier-C by design). Bupivacaine is long-acting and the most cardiotoxic common amide; the cardiotoxicity differentiation is v0.6 LA2.", "source_locator": "Tucker & Mather 1979; standard LA PK reference values" },
+      "extraction": {
+        "review_status": "unverified",
+        "tier_rationale": "Standard reference-adult LA disposition value (Tier-C by design). Bupivacaine is long-acting and the most cardiotoxic common amide; the cardiotoxicity differentiation is v0.6 LA2.",
+        "source_locator": "Tucker & Mather 1979; standard LA PK reference values"
+      },
       "primary_citation": "tucker-1979-la-pharmacokinetics"
     },
     {
-      "symbol": "Cl1", "label": "systemic clearance (reference adult)",
-      "value": { "central": 0.47, "low": null, "high": null, "units": "L/min" },
+      "symbol": "Cl1",
+      "label": "systemic clearance (reference adult)",
+      "value": {
+        "central": 0.47,
+        "low": null,
+        "high": null,
+        "units": "L/min"
+      },
       "covariate_model": "reference-adult disposition (no covariate model in LA0)",
       "tier": "C",
-      "extraction": { "review_status": "unverified", "source_locator": "Tucker & Mather 1979; standard LA PK reference values" },
+      "extraction": {
+        "review_status": "unverified",
+        "source_locator": "Tucker & Mather 1979; standard LA PK reference values"
+      },
       "primary_citation": "tucker-1979-la-pharmacokinetics"
     }
   ],
   "absorption": {
     "model": "first_order",
     "site_rates": [
-      { "site": "intercostal", "ka": 0.20, "bioavailability": 1.0, "rank": 1, "citation": "tucker-1979-la-pharmacokinetics" },
-      { "site": "caudal_epidural", "ka": 0.12, "bioavailability": 1.0, "rank": 2, "citation": "tucker-1979-la-pharmacokinetics" },
-      { "site": "lumbar_epidural", "ka": 0.08, "bioavailability": 1.0, "rank": 3, "citation": "tucker-1979-la-pharmacokinetics" },
-      { "site": "brachial_plexus", "ka": 0.05, "bioavailability": 1.0, "rank": 4, "citation": "tucker-1979-la-pharmacokinetics" },
-      { "site": "subcutaneous", "ka": 0.02, "bioavailability": 1.0, "rank": 5, "citation": "tucker-1979-la-pharmacokinetics" }
+      {
+        "site": "intercostal",
+        "ka": 0.2,
+        "bioavailability": 1.0,
+        "rank": 1,
+        "citation": "tucker-1979-la-pharmacokinetics"
+      },
+      {
+        "site": "caudal_epidural",
+        "ka": 0.12,
+        "bioavailability": 1.0,
+        "rank": 2,
+        "citation": "tucker-1979-la-pharmacokinetics"
+      },
+      {
+        "site": "lumbar_epidural",
+        "ka": 0.08,
+        "bioavailability": 1.0,
+        "rank": 3,
+        "citation": "tucker-1979-la-pharmacokinetics"
+      },
+      {
+        "site": "brachial_plexus",
+        "ka": 0.05,
+        "bioavailability": 1.0,
+        "rank": 4,
+        "citation": "tucker-1979-la-pharmacokinetics"
+      },
+      {
+        "site": "subcutaneous",
+        "ka": 0.02,
+        "bioavailability": 1.0,
+        "rank": 5,
+        "citation": "tucker-1979-la-pharmacokinetics"
+      }
     ],
     "tier": "C",
-    "extraction": { "review_status": "unverified", "tier_rationale": "Site-absorption rank order robust; absolute ka Tier-C, applied site-wise (the site dominates the rate of rise). The narrower cardiovascular margin of bupivacaine vs ropivacaine at similar block is the v0.6 LA2 educational comparison.", "source_locator": "Tucker & Mather 1979 (systemic-absorption rank by site)" },
+    "extraction": {
+      "review_status": "unverified",
+      "tier_rationale": "Site-absorption rank order robust; absolute ka Tier-C, applied site-wise (the site dominates the rate of rise). The narrower cardiovascular margin of bupivacaine vs ropivacaine at similar block is the v0.6 LA2 educational comparison.",
+      "source_locator": "Tucker & Mather 1979 (systemic-absorption rank by site)"
+    },
     "primary_citation": "tucker-1979-la-pharmacokinetics"
   },
   "toxicity_thresholds": [
     {
       "endpoint": "cns_first_symptoms",
-      "concentration_range": { "low": 1.6, "high": 2.6, "units": "ug/mL" },
+      "concentration_range": {
+        "low": 1.6,
+        "high": 2.6,
+        "units": "ug/mL"
+      },
       "basis": "total_plasma",
       "individual_variability": "high",
       "method_caveat": "Volunteer slow i.v. infusion (Knudsen 1997); CNS symptoms (circumoral numbness, tinnitus, light-headedness) at ~2 ug/mL total mean. Speed of rise and acidosis lower the threshold — a rapid intravascular injection is NOT this slow-infusion number.",
       "saturation_caveat": "Bupivacaine binding SATURATES: at high total concentration the free (toxic) fraction rises non-linearly, so this total-basis range UNDER-predicts free-drug risk exactly when total is highest. Compare against the free-basis threshold below.",
       "tier": "C",
-      "extraction": { "review_status": "unverified", "source_locator": "Knudsen 1997 (volunteer i.v. infusion, total plasma)" },
+      "extraction": {
+        "review_status": "unverified",
+        "source_locator": "Knudsen 1997 (volunteer i.v. infusion, total plasma)"
+      },
       "primary_citation": "knudsen-1997-la-toxicity"
     },
     {
       "endpoint": "cns_first_symptoms",
-      "concentration_range": { "low": 0.25, "high": 0.40, "units": "ug/mL" },
+      "concentration_range": {
+        "low": 0.25,
+        "high": 0.4,
+        "units": "ug/mL"
+      },
       "basis": "free_plasma",
       "individual_variability": "high",
       "method_caveat": "Free (unbound) plasma concentration at first CNS symptoms (Knudsen 1997). The free-basis companion to the total-basis range above — toxicity tracks FREE drug, so this is the more mechanistically faithful threshold.",
       "tier": "C",
-      "extraction": { "review_status": "unverified", "source_locator": "Knudsen 1997 (free plasma)" },
+      "extraction": {
+        "review_status": "unverified",
+        "source_locator": "Knudsen 1997 (free plasma)"
+      },
       "primary_citation": "knudsen-1997-la-toxicity"
     },
     {
       "endpoint": "cardiovascular",
-      "concentration_range": { "low": 2.0, "high": 4.0, "units": "ug/mL" },
+      "concentration_range": {
+        "low": 2.0,
+        "high": 4.0,
+        "units": "ug/mL"
+      },
       "basis": "total_plasma",
       "individual_variability": "high",
       "method_caveat": "Bupivacaine is the most CARDIOTOXIC common amide (fast-in/slow-out avid cardiac Na-channel binding): the cardiovascular margin OVER the CNS-warning range is narrow or absent — arrhythmia/arrest can occur with little or no CNS prodrome, unlike less cardiotoxic agents. The agent-choice differentiation (vs ropivacaine/levobupivacaine) is v0.6 LA2.",
       "saturation_caveat": "Saturable binding: this total-basis cardiovascular range under-predicts free-drug risk at high total concentration (v0.6 LA3).",
       "tier": "C",
-      "extraction": { "review_status": "unverified", "tier_rationale": "Cardiovascular threshold ranges are wide, method-dependent and ethically un-doseable in volunteers; Tier-C by construction. The clinically load-bearing fact is the NARROW CNS-to-CVS margin, not a precise number.", "source_locator": "Knudsen 1997; Scott 1989 (acute toxicity, bupivacaine vs ropivacaine)" },
+      "extraction": {
+        "review_status": "unverified",
+        "tier_rationale": "Cardiovascular threshold ranges are wide, method-dependent and ethically un-doseable in volunteers; Tier-C by construction. The clinically load-bearing fact is the NARROW CNS-to-CVS margin, not a precise number.",
+        "source_locator": "Knudsen 1997; Scott 1989 (acute toxicity, bupivacaine vs ropivacaine)"
+      },
       "primary_citation": "knudsen-1997-la-toxicity"
     }
   ],
-  "covariates": { "required": [], "optional": [], "lbm_equation": null },
+  "covariates": {
+    "required": [],
+    "optional": [],
+    "lbm_equation": null
+  },
   "applicability_envelope": {
-    "age_years": { "min": 18, "max": 90 },
-    "weight_kg": { "min": 40, "max": 120 },
-    "populations": ["adult"],
+    "age_years": {
+      "min": 18,
+      "max": 90
+    },
+    "weight_kg": {
+      "min": 40,
+      "max": 120
+    },
+    "populations": [
+      "adult"
+    ],
     "derivation_n": null
   },
   "known_failure_modes": [],
   "tier": "C",
   "extraction": {
-    "review_status": "unverified",
+    "review_status": "pending_human_review",
     "tier_rationale": "v0.6 LA0: systemic disposition + site absorption only — no toxicity thresholds (LA1). Site-of-injection dominance is the headline. Disposition + ka Tier-C; the site rank is the robust claim.",
-    "source_locator": "Tucker & Mather 1979; standard LA PK reference values"
+    "source_locator": "Tucker & Mather 1979; standard LA PK reference values",
+    "source_review": {
+      "reviewed_by": "automated source cross-check (Claude Opus 4.8 via Hypnos research agents)",
+      "reviewed_date": "2026-06-23",
+      "method": "fetched FDA/EMA labels (DailyMed/SmPC), primary-paper PubMed abstracts, open implementations, and CrossRef, then compared each curated value against the fetched values",
+      "sources": [
+        "https://www.medicines.org.uk/emc/product/13990/smpc (Bupivacaine SmPC, section 5.2)"
+      ],
+      "outcome": "partial_match",
+      "notes": "Vdss 73 L is an EXACT match to the bupivacaine SmPC. Total clearance: curated 0.47 L/min vs SmPC 0.58 L/min (~19% lower) — the curated value is a plausible disposition estimate but below the labelled racemate clearance. HUMAN ITEM: reconcile CL against the primary Tucker & Mather 1979 table (paywalled, not directly read).",
+      "human_verified": false
+    }
   },
   "primary_citation": "tucker-1979-la-pharmacokinetics",
   "notes": "Systemic concentration only. Saturable protein binding (free fraction rises non-linearly at high total concentration) is curated on the drug record and surfaced as the LA3 failure mode; cardiotoxicity differentiation vs ropivacaine is LA2."

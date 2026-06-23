@@ -1,79 +1,183 @@
 {
   "id": "local_anesthetics.ropivacaine.systemic",
   "subsystem": "local_anesthetics",
-  "drug": { "name": "ropivacaine", "unii": null, "atc": "N01BB09" },
+  "drug": {
+    "name": "ropivacaine",
+    "unii": null,
+    "atc": "N01BB09"
+  },
   "purpose": "pk",
   "label": "Ropivacaine — systemic disposition + site absorption",
-  "structure": { "compartments": 1, "parameterization": "volumes_clearances", "elimination": "linear", "effect_compartment": false },
-  "kernel": { "implemented": true, "function": "la_absorption" },
+  "structure": {
+    "compartments": 1,
+    "parameterization": "volumes_clearances",
+    "elimination": "linear",
+    "effect_compartment": false
+  },
+  "kernel": {
+    "implemented": true,
+    "function": "la_absorption"
+  },
   "parameters": [
     {
-      "symbol": "V1", "label": "apparent volume of distribution (reference adult)",
-      "value": { "central": 59.0, "low": null, "high": null, "units": "L" },
+      "symbol": "V1",
+      "label": "apparent volume of distribution (reference adult)",
+      "value": {
+        "central": 59.0,
+        "low": null,
+        "high": null,
+        "units": "L"
+      },
       "covariate_model": "reference-adult disposition (no covariate model in LA0; ~0.84 L/kg)",
       "tier": "C",
-      "extraction": { "review_status": "unverified", "tier_rationale": "Standard reference-adult LA disposition value (Tier-C). Ropivacaine (S-enantiomer) has lower lipid solubility and slightly higher clearance than racemic bupivacaine, and is markedly less cardiotoxic (the v0.6 LA2 agent-choice argument).", "source_locator": "Tucker & Mather 1979 / standard ropivacaine PK reference values" },
+      "extraction": {
+        "review_status": "unverified",
+        "tier_rationale": "Standard reference-adult LA disposition value (Tier-C). Ropivacaine (S-enantiomer) has lower lipid solubility and slightly higher clearance than racemic bupivacaine, and is markedly less cardiotoxic (the v0.6 LA2 agent-choice argument).",
+        "source_locator": "Tucker & Mather 1979 / standard ropivacaine PK reference values"
+      },
       "primary_citation": "tucker-1979-la-pharmacokinetics"
     },
     {
-      "symbol": "Cl1", "label": "systemic clearance (reference adult)",
-      "value": { "central": 0.45, "low": null, "high": null, "units": "L/min" },
+      "symbol": "Cl1",
+      "label": "systemic clearance (reference adult)",
+      "value": {
+        "central": 0.45,
+        "low": null,
+        "high": null,
+        "units": "L/min"
+      },
       "covariate_model": "reference-adult disposition (no covariate model in LA0)",
       "tier": "C",
-      "extraction": { "review_status": "unverified", "source_locator": "Tucker & Mather 1979 / standard ropivacaine PK reference values" },
+      "extraction": {
+        "review_status": "unverified",
+        "source_locator": "Tucker & Mather 1979 / standard ropivacaine PK reference values"
+      },
       "primary_citation": "tucker-1979-la-pharmacokinetics"
     }
   ],
   "absorption": {
     "model": "first_order",
     "site_rates": [
-      { "site": "intercostal", "ka": 0.20, "bioavailability": 1.0, "rank": 1, "citation": "tucker-1979-la-pharmacokinetics" },
-      { "site": "caudal_epidural", "ka": 0.12, "bioavailability": 1.0, "rank": 2, "citation": "tucker-1979-la-pharmacokinetics" },
-      { "site": "lumbar_epidural", "ka": 0.08, "bioavailability": 1.0, "rank": 3, "citation": "tucker-1979-la-pharmacokinetics" },
-      { "site": "brachial_plexus", "ka": 0.05, "bioavailability": 1.0, "rank": 4, "citation": "tucker-1979-la-pharmacokinetics" },
-      { "site": "subcutaneous", "ka": 0.02, "bioavailability": 1.0, "rank": 5, "citation": "tucker-1979-la-pharmacokinetics" }
+      {
+        "site": "intercostal",
+        "ka": 0.2,
+        "bioavailability": 1.0,
+        "rank": 1,
+        "citation": "tucker-1979-la-pharmacokinetics"
+      },
+      {
+        "site": "caudal_epidural",
+        "ka": 0.12,
+        "bioavailability": 1.0,
+        "rank": 2,
+        "citation": "tucker-1979-la-pharmacokinetics"
+      },
+      {
+        "site": "lumbar_epidural",
+        "ka": 0.08,
+        "bioavailability": 1.0,
+        "rank": 3,
+        "citation": "tucker-1979-la-pharmacokinetics"
+      },
+      {
+        "site": "brachial_plexus",
+        "ka": 0.05,
+        "bioavailability": 1.0,
+        "rank": 4,
+        "citation": "tucker-1979-la-pharmacokinetics"
+      },
+      {
+        "site": "subcutaneous",
+        "ka": 0.02,
+        "bioavailability": 1.0,
+        "rank": 5,
+        "citation": "tucker-1979-la-pharmacokinetics"
+      }
     ],
     "tier": "C",
-    "extraction": { "review_status": "unverified", "tier_rationale": "Site-absorption rank order robust; absolute ka Tier-C, applied site-wise.", "source_locator": "Tucker & Mather 1979 (systemic-absorption rank by site)" },
+    "extraction": {
+      "review_status": "unverified",
+      "tier_rationale": "Site-absorption rank order robust; absolute ka Tier-C, applied site-wise.",
+      "source_locator": "Tucker & Mather 1979 (systemic-absorption rank by site)"
+    },
     "primary_citation": "tucker-1979-la-pharmacokinetics"
   },
   "toxicity_thresholds": [
     {
       "endpoint": "cns_first_symptoms",
-      "concentration_range": { "low": 3.0, "high": 4.6, "units": "ug/mL" },
+      "concentration_range": {
+        "low": 3.0,
+        "high": 4.6,
+        "units": "ug/mL"
+      },
       "basis": "total_plasma",
       "individual_variability": "high",
       "method_caveat": "Volunteer slow i.v. infusion (Knudsen 1997): CNS symptoms at higher total plasma than bupivacaine (~3.4 ug/mL mean) — ropivacaine is less potent and less toxic. Speed of rise and acidosis lower the threshold; a rapid intravascular injection is not this slow-infusion number.",
       "saturation_caveat": "Ropivacaine binding is SATURABLE: this total-basis range under-predicts free-drug risk at high total concentration (the free fraction rises non-linearly; non-linear model is v0.6 LA3).",
       "tier": "C",
-      "extraction": { "review_status": "unverified", "source_locator": "Knudsen 1997 (volunteer i.v. infusion, total plasma)" },
+      "extraction": {
+        "review_status": "unverified",
+        "source_locator": "Knudsen 1997 (volunteer i.v. infusion, total plasma)"
+      },
       "primary_citation": "knudsen-1997-la-toxicity"
     },
     {
       "endpoint": "cardiovascular",
-      "concentration_range": { "low": 5.0, "high": 10.0, "units": "ug/mL" },
+      "concentration_range": {
+        "low": 5.0,
+        "high": 10.0,
+        "units": "ug/mL"
+      },
       "basis": "total_plasma",
       "individual_variability": "high",
       "method_caveat": "Ropivacaine's cardiovascular margin OVER its CNS-warning range is the WIDEST of the long-acting amides (less avid cardiac Na-channel binding; the S-enantiomer and reduced lipophilicity) — wider than levobupivacaine's, much wider than racemic bupivacaine's. The agent-choice safety differentiation (v0.6 LA2). Magnitude Tier-C and method-dependent; the load-bearing fact is the margin ORDER (bupivacaine < levobupivacaine < ropivacaine), not a precise number.",
       "saturation_caveat": "Saturable binding: this total-basis cardiovascular range under-predicts free-drug risk at high total concentration (v0.6 LA3).",
       "tier": "C",
-      "extraction": { "review_status": "unverified", "tier_rationale": "CVS thresholds are wide, method-dependent and ethically un-doseable in volunteers; Tier-C. The clinically load-bearing claim is the WIDER ropivacaine CNS-to-CVS margin vs bupivacaine.", "source_locator": "Knudsen 1997; Scott 1989 (acute toxicity, ropivacaine vs bupivacaine)" },
+      "extraction": {
+        "review_status": "unverified",
+        "tier_rationale": "CVS thresholds are wide, method-dependent and ethically un-doseable in volunteers; Tier-C. The clinically load-bearing claim is the WIDER ropivacaine CNS-to-CVS margin vs bupivacaine.",
+        "source_locator": "Knudsen 1997; Scott 1989 (acute toxicity, ropivacaine vs bupivacaine)"
+      },
       "primary_citation": "scott-1989-ropivacaine-bupivacaine-toxicity"
     }
   ],
-  "covariates": { "required": [], "optional": [], "lbm_equation": null },
+  "covariates": {
+    "required": [],
+    "optional": [],
+    "lbm_equation": null
+  },
   "applicability_envelope": {
-    "age_years": { "min": 18, "max": 90 },
-    "weight_kg": { "min": 40, "max": 120 },
-    "populations": ["adult"],
+    "age_years": {
+      "min": 18,
+      "max": 90
+    },
+    "weight_kg": {
+      "min": 40,
+      "max": 120
+    },
+    "populations": [
+      "adult"
+    ],
     "derivation_n": null
   },
   "known_failure_modes": [],
   "tier": "C",
   "extraction": {
-    "review_status": "unverified",
+    "review_status": "contested",
     "tier_rationale": "v0.6 LA0: systemic disposition + site absorption only — no toxicity thresholds (LA1). Disposition + ka Tier-C; the site rank is the robust claim.",
-    "source_locator": "Tucker & Mather 1979 / standard ropivacaine PK reference values"
+    "source_locator": "Tucker & Mather 1979 / standard ropivacaine PK reference values",
+    "source_review": {
+      "reviewed_by": "automated source cross-check (Claude Opus 4.8 via Hypnos research agents)",
+      "reviewed_date": "2026-06-23",
+      "method": "fetched FDA/EMA labels (DailyMed/SmPC), primary-paper PubMed abstracts, open implementations, and CrossRef, then compared each curated value against the fetched values",
+      "sources": [
+        "https://pubmed.ncbi.nlm.nih.gov/2589653/ (Lee et al. 1989, Anesth Analg 69:736 - first human ropivacaine disposition; Vss 59 L)",
+        "https://dailymed.nlm.nih.gov/dailymed/lookup.cfm?setid=56dfabf7-f7a8-4601-b17a-cb16fb995b0f (FDA Naropin label; plasma Vdss 41 L, CL 0.387 L/min)"
+      ],
+      "outcome": "discrepancy",
+      "notes": "CITATION DISCREPANCY (values not changed): ropivacaine is cited to Tucker & Mather 1979, but ropivacaine had no human PK until the late 1980s. The curated Vss 59 L matches EXACTLY the first human study, Lee et al. 1989 (PMID 2589653; GT Tucker is a co-author, which likely explains the citation drift). HUMAN ACTION: re-cite to Lee 1989 and/or the FDA Naropin label. Note blood-based (Lee, Vss 59 L, CL 0.72) vs plasma-based (FDA, Vdss 41 L, CL 0.39) reference frames differ; the curated set mixes the blood Vss with a plasma-leaning CL.",
+      "human_verified": false
+    }
   },
   "primary_citation": "tucker-1979-la-pharmacokinetics",
   "notes": "Systemic concentration only. The S-enantiomer's wider cardiovascular margin vs bupivacaine at similar CNS potency is the v0.6 LA2 educational comparison."

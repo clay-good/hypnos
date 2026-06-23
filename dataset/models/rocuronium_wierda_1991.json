@@ -1,43 +1,104 @@
 {
   "id": "nmb_agents.rocuronium.wierda_1991",
   "subsystem": "nmb_agents",
-  "drug": { "name": "rocuronium", "unii": "WRE554RG7I", "atc": "M03AC09" },
+  "drug": {
+    "name": "rocuronium",
+    "unii": "WRE554RG7I",
+    "atc": "M03AC09"
+  },
   "purpose": "pk",
   "label": "Rocuronium PK — Wierda (1991)",
-  "structure": { "compartments": 3, "parameterization": "volumes_clearances", "elimination": "linear", "effect_compartment": true },
-  "kernel": { "implemented": false, "function": null },
+  "structure": {
+    "compartments": 3,
+    "parameterization": "volumes_clearances",
+    "elimination": "linear",
+    "effect_compartment": true
+  },
+  "kernel": {
+    "implemented": false,
+    "function": null
+  },
   "parameters": [
     {
-      "symbol": "V1", "label": "central volume",
-      "value": { "central": null, "low": null, "high": null, "units": "L" },
-      "covariate_model": "see Wierda 1991 (transcription pending verification)",
+      "symbol": "V1",
+      "label": "central volume",
+      "value": {
+        "central": 3.08,
+        "low": null,
+        "high": null,
+        "units": "L"
+      },
+      "covariate_model": "V1 = 0.044 * WGT (opentiva Wierda impl.); ~3.08 L at 70 kg",
       "tier": "C",
-      "extraction": { "review_status": "unverified", "tier_rationale": "Canonical rocuronium PK model, but the primary-source compartmental parameters are not openly reproduced consistently across secondary sources; pending field-by-field transcription.", "source_locator": "Wierda 1991" },
+      "extraction": {
+        "review_status": "pending_human_review",
+        "tier_rationale": "Canonical rocuronium PK model, but the primary-source compartmental parameters are not openly reproduced consistently across secondary sources; pending field-by-field transcription.",
+        "source_locator": "Wierda 1991"
+      },
       "primary_citation": "wierda-1991-rocuronium"
     },
     {
-      "symbol": "ke0", "label": "effect-site equilibration rate constant",
-      "value": { "central": null, "low": null, "high": null, "units": "1/min" },
-      "covariate_model": "see Wierda 1991 (pending verification; literature range ~0.08-0.25 across models)",
+      "symbol": "ke0",
+      "label": "effect-site equilibration rate constant",
+      "value": {
+        "central": 0.1,
+        "low": null,
+        "high": null,
+        "units": "1/min"
+      },
+      "covariate_model": "ke0 = 0.1 + (AGE-50)*-0.000725 (opentiva; ke0 from Masui 2018, ~0.1/min)",
       "tier": "C",
-      "extraction": { "review_status": "unverified", "source_locator": "Wierda 1991 (PD)" },
+      "extraction": {
+        "review_status": "pending_human_review",
+        "source_locator": "Wierda 1991 (PD)"
+      },
       "primary_citation": "wierda-1991-rocuronium"
     }
   ],
-  "covariates": { "required": ["weight"], "optional": ["age", "sex"], "lbm_equation": null },
+  "covariates": {
+    "required": [
+      "weight"
+    ],
+    "optional": [
+      "age",
+      "sex"
+    ],
+    "lbm_equation": null
+  },
   "applicability_envelope": {
-    "age_years": { "min": 18, "max": 85 },
-    "weight_kg": { "min": 45, "max": 110 },
-    "populations": ["adult"],
+    "age_years": {
+      "min": 18,
+      "max": 85
+    },
+    "weight_kg": {
+      "min": 45,
+      "max": 110
+    },
+    "populations": [
+      "adult"
+    ],
     "derivation_n": null
   },
   "known_failure_modes": [],
   "predictive_performance": [],
   "tier": "C",
   "extraction": {
-    "review_status": "unverified",
+    "review_status": "pending_human_review",
     "tier_rationale": "Curated record with verified citation; KERNEL PENDING. simulate() refuses this model rather than ship compartmental parameters that cannot be reconciled to the primary PDF. Seeds the nmb_agents subsystem; pairs with the train-of-four PD sigmoid once a verified PK kernel lands.",
-    "source_locator": "Wierda 1991"
+    "source_locator": "Wierda 1991",
+    "source_review": {
+      "reviewed_by": "automated source cross-check (Claude Opus 4.8 via Hypnos research agents)",
+      "reviewed_date": "2026-06-23",
+      "method": "fetched FDA/EMA labels (DailyMed/SmPC), primary-paper PubMed abstracts, open implementations, and CrossRef, then compared each curated value against the fetched values",
+      "sources": [
+        "https://raw.githubusercontent.com/opentiva/opentiva/master/opentiva/rocuronium.py (Wierda class: V1 0.044*wt, k10 0.1, k12 0.21, k13 0.028, k21 0.13, k31 0.01)",
+        "https://pubmed.ncbi.nlm.nih.gov/1829656/ (Wierda 1991 abstract: Vdss 0.264 L/kg, Cl 4.0 mL/kg/min, t1/2 1.8/19/131 min)",
+        "https://api.crossref.org/works/10.1007/BF03007578 (correct DOI)"
+      ],
+      "outcome": "partial_match",
+      "notes": "Source-filled the two curated params from the opentiva Wierda implementation: V1 = 0.044*WGT (~3.08 L at 70 kg) and ke0 ~0.1/min (the ke0 formula is attributed to Masui 2018, not the original Wierda paper). The full 3-compartment micro-rate set (k10 0.1, k12 0.21, k13 0.028, k21 0.13, k31 0.01) and the original-paper aggregates (Vdss 0.264 L/kg, Cl 4.0 mL/kg/min) are recorded here for the human verifier. CITATION: the record's DOI was objectively wrong (BF03007580 -> a scopolamine paper); fixed to BF03007578 (CrossRef-verified). KERNEL STILL PENDING — values pending human confirmation + a wired kernel before simulation. Original PMID may also need a check (abstract found at PMID 1829656).",
+      "human_verified": false
+    }
   },
   "primary_citation": "wierda-1991-rocuronium",
   "notes": "KERNEL PENDING. The reversal partner sugammadex (1:1 encapsulation kinetics) is a separate, deferred subsystem (binding kinetics need their own design pass, analogous to the deferred local anesthetics)."

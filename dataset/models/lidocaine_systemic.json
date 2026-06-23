@@ -1,87 +1,198 @@
 {
   "id": "local_anesthetics.lidocaine.systemic",
   "subsystem": "local_anesthetics",
-  "drug": { "name": "lidocaine", "unii": null, "atc": "N01BB02" },
+  "drug": {
+    "name": "lidocaine",
+    "unii": null,
+    "atc": "N01BB02"
+  },
   "purpose": "pk",
   "label": "Lidocaine — systemic disposition + site absorption",
-  "structure": { "compartments": 1, "parameterization": "volumes_clearances", "elimination": "linear", "effect_compartment": false },
-  "kernel": { "implemented": true, "function": "la_absorption" },
+  "structure": {
+    "compartments": 1,
+    "parameterization": "volumes_clearances",
+    "elimination": "linear",
+    "effect_compartment": false
+  },
+  "kernel": {
+    "implemented": true,
+    "function": "la_absorption"
+  },
   "parameters": [
     {
-      "symbol": "V1", "label": "apparent volume of distribution (reference adult)",
-      "value": { "central": 91.0, "low": null, "high": null, "units": "L" },
+      "symbol": "V1",
+      "label": "apparent volume of distribution (reference adult)",
+      "value": {
+        "central": 91.0,
+        "low": null,
+        "high": null,
+        "units": "L"
+      },
       "covariate_model": "reference-adult disposition (no covariate model in LA0; ~1.3 L/kg)",
       "tier": "C",
-      "extraction": { "review_status": "unverified", "tier_rationale": "Standard reference-adult LA disposition value; LA PK is old, wide, and method-dependent (Tier-C by design). The SITE-absorption rank is the robust, load-bearing claim, not the absolute disposition.", "source_locator": "Tucker & Mather 1979; standard LA PK reference values" },
+      "extraction": {
+        "review_status": "unverified",
+        "tier_rationale": "Standard reference-adult LA disposition value; LA PK is old, wide, and method-dependent (Tier-C by design). The SITE-absorption rank is the robust, load-bearing claim, not the absolute disposition.",
+        "source_locator": "Tucker & Mather 1979; standard LA PK reference values"
+      },
       "primary_citation": "tucker-1979-la-pharmacokinetics"
     },
     {
-      "symbol": "Cl1", "label": "systemic clearance (reference adult)",
-      "value": { "central": 0.95, "low": null, "high": null, "units": "L/min" },
+      "symbol": "Cl1",
+      "label": "systemic clearance (reference adult)",
+      "value": {
+        "central": 0.95,
+        "low": null,
+        "high": null,
+        "units": "L/min"
+      },
       "covariate_model": "reference-adult disposition (hepatic-blood-flow-limited; no covariate model in LA0)",
       "tier": "C",
-      "extraction": { "review_status": "unverified", "source_locator": "Tucker & Mather 1979; standard LA PK reference values" },
+      "extraction": {
+        "review_status": "unverified",
+        "source_locator": "Tucker & Mather 1979; standard LA PK reference values"
+      },
       "primary_citation": "tucker-1979-la-pharmacokinetics"
     }
   ],
   "absorption": {
     "model": "first_order",
     "site_rates": [
-      { "site": "intercostal", "ka": 0.20, "bioavailability": 1.0, "rank": 1, "citation": "tucker-1979-la-pharmacokinetics" },
-      { "site": "caudal_epidural", "ka": 0.12, "bioavailability": 1.0, "rank": 2, "citation": "tucker-1979-la-pharmacokinetics" },
-      { "site": "lumbar_epidural", "ka": 0.08, "bioavailability": 1.0, "rank": 3, "citation": "tucker-1979-la-pharmacokinetics" },
-      { "site": "brachial_plexus", "ka": 0.05, "bioavailability": 1.0, "rank": 4, "citation": "tucker-1979-la-pharmacokinetics" },
-      { "site": "subcutaneous", "ka": 0.02, "bioavailability": 1.0, "rank": 5, "citation": "tucker-1979-la-pharmacokinetics" }
+      {
+        "site": "intercostal",
+        "ka": 0.2,
+        "bioavailability": 1.0,
+        "rank": 1,
+        "citation": "tucker-1979-la-pharmacokinetics"
+      },
+      {
+        "site": "caudal_epidural",
+        "ka": 0.12,
+        "bioavailability": 1.0,
+        "rank": 2,
+        "citation": "tucker-1979-la-pharmacokinetics"
+      },
+      {
+        "site": "lumbar_epidural",
+        "ka": 0.08,
+        "bioavailability": 1.0,
+        "rank": 3,
+        "citation": "tucker-1979-la-pharmacokinetics"
+      },
+      {
+        "site": "brachial_plexus",
+        "ka": 0.05,
+        "bioavailability": 1.0,
+        "rank": 4,
+        "citation": "tucker-1979-la-pharmacokinetics"
+      },
+      {
+        "site": "subcutaneous",
+        "ka": 0.02,
+        "bioavailability": 1.0,
+        "rank": 5,
+        "citation": "tucker-1979-la-pharmacokinetics"
+      }
     ],
     "tier": "C",
-    "extraction": { "review_status": "unverified", "tier_rationale": "The site-absorption RANK ORDER (intercostal > caudal/epidural > plexus > subcutaneous) is robustly established; the absolute ka magnitudes are Tier-C and applied site-wise (a drug-independent simplification — the site dominates the rate of rise). The rank is the curated direction even where ka magnitude is soft.", "source_locator": "Tucker & Mather 1979 (systemic-absorption rank by site)" },
+    "extraction": {
+      "review_status": "unverified",
+      "tier_rationale": "The site-absorption RANK ORDER (intercostal > caudal/epidural > plexus > subcutaneous) is robustly established; the absolute ka magnitudes are Tier-C and applied site-wise (a drug-independent simplification — the site dominates the rate of rise). The rank is the curated direction even where ka magnitude is soft.",
+      "source_locator": "Tucker & Mather 1979 (systemic-absorption rank by site)"
+    },
     "primary_citation": "tucker-1979-la-pharmacokinetics"
   },
   "toxicity_thresholds": [
     {
       "endpoint": "cns_first_symptoms",
-      "concentration_range": { "low": 3.0, "high": 6.0, "units": "ug/mL" },
+      "concentration_range": {
+        "low": 3.0,
+        "high": 6.0,
+        "units": "ug/mL"
+      },
       "basis": "total_plasma",
       "individual_variability": "high",
       "method_caveat": "Classic total-plasma concentration-effect ladder (Tucker & Mather 1979 review): subjective CNS symptoms (circumoral numbness, light-headedness, tinnitus) emerge ~3-6 ug/mL. Rate-of-rise- and acidosis-dependent; not a context-free line.",
       "tier": "C",
-      "extraction": { "review_status": "unverified", "source_locator": "Tucker & Mather 1979 (lidocaine plasma concentration-effect relationship)" },
+      "extraction": {
+        "review_status": "unverified",
+        "source_locator": "Tucker & Mather 1979 (lidocaine plasma concentration-effect relationship)"
+      },
       "primary_citation": "tucker-1979-la-pharmacokinetics"
     },
     {
       "endpoint": "cns_seizure",
-      "concentration_range": { "low": 8.0, "high": 12.0, "units": "ug/mL" },
+      "concentration_range": {
+        "low": 8.0,
+        "high": 12.0,
+        "units": "ug/mL"
+      },
       "basis": "total_plasma",
       "individual_variability": "high",
       "method_caveat": "Objective convulsions appear above ~8-12 ug/mL total in the classic ladder. The CNS-warning sequence (subjective symptoms BEFORE seizures) is comparatively preserved for lidocaine — unlike the most cardiotoxic agents where it can be narrow.",
       "tier": "C",
-      "extraction": { "review_status": "unverified", "source_locator": "Tucker & Mather 1979" },
+      "extraction": {
+        "review_status": "unverified",
+        "source_locator": "Tucker & Mather 1979"
+      },
       "primary_citation": "tucker-1979-la-pharmacokinetics"
     },
     {
       "endpoint": "cardiovascular",
-      "concentration_range": { "low": 20.0, "high": 25.0, "units": "ug/mL" },
+      "concentration_range": {
+        "low": 20.0,
+        "high": 25.0,
+        "units": "ug/mL"
+      },
       "basis": "total_plasma",
       "individual_variability": "high",
       "method_caveat": "Cardiovascular depression occurs well ABOVE the CNS-toxicity range for lidocaine — a comparatively wide CNS-to-CVS margin (the opposite of bupivacaine). This separation is itself the educational point; the magnitude is Tier-C and method-dependent.",
       "tier": "C",
-      "extraction": { "review_status": "unverified", "tier_rationale": "CVS thresholds are wide and un-doseable in volunteers; Tier-C. The load-bearing fact is the WIDE lidocaine CNS-to-CVS margin vs the narrow bupivacaine one.", "source_locator": "Tucker & Mather 1979" },
+      "extraction": {
+        "review_status": "unverified",
+        "tier_rationale": "CVS thresholds are wide and un-doseable in volunteers; Tier-C. The load-bearing fact is the WIDE lidocaine CNS-to-CVS margin vs the narrow bupivacaine one.",
+        "source_locator": "Tucker & Mather 1979"
+      },
       "primary_citation": "tucker-1979-la-pharmacokinetics"
     }
   ],
-  "covariates": { "required": [], "optional": [], "lbm_equation": null },
+  "covariates": {
+    "required": [],
+    "optional": [],
+    "lbm_equation": null
+  },
   "applicability_envelope": {
-    "age_years": { "min": 18, "max": 90 },
-    "weight_kg": { "min": 40, "max": 120 },
-    "populations": ["adult"],
+    "age_years": {
+      "min": 18,
+      "max": 90
+    },
+    "weight_kg": {
+      "min": 40,
+      "max": 120
+    },
+    "populations": [
+      "adult"
+    ],
     "derivation_n": null
   },
   "known_failure_modes": [],
   "tier": "C",
   "extraction": {
-    "review_status": "unverified",
+    "review_status": "pending_human_review",
     "tier_rationale": "v0.6 LA0: systemic disposition + site-specific absorption ONLY — no toxicity thresholds (deferred to LA1, which needs its own safety framing). The headline is the site-of-injection dominance: the same dose gives wildly different peak plasma concentrations by site, so the mg/kg ceiling is the wrong mental model. Disposition + ka are Tier-C; the site rank is the robust claim.",
-    "source_locator": "Tucker & Mather 1979; standard LA PK reference values"
+    "source_locator": "Tucker & Mather 1979; standard LA PK reference values",
+    "source_review": {
+      "reviewed_by": "automated source cross-check (Claude Opus 4.8 via Hypnos research agents)",
+      "reviewed_date": "2026-06-23",
+      "method": "fetched FDA/EMA labels (DailyMed/SmPC), primary-paper PubMed abstracts, open implementations, and CrossRef, then compared each curated value against the fetched values",
+      "sources": [
+        "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=fec1e759-60e4-47d4-bd54-947f18b103dd (Lidocaine label, section 5.2)",
+        "https://www.ncbi.nlm.nih.gov/books/NBK539881/ (StatPearls)"
+      ],
+      "outcome": "partial_match",
+      "notes": "Vd ~1.3 L/kg (91 L) agrees with the labelled range 0.7-2.7 L/kg (mean 1.5). Clearance: curated 0.95 L/min EXCEEDS the labelled mean 0.64 L/min (range 0.33-0.90) — the 'near hepatic blood flow' value is a textbook estimate, not the labelled measured value. HUMAN ITEM: reconcile CL against the primary Tucker & Mather 1979 table.",
+      "human_verified": false
+    }
   },
   "primary_citation": "tucker-1979-la-pharmacokinetics",
   "notes": "Systemic concentration only (NOT block efficacy at the nerve, NOT a toxicity margin). Bateman first-order-absorption + one-compartment disposition via hypnos.la. Toxicity thresholds, the double-uncertainty view, and the saturable-binding free-fraction story are v0.6 LA1-LA3."

@@ -1,79 +1,183 @@
 {
   "id": "local_anesthetics.levobupivacaine.systemic",
   "subsystem": "local_anesthetics",
-  "drug": { "name": "levobupivacaine", "unii": null, "atc": "N01BB10" },
+  "drug": {
+    "name": "levobupivacaine",
+    "unii": null,
+    "atc": "N01BB10"
+  },
   "purpose": "pk",
   "label": "Levobupivacaine — systemic disposition + site absorption",
-  "structure": { "compartments": 1, "parameterization": "volumes_clearances", "elimination": "linear", "effect_compartment": false },
-  "kernel": { "implemented": true, "function": "la_absorption" },
+  "structure": {
+    "compartments": 1,
+    "parameterization": "volumes_clearances",
+    "elimination": "linear",
+    "effect_compartment": false
+  },
+  "kernel": {
+    "implemented": true,
+    "function": "la_absorption"
+  },
   "parameters": [
     {
-      "symbol": "V1", "label": "apparent volume of distribution (reference adult)",
-      "value": { "central": 67.0, "low": null, "high": null, "units": "L" },
+      "symbol": "V1",
+      "label": "apparent volume of distribution (reference adult)",
+      "value": {
+        "central": 67.0,
+        "low": null,
+        "high": null,
+        "units": "L"
+      },
       "covariate_model": "reference-adult disposition (no covariate model; ~ bupivacaine, the S-enantiomer shares its disposition)",
       "tier": "C",
-      "extraction": { "review_status": "unverified", "tier_rationale": "Reference-adult LA disposition value (Tier-C by design). Levobupivacaine is the S-enantiomer of bupivacaine and shares its disposition closely; the load-bearing LA2 claim is the INTERMEDIATE cardiotoxicity, not the precise volume.", "source_locator": "Bardsley 1998; standard LA PK reference values (~ bupivacaine)" },
+      "extraction": {
+        "review_status": "unverified",
+        "tier_rationale": "Reference-adult LA disposition value (Tier-C by design). Levobupivacaine is the S-enantiomer of bupivacaine and shares its disposition closely; the load-bearing LA2 claim is the INTERMEDIATE cardiotoxicity, not the precise volume.",
+        "source_locator": "Bardsley 1998; standard LA PK reference values (~ bupivacaine)"
+      },
       "primary_citation": "bardsley-1998-levobupivacaine"
     },
     {
-      "symbol": "Cl1", "label": "systemic clearance (reference adult)",
-      "value": { "central": 0.50, "low": null, "high": null, "units": "L/min" },
+      "symbol": "Cl1",
+      "label": "systemic clearance (reference adult)",
+      "value": {
+        "central": 0.5,
+        "low": null,
+        "high": null,
+        "units": "L/min"
+      },
       "covariate_model": "reference-adult disposition (no covariate model; ~ bupivacaine)",
       "tier": "C",
-      "extraction": { "review_status": "unverified", "source_locator": "Bardsley 1998; standard LA PK reference values (~ bupivacaine)" },
+      "extraction": {
+        "review_status": "unverified",
+        "source_locator": "Bardsley 1998; standard LA PK reference values (~ bupivacaine)"
+      },
       "primary_citation": "bardsley-1998-levobupivacaine"
     }
   ],
   "absorption": {
     "model": "first_order",
     "site_rates": [
-      { "site": "intercostal", "ka": 0.20, "bioavailability": 1.0, "rank": 1, "citation": "tucker-1979-la-pharmacokinetics" },
-      { "site": "caudal_epidural", "ka": 0.12, "bioavailability": 1.0, "rank": 2, "citation": "tucker-1979-la-pharmacokinetics" },
-      { "site": "lumbar_epidural", "ka": 0.08, "bioavailability": 1.0, "rank": 3, "citation": "tucker-1979-la-pharmacokinetics" },
-      { "site": "brachial_plexus", "ka": 0.05, "bioavailability": 1.0, "rank": 4, "citation": "tucker-1979-la-pharmacokinetics" },
-      { "site": "subcutaneous", "ka": 0.02, "bioavailability": 1.0, "rank": 5, "citation": "tucker-1979-la-pharmacokinetics" }
+      {
+        "site": "intercostal",
+        "ka": 0.2,
+        "bioavailability": 1.0,
+        "rank": 1,
+        "citation": "tucker-1979-la-pharmacokinetics"
+      },
+      {
+        "site": "caudal_epidural",
+        "ka": 0.12,
+        "bioavailability": 1.0,
+        "rank": 2,
+        "citation": "tucker-1979-la-pharmacokinetics"
+      },
+      {
+        "site": "lumbar_epidural",
+        "ka": 0.08,
+        "bioavailability": 1.0,
+        "rank": 3,
+        "citation": "tucker-1979-la-pharmacokinetics"
+      },
+      {
+        "site": "brachial_plexus",
+        "ka": 0.05,
+        "bioavailability": 1.0,
+        "rank": 4,
+        "citation": "tucker-1979-la-pharmacokinetics"
+      },
+      {
+        "site": "subcutaneous",
+        "ka": 0.02,
+        "bioavailability": 1.0,
+        "rank": 5,
+        "citation": "tucker-1979-la-pharmacokinetics"
+      }
     ],
     "tier": "C",
-    "extraction": { "review_status": "unverified", "tier_rationale": "Site-absorption rank order robust; absolute ka Tier-C, applied site-wise (the site dominates the rate of rise; a drug-independent simplification shared across the LA models).", "source_locator": "Tucker & Mather 1979 (systemic-absorption rank by site)" },
+    "extraction": {
+      "review_status": "unverified",
+      "tier_rationale": "Site-absorption rank order robust; absolute ka Tier-C, applied site-wise (the site dominates the rate of rise; a drug-independent simplification shared across the LA models).",
+      "source_locator": "Tucker & Mather 1979 (systemic-absorption rank by site)"
+    },
     "primary_citation": "tucker-1979-la-pharmacokinetics"
   },
   "toxicity_thresholds": [
     {
       "endpoint": "cns_first_symptoms",
-      "concentration_range": { "low": 1.7, "high": 2.7, "units": "ug/mL" },
+      "concentration_range": {
+        "low": 1.7,
+        "high": 2.7,
+        "units": "ug/mL"
+      },
       "basis": "total_plasma",
       "individual_variability": "high",
       "method_caveat": "Volunteer i.v. study (Bardsley 1998). Levobupivacaine shares bupivacaine's local-anesthetic potency, so its CNS-symptom range is close to bupivacaine's; speed of rise and acidosis lower the threshold.",
       "saturation_caveat": "Saturable binding: this total-basis range under-predicts free-drug risk at high total concentration (the free fraction rises non-linearly; nonlinear model is v0.6 LA3).",
       "tier": "C",
-      "extraction": { "review_status": "unverified", "source_locator": "Bardsley 1998 (volunteer i.v.)" },
+      "extraction": {
+        "review_status": "unverified",
+        "source_locator": "Bardsley 1998 (volunteer i.v.)"
+      },
       "primary_citation": "bardsley-1998-levobupivacaine"
     },
     {
       "endpoint": "cardiovascular",
-      "concentration_range": { "low": 2.5, "high": 5.0, "units": "ug/mL" },
+      "concentration_range": {
+        "low": 2.5,
+        "high": 5.0,
+        "units": "ug/mL"
+      },
       "basis": "total_plasma",
       "individual_variability": "high",
       "method_caveat": "Levobupivacaine's cardiovascular margin over its CNS-warning range is WIDER than racemic bupivacaine's (less negative inotropy and less avid cardiac Na-channel binding at equal dose; Bardsley 1998) but NARROWER than ropivacaine's — the intermediate ranking. Magnitude Tier-C; the load-bearing fact is the margin order bupivacaine < levobupivacaine < ropivacaine.",
       "saturation_caveat": "Saturable binding: this total-basis cardiovascular range under-predicts free-drug risk at high total concentration (v0.6 LA3).",
       "tier": "C",
-      "extraction": { "review_status": "unverified", "tier_rationale": "CVS thresholds are wide, method-dependent and ethically un-doseable in volunteers; Tier-C. The clinically load-bearing claim is the intermediate margin, not a precise number.", "source_locator": "Bardsley 1998 (cardiovascular effects, levobupivacaine vs rac-bupivacaine)" },
+      "extraction": {
+        "review_status": "unverified",
+        "tier_rationale": "CVS thresholds are wide, method-dependent and ethically un-doseable in volunteers; Tier-C. The clinically load-bearing claim is the intermediate margin, not a precise number.",
+        "source_locator": "Bardsley 1998 (cardiovascular effects, levobupivacaine vs rac-bupivacaine)"
+      },
       "primary_citation": "bardsley-1998-levobupivacaine"
     }
   ],
-  "covariates": { "required": [], "optional": [], "lbm_equation": null },
+  "covariates": {
+    "required": [],
+    "optional": [],
+    "lbm_equation": null
+  },
   "applicability_envelope": {
-    "age_years": { "min": 18, "max": 90 },
-    "weight_kg": { "min": 40, "max": 120 },
-    "populations": ["adult"],
+    "age_years": {
+      "min": 18,
+      "max": 90
+    },
+    "weight_kg": {
+      "min": 40,
+      "max": 120
+    },
+    "populations": [
+      "adult"
+    ],
     "derivation_n": null
   },
   "known_failure_modes": [],
   "tier": "C",
   "extraction": {
-    "review_status": "unverified",
+    "review_status": "contested",
     "tier_rationale": "v0.6 LA2: the S-enantiomer that anchors the INTERMEDIATE point of the cardiotoxicity comparison (racemic bupivacaine > levobupivacaine > ropivacaine). Disposition ~ bupivacaine (Tier-C reference-adult); the curated, load-bearing claim is the intermediate cardiotoxicity_class + the wider-than-bupivacaine cardiovascular margin (Bardsley 1998).",
-    "source_locator": "Bardsley 1998; Tucker & Mather 1979 (site absorption)"
+    "source_locator": "Bardsley 1998; Tucker & Mather 1979 (site absorption)",
+    "source_review": {
+      "reviewed_by": "automated source cross-check (Claude Opus 4.8 via Hypnos research agents)",
+      "reviewed_date": "2026-06-23",
+      "method": "fetched FDA/EMA labels (DailyMed/SmPC), primary-paper PubMed abstracts, open implementations, and CrossRef, then compared each curated value against the fetched values",
+      "sources": [
+        "https://pmc.ncbi.nlm.nih.gov/articles/PMC1873676/ (Bardsley 1998 - states Vss/CL could NOT be computed, drug measurable only 120 min)",
+        "https://pmc.ncbi.nlm.nih.gov/articles/PMC3819850/ (levobupivacaine review; Vss 66.9 L, CL 39 L/h)"
+      ],
+      "outcome": "discrepancy",
+      "notes": "CITATION DISCREPANCY (values not changed): the record cites Bardsley 1998, but that paper EXPLICITLY could not compute Vss or clearance (a cardiovascular-effects study; levobupivacaine measurable only 120 min). The curated Vss 67 L / CL 0.5 L/min match the Chirocaine SmPC / 40 mg-IV volunteer data (Vss 66.9 L, CL 39 L/h = 0.65 L/min) reproduced in PMC3819850. HUMAN ACTION: re-cite to the Chirocaine SmPC / a levobupivacaine PK monograph, not Bardsley 1998.",
+      "human_verified": false
+    }
   },
   "primary_citation": "bardsley-1998-levobupivacaine",
   "notes": "Systemic concentration only (NOT block efficacy, NOT a toxicity margin). Same Bateman absorption + one-compartment disposition as the other LA models; the LA2 point is the cardiotoxicity_class differentiation and the agent-choice CNS-to-CVS margin comparison surfaced via `hypnos la --agents`."

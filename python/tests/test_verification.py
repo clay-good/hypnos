@@ -81,8 +81,8 @@ def test_next_to_verify_prioritizes_pending_then_kernels(ds):
 
 
 def test_kernel_pending_model_lists_blocking(ds):
-    # rocuronium is still unverified AND kernel-pending: the kernel block must surface.
-    mv = model_verification(ds, "nmb_agents.rocuronium.wierda_1991")
+    # succinylcholine is still unverified AND kernel-pending: the kernel block must surface.
+    mv = model_verification(ds, "nmb_agents.succinylcholine.roy_2004")
     assert mv.review_status == "unverified"
     assert any("kernel" in b.lower() for b in mv.blocking)
 

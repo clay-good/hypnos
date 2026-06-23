@@ -1,47 +1,107 @@
 {
   "id": "pd_effect.rocuronium.tof_sigmoid",
   "subsystem": "pd_effect",
-  "drug": { "name": "rocuronium", "unii": "WRE554RG7I", "atc": "M03AC09" },
+  "drug": {
+    "name": "rocuronium",
+    "unii": "WRE554RG7I",
+    "atc": "M03AC09"
+  },
   "purpose": "pd",
   "label": "Rocuronium PD — effect-site -> train-of-four (T1 twitch) sigmoid",
-  "structure": { "compartments": 0, "parameterization": "volumes_clearances", "effect_compartment": false },
-  "kernel": { "implemented": true, "function": "nmb_tof_sigmoid" },
+  "structure": {
+    "compartments": 0,
+    "parameterization": "volumes_clearances",
+    "effect_compartment": false
+  },
+  "kernel": {
+    "implemented": true,
+    "function": "nmb_tof_sigmoid"
+  },
   "parameters": [
     {
-      "symbol": "E0", "label": "baseline first-twitch height (T1) % of control",
-      "value": { "central": 100.0, "low": null, "high": null, "units": "% of control" },
+      "symbol": "E0",
+      "label": "baseline first-twitch height (T1) % of control",
+      "value": {
+        "central": 100.0,
+        "low": null,
+        "high": null,
+        "units": "% of control"
+      },
       "covariate_model": "E0 = 100",
       "tier": "C",
-      "extraction": { "review_status": "unverified" },
+      "extraction": {
+        "review_status": "unverified"
+      },
       "primary_citation": "wierda-1991-rocuronium"
     },
     {
-      "symbol": "Emax", "label": "maximum twitch depression",
-      "value": { "central": 100.0, "low": null, "high": null, "units": "% of control" },
+      "symbol": "Emax",
+      "label": "maximum twitch depression",
+      "value": {
+        "central": 100.0,
+        "low": null,
+        "high": null,
+        "units": "% of control"
+      },
       "covariate_model": "Emax = 100 (full block drives T1 -> 0)",
       "tier": "C",
-      "extraction": { "review_status": "unverified" },
+      "extraction": {
+        "review_status": "unverified"
+      },
       "primary_citation": "wierda-1991-rocuronium"
     },
     {
-      "symbol": "Ce50", "label": "effect-site concentration for 50% twitch depression (adductor pollicis)",
-      "value": { "central": 0.823, "low": 0.666, "high": 0.980, "units": "ug/mL" },
+      "symbol": "Ce50",
+      "label": "effect-site concentration for 50% twitch depression (adductor pollicis)",
+      "value": {
+        "central": 0.823,
+        "low": 0.666,
+        "high": 0.98,
+        "units": "ug/mL"
+      },
       "covariate_model": "Ce50 = 0.823 ug/mL (= 823 ug/L; adductor pollicis)",
       "tier": "C",
-      "extraction": { "review_status": "unverified", "tier_rationale": "Reported adductor-pollicis EC50 (823 +/- 157 ug/L). The endpoint is muscle- and monitor-dependent." },
+      "extraction": {
+        "review_status": "unverified",
+        "tier_rationale": "Reported adductor-pollicis EC50 (823 +/- 157 ug/L). The endpoint is muscle- and monitor-dependent."
+      },
       "primary_citation": "wierda-1991-rocuronium"
     },
     {
-      "symbol": "gamma", "label": "Hill coefficient (steepness)",
-      "value": { "central": 4.5, "low": null, "high": null, "units": "dimensionless" },
+      "symbol": "gamma",
+      "label": "Hill coefficient (steepness)",
+      "value": {
+        "central": 4.5,
+        "low": null,
+        "high": null,
+        "units": "dimensionless"
+      },
       "covariate_model": "gamma = 4.5 (steep; NMB concentration-effect is sharp)",
       "tier": "C",
-      "extraction": { "review_status": "unverified" },
+      "extraction": {
+        "review_status": "unverified"
+      },
       "primary_citation": "wierda-1991-rocuronium"
     }
   ],
-  "covariates": { "required": [], "optional": ["age", "sex"], "lbm_equation": null },
-  "applicability_envelope": { "age_years": { "min": 18, "max": 85 }, "populations": ["adult"], "derivation_n": null },
+  "covariates": {
+    "required": [],
+    "optional": [
+      "age",
+      "sex"
+    ],
+    "lbm_equation": null
+  },
+  "applicability_envelope": {
+    "age_years": {
+      "min": 18,
+      "max": 85
+    },
+    "populations": [
+      "adult"
+    ],
+    "derivation_n": null
+  },
   "known_failure_modes": [
     {
       "condition": "endpoint is muscle- and monitor-dependent",
@@ -59,5 +119,5 @@
     "source_locator": "Wierda 1991"
   },
   "primary_citation": "wierda-1991-rocuronium",
-  "notes": "T1 = E0 - Emax * Ce^gamma/(Ce50^gamma + Ce^gamma). Same sigmoid form as propofol->BIS; the NMB convention is a steep gamma and a twitch-height (% of control) scale. Runnable end-to-end once nmb_agents.rocuronium has a verified PK kernel."
+  "notes": "T1 = E0 - Emax * Ce^gamma/(Ce50^gamma + Ce^gamma). Same sigmoid form as propofol->BIS; the NMB convention is a steep gamma and a twitch-height (% of control) scale. Runnable end-to-end once nmb_agents.rocuronium has a verified PK kernel. SOURCE NOTE (stays unverified): Ce50 0.823 ug/mL and gamma 4.5 could NOT be sourced this session (Wierda/Masui PD full text paywalled). The Wierda abstract reports a plasma conc of 1.0 mg/L at 25% twitch recovery - a different quantity from an effect-site Ce50. Citation DOI corrected (BF03007578). Awaits a sourced Ce50/gamma."
 }

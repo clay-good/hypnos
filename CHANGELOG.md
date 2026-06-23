@@ -21,23 +21,32 @@ version is pinned in `dataset/VERSION` and stamped into every export as
   (`match` / `partial_match` / `discrepancy`), and notes. A human verifier can audit the machine's work,
   then promote or contest it. Surfaced in `hypnos status` (a new count) and the `hypnos verify` checklist
   (the blocking message names the automated check and what remains), and exported as `hypnos:reviewStatus`.
-- **The cross-check, run for real.** Parallel research agents fetched open-access reproductions, primary-
-  paper PubMed abstracts (verbatim reference values for Eleveld-remi and Hannivoort), the `tci` R package
-  source, opentiva/PyTCI/simtiva/OpenTCI implementations, and FDA labels, then compared each curated
-  parameter. **13 models cross-checked → 15 now `pending_human_review`** (Eleveld propofol+remi, Minto,
-  Kim, Hannivoort, Schnider, Marsh, Kataria, Paedfusor, Eleveld-BIS, isoflurane/nitrous-oxide/sevoflurane
-  MAC, and the newly source-**filled** fentanyl Shafer-1990 set V1 6.09/V2 28.1/V3 228 L · Cl 0.504/2.87/
-  1.37 L/min). Two side-findings worth keeping: the agents caught a **bug in the `tci` package** (its
-  Schnider Cl1 mislabels weight as LBM — *our* data is correct), and a **citation/attribution discrepancy**:
-  the propofol→BIS sigmoid is cited to Schnider 1999, but that paper does not model BIS and does not contain
-  the curated Ce50 4.7 / γ 1.43 (those match a Bouillon/Vuyk-style sigmoid). That record is now **`contested`**
-  with the disagreement documented — surfaced, never silently "fixed."
-- **Honest residue:** desflurane MAC40 (curated 6.0 vs sources clustering 6.4–6.6 at age 40) is flagged as a
-  `discrepancy` for human resolution, value unchanged; 8 records with no findable independent source (the
-  systemic local anesthetics, the rocuronium PK/TOF pair, the interaction surface, the v0.9 succinylcholine
-  anchor) stay honestly `unverified`. 12 new tests (the state, the provenance invariants, the validator
-  rejections, the contested record). Verification coverage: **0 verified · 15 pending_human_review · 1
-  contested · 8 unverified** — the queue a human verifier now works top-down.
+- **The cross-check, run for real — all 24 models triaged.** Parallel research agents fetched open-access
+  reproductions, primary-paper PubMed abstracts (verbatim reference values for Eleveld-remi and Hannivoort),
+  the `tci` R package source, opentiva/PyTCI/simtiva/OpenTCI/PAS implementations, FDA/EMA labels (DailyMed,
+  SmPC), and CrossRef, then compared each curated parameter. **18 now `pending_human_review`** (Eleveld
+  propofol+remi, Minto, Kim, Hannivoort, Schnider, Marsh, Kataria, Paedfusor, Eleveld-BIS, iso/N₂O/sevo MAC,
+  bupivacaine + lidocaine disposition, and the source-**filled** fentanyl Shafer-1990 set V1 6.09/V2 28.1/V3
+  228 L · Cl 0.504/2.87/1.37 L/min and the source-**filled** rocuronium Wierda set V1 3.08 L / ke0 0.1).
+- **Four real problems surfaced, never silently fixed — now `contested`:** (1) the propofol→BIS sigmoid is
+  cited to Schnider 1999, which does not model BIS and lacks the curated Ce50 4.7 / γ 1.43 (a Bouillon/Vuyk
+  sigmoid); (2) **ropivacaine** disposition is cited to Tucker 1979, but ropivacaine had no human PK until
+  Lee 1989 (whose Vss 59 L the curated value matches exactly — GT Tucker is a Lee co-author, explaining the
+  drift); (3) **levobupivacaine** is cited to Bardsley 1998, which *explicitly could not compute* Vss/CL —
+  the values match the Chirocaine SmPC; (4) the **propofol–remifentanil BIS interaction** is curated as a
+  Greco α=4.0 supra-additive surface, but Bouillon 2004's BIS surface is *additive* (Minto-style β=0; synergy
+  there applies to laryngoscopy/no-response endpoints, not BIS). Each carries a `source_review` with the
+  correct source and a recommended human action.
+- **Side-findings + a fixed bug:** the agents caught a parameter-mislabel bug in the upstream `tci` package
+  (its Schnider Cl1 mislabels weight as LBM — *our* data is correct), and an **objectively wrong DOI** on the
+  Wierda rocuronium citation (`10.1007/BF03007580` resolves to a *scopolamine* paper; **fixed** to
+  `…578`, CrossRef-verified).
+- **Honest residue:** desflurane MAC40 (curated 6.0 vs sources 6.4–6.6 at age 40) flagged as a `discrepancy`,
+  value unchanged; only **2 records stay `unverified`** — succinylcholine PK (the only published set, Hoshi
+  1993, is a 1-compartment fit with ~100% CV and a seconds-scale t½, not a usable population model) and the
+  rocuronium TOF Ce50/γ (paywalled, unsourceable this session). 12 new tests. Verification coverage went
+  from **0 sourced** to **0 verified · 18 pending_human_review · 4 contested · 2 unverified** — the queue a
+  human verifier now works top-down.
 
 ### v0.4 VE2/VE3 — the cross-model, envelope-stratified external-validation leaderboard, run on real VitalDB (2026-06-23)
 - **Tiers that are *earned*, not asserted.** v0.4 VE0/VE1 built the Varvel engine and the VitalDB

@@ -184,6 +184,7 @@ def test_rocuronium_kernel_pending_refuses(ds):
 def test_phase_d_subsystems_present(ds):
     s = hypnos.summary(ds)
     assert s["by_subsystem"].get("volatiles") == 4
-    assert s["by_subsystem"].get("nmb_agents") == 1
+    # nmb_agents: rocuronium (v0.5) + succinylcholine (v0.9 BCHE/MH anchor, kernel pending)
+    assert s["by_subsystem"].get("nmb_agents") == 2
     assert s["n_models"] >= 15
     assert s["n_drugs"] >= 9

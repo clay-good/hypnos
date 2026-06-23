@@ -264,14 +264,17 @@ def test_no_effect_band_for_no_bsv_pk(ds):
 def _fake_result(model_id, median, lo_val, hi_val, *, bsv_var=1.0, resid_var=0.1, tier="B"):
     n = 11
     t = np.linspace(0, 10, n)
-    arr = lambda v: np.full(n, float(v))
+    def arr(v):
+        return np.full(n, float(v))
     r = SimulationResult(model_id=model_id, t=t, cp=arr(median), ce=arr(median), tier=tier)
     r.ce_quantiles = {5: arr(lo_val), 50: arr(median), 95: arr(hi_val)}
     r.cp_quantiles = r.ce_quantiles
     r.band_percentile = (5, 95)
     r.band_tier = tier
-    r.ce_bsv_var = arr(bsv_var); r.cp_bsv_var = arr(bsv_var)
-    r.ce_resid_var = arr(resid_var); r.cp_resid_var = arr(resid_var)
+    r.ce_bsv_var = arr(bsv_var)
+    r.cp_bsv_var = arr(bsv_var)
+    r.ce_resid_var = arr(resid_var)
+    r.cp_resid_var = arr(resid_var)
     return r
 
 

@@ -1,0 +1,11 @@
+{
+  "name": "succinylcholine",
+  "synonyms": ["suxamethonium", "Anectine", "Quelicin"],
+  "unii": "J2R869A8YF",
+  "atc": "M03AB01",
+  "cas": "306-40-1",
+  "drug_class": "depolarizing neuromuscular blocker",
+  "subsystem": "nmb_agents",
+  "notes": "Ultra-short-acting depolarizing NMB; hydrolyzed in plasma by butyrylcholinesterase (BCHE, 'plasma/pseudo-cholinesterase'). Atypical (dibucaine-resistant) BCHE markedly PROLONGS the block (the canonical anesthetic pharmacogenetic kinetic fact, v0.9). Also an MH trigger. Effect measured by train-of-four (TOF).",
+  "concentration_unit": "ug/mL"
+}

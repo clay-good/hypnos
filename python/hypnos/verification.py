@@ -17,7 +17,7 @@ from typing import Any, Dict, List, Optional
 from .load import Dataset, load
 from .models import TIER_RANK, Model
 
-REVIEW_STATES = ("unverified", "verified", "contested")
+REVIEW_STATES = ("unverified", "pending_human_review", "verified", "contested")
 
 
 @dataclass
@@ -169,6 +169,56 @@ def _checklist_for(model: Model, ds: Dataset) -> List[ChecklistItem]:
             "local_anesthetic", "free-fraction saturation model (capacity-limited, Tier-D — §3.2/LA3)",
             f"capacity {ffm.get('binding_capacity_ug_ml')} ug/mL, tier {ffm.get('tier')} "
             f"(illustrative; affinity pinned by fraction_bound)", locator=loc or None))
+    # 5c. developmental extrapolation (v0.8 §8/§9) — the five pediatric traps as explicit
+    #     yes/no items. A maturation curve driven by the wrong clock is the cardinal sin.
+    dev = model.developmental_model
+    if dev is not None:
+        loc = (dev.extraction or {}).get("source_locator")
+        items.append(ChecklistItem(
+            "developmental", "extrapolation basis & Tier-D label (allometry ± maturation — §5)",
+            f"{dev.extrapolation_basis}, evidence_tier {dev.evidence_tier}, "
+            f"applied_by_default={dev.applied_by_default}", locator=loc))
+        if dev.size is not None:
+            items.append(ChecklistItem(
+                "developmental", "allometric exponents fixed vs fitted, on the right parameter (Trap 2)",
+                f"Cl^{dev.size.cl_exponent}, V^{dev.size.v_exponent} ({dev.size.exponent_basis})"))
+            items.append(ChecklistItem(
+                "developmental", "reference weight / reference individual stated (Trap 3)",
+                f"{dev.size.reference_weight_kg} kg"))
+            if dev.size.size_descriptor:
+                items.append(ChecklistItem(
+                    "developmental", "size descriptor is a pediatric-valid equation (Trap 5)",
+                    f"{dev.size.size_descriptor} (Al-Sallami across the pediatric range, not adult Janmahasatian)"))
+        if dev.maturation is not None:
+            items.append(ChecklistItem(
+                "developmental", "maturation driven by PMA, NOT chronological age (Trap 1, cardinal)",
+                f"MF(PMA): TM50={dev.maturation.tm50_weeks} wk, Hill={dev.maturation.hill}, "
+                f"driver={dev.maturation.driver}, on {dev.maturation.affected_parameter}"))
+            items.append(ChecklistItem(
+                "developmental", "maturation pathway appropriate / labeled if simplified (Trap 4)",
+                f"single MF on {dev.maturation.affected_parameter} — confirm or label multi-pathway"))
+        else:
+            items.append(ChecklistItem(
+                "developmental", "allometry_only over-dose caveat surfaced (un-modeled maturation)",
+                "confirm the caveat: neonatal clearance OVER-stated where maturation is uncurated"))
+    # 5d. pharmacogenomics (v0.9 §8) — the five traps; the flag-vs-modifier separation is
+    #     the load-bearing one (a susceptibility is never a kinetic number).
+    for mod in model.pharmacogenomic_modifiers:
+        loc = (mod.extraction or {}).get("source_locator")
+        items.append(ChecklistItem(
+            "pharmacogenomics",
+            f"{mod.gene} kinetic modifier — genotype→phenotype mapping & direction (Trap 1/5)",
+            f"{mod.phenotype_value}: {mod.affected_parameter} {mod.adjustment} "
+            f"(basis: {mod.phenotype_basis or '⚠️ none'}), Tier {mod.evidence_tier}", locator=loc))
+        items.append(ChecklistItem(
+            "pharmacogenomics", f"{mod.gene} substrate scope correct (Trap 4)",
+            f"{mod.substrate_scope} — confirm excludes non-substrates (remifentanil/amide-LA/rocuronium for BCHE)"))
+    for flag in model.pharmacogenomic_safety_flags:
+        items.append(ChecklistItem(
+            "pharmacogenomics",
+            f"{flag.gene} susceptibility curated as a FLAG, not a modifier (Trap 2, cardinal)",
+            f"{flag.kind}: {flag.action}; affects_kinetics={flag.affects_kinetics} "
+            f"(must be False — no kinetic number), Tier {flag.evidence_tier}"))
     # 6. citation resolves to the right paper
     cit = ds.citation(model.primary_citation) if ds is not None else None
     if cit:
@@ -184,7 +234,15 @@ def model_verification(ds: Dataset, model_id: str) -> ModelVerification:
     if m.review_status == "verified":
         pass
     else:
-        blocking.append("a human must confirm every field below against the source PDF")
+        if m.review_status == "pending_human_review":
+            sr = m.source_review or {}
+            srcs = ", ".join(sr.get("sources", [])) or "(see source_review)"
+            blocking.append(
+                "AUTOMATED source cross-check done (outcome: "
+                f"{sr.get('outcome', '?')}; sources: {srcs}) — a human must still confirm every "
+                "field against the PRIMARY source and promote to 'verified' (LLMs do not promote)")
+        else:
+            blocking.append("a human must confirm every field below against the source PDF")
         if any(p.central is None for p in m.parameters):
             blocking.append("some parameters have no central value (transcription incomplete)")
         if not m.kernel_implemented and m.purpose in ("pk", "pd", "interaction", "physicochemical"):
@@ -199,13 +257,19 @@ def model_verification(ds: Dataset, model_id: str) -> ModelVerification:
 
 
 def _priority(m: Model) -> tuple:
-    # Highest leverage first: implemented kernels (verifying unlocks trustworthy
-    # simulation), then better tier, then by id for stability.
-    return (0 if m.kernel_implemented else 1, TIER_RANK.get(m.tier, 9), m.id)
+    # Highest leverage first: a model whose values an automated cross-check has already
+    # confirmed against a source (pending_human_review) is the cheapest human win — a
+    # confirmation, not a transcription — so it leads; then implemented kernels (verifying
+    # unlocks trustworthy simulation), then better tier, then by id for stability.
+    return (0 if m.review_status == "pending_human_review" else 1,
+            0 if m.kernel_implemented else 1, TIER_RANK.get(m.tier, 9), m.id)
 
 
 def next_to_verify(ds: Dataset, limit: Optional[int] = None) -> List[Model]:
-    """Unverified models in highest-leverage order (implemented kernel, best tier first)."""
+    """Not-yet-verified models in highest-leverage order.
+
+    A ``pending_human_review`` record (automated cross-check done) sorts first — it needs
+    only human confirmation; then unverified records by implemented-kernel + best tier."""
     pending = [m for m in ds if m.review_status != "verified"]
     pending.sort(key=_priority)
     return pending[:limit] if limit else pending
@@ -249,7 +313,7 @@ def checklist_markdown(mv: ModelVerification) -> str:
         "",
     ]
     groups = ["structural", "covariate", "covariate_equation", "population", "envelope",
-              "estimation", "local_anesthetic", "citation"]
+              "estimation", "local_anesthetic", "developmental", "pharmacogenomics", "citation"]
     titles = {
         "structural": "Structural parameters",
         "covariate": "Covariate equations (incl. exact LBM/FFM form)",
@@ -258,6 +322,8 @@ def checklist_markdown(mv: ModelVerification) -> str:
         "envelope": "Stated applicability range",
         "estimation": "Estimation uncertainty (RSE/SE vs BSV CV — read the column header)",
         "local_anesthetic": "LA toxicity thresholds (basis, units, method, saturation, range-not-line — safety-critical)",
+        "developmental": "Developmental extrapolation (PMA-clock, allometric exponents, reference weight, maturation — the 5 traps)",
+        "pharmacogenomics": "Pharmacogenomics (genotype→phenotype, flag-vs-modifier, substrate scope, dose-direction — the 5 traps)",
         "citation": "Primary citation",
     }
     for g in groups:

@@ -1,7 +1,11 @@
 {
   "id": "opioids.remifentanil.minto_1997",
   "subsystem": "opioids",
-  "drug": { "name": "remifentanil", "unii": "P10582JYYK", "atc": "N01AH06" },
+  "drug": {
+    "name": "remifentanil",
+    "unii": "P10582JYYK",
+    "atc": "N01AH06"
+  },
   "purpose": "pk",
   "label": "Remifentanil PK — Minto (1997)",
   "structure": {
@@ -10,73 +14,154 @@
     "elimination": "linear",
     "effect_compartment": true
   },
-  "kernel": { "implemented": true, "function": "remifentanil_minto_1997" },
+  "kernel": {
+    "implemented": true,
+    "function": "remifentanil_minto_1997"
+  },
   "parameters": [
     {
-      "symbol": "V1", "label": "central volume",
-      "value": { "central": 5.1, "low": null, "high": null, "units": "L" },
+      "symbol": "V1",
+      "label": "central volume",
+      "value": {
+        "central": 5.1,
+        "low": null,
+        "high": null,
+        "units": "L"
+      },
       "covariate_model": "V1 = 5.1 - 0.0201*(AGE-40) + 0.072*(LBM-55)",
       "tier": "B",
-      "extraction": { "review_status": "unverified", "tier_rationale": "Age + lean-body-mass covariate model; large multicentre derivation cohort with external validation.", "source_locator": "Minto 1997, Table 2" },
+      "extraction": {
+        "review_status": "unverified",
+        "tier_rationale": "Age + lean-body-mass covariate model; large multicentre derivation cohort with external validation.",
+        "source_locator": "Minto 1997, Table 2"
+      },
       "primary_citation": "minto-1997-remifentanil"
     },
     {
-      "symbol": "V2", "label": "rapid peripheral volume",
-      "value": { "central": 9.82, "low": null, "high": null, "units": "L" },
+      "symbol": "V2",
+      "label": "rapid peripheral volume",
+      "value": {
+        "central": 9.82,
+        "low": null,
+        "high": null,
+        "units": "L"
+      },
       "covariate_model": "V2 = 9.82 - 0.0811*(AGE-40) + 0.108*(LBM-55)",
       "tier": "B",
-      "extraction": { "review_status": "unverified", "source_locator": "Minto 1997, Table 2" },
+      "extraction": {
+        "review_status": "unverified",
+        "source_locator": "Minto 1997, Table 2"
+      },
       "primary_citation": "minto-1997-remifentanil"
     },
     {
-      "symbol": "V3", "label": "slow peripheral volume",
-      "value": { "central": 5.42, "low": null, "high": null, "units": "L" },
+      "symbol": "V3",
+      "label": "slow peripheral volume",
+      "value": {
+        "central": 5.42,
+        "low": null,
+        "high": null,
+        "units": "L"
+      },
       "covariate_model": "V3 = 5.42",
       "tier": "B",
-      "extraction": { "review_status": "unverified", "source_locator": "Minto 1997, Table 2" },
+      "extraction": {
+        "review_status": "unverified",
+        "source_locator": "Minto 1997, Table 2"
+      },
       "primary_citation": "minto-1997-remifentanil"
     },
     {
-      "symbol": "Cl1", "label": "metabolic (esterase) clearance",
-      "value": { "central": 2.6, "low": null, "high": null, "units": "L/min" },
+      "symbol": "Cl1",
+      "label": "metabolic (esterase) clearance",
+      "value": {
+        "central": 2.6,
+        "low": null,
+        "high": null,
+        "units": "L/min"
+      },
       "covariate_model": "Cl1 = 2.6 - 0.0162*(AGE-40) + 0.0191*(LBM-55)",
       "tier": "B",
-      "extraction": { "review_status": "unverified", "source_locator": "Minto 1997, Table 2" },
+      "extraction": {
+        "review_status": "unverified",
+        "source_locator": "Minto 1997, Table 2"
+      },
       "primary_citation": "minto-1997-remifentanil"
     },
     {
-      "symbol": "Cl2", "label": "rapid intercompartmental clearance",
-      "value": { "central": 2.05, "low": null, "high": null, "units": "L/min" },
+      "symbol": "Cl2",
+      "label": "rapid intercompartmental clearance",
+      "value": {
+        "central": 2.05,
+        "low": null,
+        "high": null,
+        "units": "L/min"
+      },
       "covariate_model": "Cl2 = 2.05 - 0.0301*(AGE-40)",
       "tier": "B",
-      "extraction": { "review_status": "unverified", "source_locator": "Minto 1997, Table 2" },
+      "extraction": {
+        "review_status": "unverified",
+        "source_locator": "Minto 1997, Table 2"
+      },
       "primary_citation": "minto-1997-remifentanil"
     },
     {
-      "symbol": "Cl3", "label": "slow intercompartmental clearance",
-      "value": { "central": 0.076, "low": null, "high": null, "units": "L/min" },
+      "symbol": "Cl3",
+      "label": "slow intercompartmental clearance",
+      "value": {
+        "central": 0.076,
+        "low": null,
+        "high": null,
+        "units": "L/min"
+      },
       "covariate_model": "Cl3 = 0.076 - 0.00113*(AGE-40)",
       "tier": "B",
-      "extraction": { "review_status": "unverified", "source_locator": "Minto 1997, Table 2" },
+      "extraction": {
+        "review_status": "unverified",
+        "source_locator": "Minto 1997, Table 2"
+      },
       "primary_citation": "minto-1997-remifentanil"
     },
     {
-      "symbol": "ke0", "label": "effect-site equilibration rate constant",
-      "value": { "central": 0.595, "low": null, "high": null, "units": "1/min" },
+      "symbol": "ke0",
+      "label": "effect-site equilibration rate constant",
+      "value": {
+        "central": 0.595,
+        "low": null,
+        "high": null,
+        "units": "1/min"
+      },
       "covariate_model": "ke0 = 0.595 - 0.007*(AGE-40)",
       "tier": "B",
-      "extraction": { "review_status": "unverified", "tier_rationale": "Minto effect-site ke0 (spectral-edge endpoint); age-dependent.", "source_locator": "Minto 1997 (PD)" },
+      "extraction": {
+        "review_status": "unverified",
+        "tier_rationale": "Minto effect-site ke0 (spectral-edge endpoint); age-dependent.",
+        "source_locator": "Minto 1997 (PD)"
+      },
       "primary_citation": "minto-1997-remifentanil"
     }
   ],
-  "covariates": { "required": ["age", "weight", "height", "sex"], "optional": [], "lbm_equation": "james_1976" },
+  "covariates": {
+    "required": [
+      "age",
+      "weight",
+      "height",
+      "sex"
+    ],
+    "optional": [],
+    "lbm_equation": "james_1976"
+  },
   "covariate_sensitivity_status": "declared",
   "covariate_model": {
     "derived_inputs": [
       {
         "quantity": "lbm",
         "equation": "james_1976",
-        "used_for": ["V1", "V2", "Cl1"],
+        "used_for": [
+          "V1",
+          "V2",
+          "Cl1"
+        ],
         "verbatim": true,
         "tier": "B",
         "extraction": {
@@ -89,15 +174,40 @@
     ]
   },
   "applicability_envelope": {
-    "age_years": { "min": 20, "max": 85 },
-    "weight_kg": { "min": 45, "max": 120 },
-    "height_cm": { "min": 150, "max": 195 },
-    "bmi_kg_m2": { "min": 18, "max": 40 },
-    "populations": ["healthy_adult", "elderly", "elective_surgery"],
+    "age_years": {
+      "min": 20,
+      "max": 85
+    },
+    "weight_kg": {
+      "min": 45,
+      "max": 120
+    },
+    "height_cm": {
+      "min": 150,
+      "max": 195
+    },
+    "bmi_kg_m2": {
+      "min": 18,
+      "max": 40
+    },
+    "populations": [
+      "healthy_adult",
+      "elderly",
+      "elective_surgery"
+    ],
     "derivation_n": 65,
     "organ_tolerance": [
-      { "axis": "hepatic", "basis": "Remifentanil is cleared by nonspecific blood and tissue esterases, so its clearance is essentially independent of hepatic function — severe liver disease did not alter remifentanil pharmacokinetics (it did increase sensitivity, a PD not PK effect).", "citation": "dershwitz-1996-remifentanil-hepatic" },
-      { "axis": "renal", "basis": "Esterase metabolism is independent of renal function; parent remifentanil pharmacokinetics are unchanged in renal failure.", "citation": "hoke-1997-remifentanil-renal", "caveat": "The active carboxylic-acid metabolite (GR90291) is renally eliminated and accumulates in renal impairment; the parent-drug PK this model predicts is unaffected." }
+      {
+        "axis": "hepatic",
+        "basis": "Remifentanil is cleared by nonspecific blood and tissue esterases, so its clearance is essentially independent of hepatic function — severe liver disease did not alter remifentanil pharmacokinetics (it did increase sensitivity, a PD not PK effect).",
+        "citation": "dershwitz-1996-remifentanil-hepatic"
+      },
+      {
+        "axis": "renal",
+        "basis": "Esterase metabolism is independent of renal function; parent remifentanil pharmacokinetics are unchanged in renal failure.",
+        "citation": "hoke-1997-remifentanil-renal",
+        "caveat": "The active carboxylic-acid metabolite (GR90291) is renally eliminated and accumulates in renal impairment; the parent-drug PK this model predicts is unaffected."
+      }
     ]
   },
   "known_failure_modes": [
@@ -110,18 +220,67 @@
     }
   ],
   "predictive_performance": [
-    { "metric": "MDPE", "value": -17.3, "units": "%", "population": "in-envelope: cardiac surgery, pre-bypass (during CPB improves to MDPE -1.8%, MDAPE 14.0%)", "citation": "scherrer-2022-minto-cpb" },
-    { "metric": "MDAPE", "value": 24.6, "units": "%", "population": "in-envelope: cardiac surgery, pre-bypass", "citation": "scherrer-2022-minto-cpb" },
-    { "metric": "MDPE", "value": -53.4, "units": "%", "population": "morbidly obese (out of envelope; original James-LBM set, maintenance) — quantifies the documented James-LBM failure mode", "citation": "lacolla-2010-minto-obese" },
-    { "metric": "MDAPE", "value": 53.4, "units": "%", "population": "morbidly obese (out of envelope; original James-LBM set, maintenance) — clinically unacceptable, the authors' conclusion", "citation": "lacolla-2010-minto-obese" },
-    { "metric": "divergence", "value": 3.3, "units": "%/h", "population": "morbidly obese (out of envelope; original James-LBM set, maintenance)", "citation": "lacolla-2010-minto-obese" },
-    { "metric": "wobble", "value": 1.4, "units": "%/h", "population": "morbidly obese (out of envelope; original James-LBM set, maintenance)", "citation": "lacolla-2010-minto-obese" }
+    {
+      "metric": "MDPE",
+      "value": -17.3,
+      "units": "%",
+      "population": "in-envelope: cardiac surgery, pre-bypass (during CPB improves to MDPE -1.8%, MDAPE 14.0%)",
+      "citation": "scherrer-2022-minto-cpb"
+    },
+    {
+      "metric": "MDAPE",
+      "value": 24.6,
+      "units": "%",
+      "population": "in-envelope: cardiac surgery, pre-bypass",
+      "citation": "scherrer-2022-minto-cpb"
+    },
+    {
+      "metric": "MDPE",
+      "value": -53.4,
+      "units": "%",
+      "population": "morbidly obese (out of envelope; original James-LBM set, maintenance) — quantifies the documented James-LBM failure mode",
+      "citation": "lacolla-2010-minto-obese"
+    },
+    {
+      "metric": "MDAPE",
+      "value": 53.4,
+      "units": "%",
+      "population": "morbidly obese (out of envelope; original James-LBM set, maintenance) — clinically unacceptable, the authors' conclusion",
+      "citation": "lacolla-2010-minto-obese"
+    },
+    {
+      "metric": "divergence",
+      "value": 3.3,
+      "units": "%/h",
+      "population": "morbidly obese (out of envelope; original James-LBM set, maintenance)",
+      "citation": "lacolla-2010-minto-obese"
+    },
+    {
+      "metric": "wobble",
+      "value": 1.4,
+      "units": "%/h",
+      "population": "morbidly obese (out of envelope; original James-LBM set, maintenance)",
+      "citation": "lacolla-2010-minto-obese"
+    }
   ],
   "tier": "B",
   "extraction": {
-    "review_status": "unverified",
+    "review_status": "pending_human_review",
     "tier_rationale": "Robust, widely deployed in TCI; age + LBM covariate model. Concentrations are conventionally reported in ng/mL (Hypnos works in µg/mL = ng/mL / 1000). Awaits human PDF verification of every covariate equation, especially the James LBM term.",
-    "source_locator": "Minto 1997, Table 2"
+    "source_locator": "Minto 1997, Table 2",
+    "source_review": {
+      "reviewed_by": "automated source cross-check (Claude Opus 4.8 via Hypnos research agents)",
+      "reviewed_date": "2026-06-23",
+      "method": "fetched open-access reproductions, primary-paper PubMed abstracts, FDA labels, and/or the tci R package source, then numerically compared each curated typical-value parameter against the fetched values (see sources)",
+      "sources": [
+        "minto-1997-remifentanil (primary Anesthesiology; paywalled, not directly read)",
+        "https://www.fc.up.pt/galeno/Models/Minto%20Model%20-%20Rem.pdf",
+        "https://github.com/jarretrt/tci (R/poppk_mods.R, pkmod_minto)"
+      ],
+      "outcome": "match",
+      "notes": "All 7 base coefficients (V1 5.1, V2 9.82, V3 5.42, Cl1 2.6, Cl2 2.05, Cl3 0.076, ke0 0.595) and all age/LBM slopes confirmed by two independent fetched sources. The alternative ke0 0.516 in the literature is the un-reparameterized base population fit; the curated covariate-centered form correctly uses 0.595.",
+      "human_verified": false
+    }
   },
   "primary_citation": "minto-1997-remifentanil",
   "notes": "Concentrations internally in µg/mL (= mg/L); multiply by 1000 for the conventional ng/mL. LBM via James 1976 (same term, same high-BMI caveat, as Schnider propofol)."

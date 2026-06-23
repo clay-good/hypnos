@@ -29,7 +29,12 @@ def build(model, ds=None, patient: Optional[Dict[str, Any]] = None) -> str:
     # to a single value; v0.6 §9).
     drug = ds.drug(model.drug_name) if ds is not None else None
     la = annotate.la_rdf(model, drug=drug, indent="  ")
-    extra = "\n".join(x for x in (var_rdf, la) if x)
+    # v0.8/v0.9: the developmental size+maturation extrapolation and the pharmacogenomic
+    # modifier/safety-flag blocks ride as hypnos: RDF too (extrapolation/avoidance facts
+    # carried lossless; safety flags never as a parameter change — v0.8 §7 / v0.9 §7).
+    dev = annotate.developmental_rdf(model, indent="  ")
+    pgx = annotate.pharmacogenomics_rdf(model, indent="  ")
+    extra = "\n".join(x for x in (var_rdf, la, dev, pgx) if x)
     ann = annotate.rdf_annotation_xml(model, ds, extra_predicates=extra)
     var_note = (
         "    <!-- v0.2 population variability: the curated Omega/Sigma are carried as "

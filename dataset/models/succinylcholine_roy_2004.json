@@ -1,0 +1,86 @@
+{
+  "id": "nmb_agents.succinylcholine.roy_2004",
+  "subsystem": "nmb_agents",
+  "drug": { "name": "succinylcholine", "unii": "J2R869A8YF", "atc": "M03AB01" },
+  "purpose": "pk",
+  "label": "Succinylcholine PK — Roy and Varin (2004)",
+  "structure": { "compartments": 2, "parameterization": "volumes_clearances", "elimination": "linear", "effect_compartment": false },
+  "kernel": { "implemented": false, "function": null },
+  "parameters": [
+    {
+      "symbol": "V1", "label": "central volume",
+      "value": { "central": null, "low": null, "high": null, "units": "L" },
+      "covariate_model": "see Roy and Varin 2004 (transcription pending verification)",
+      "tier": "D",
+      "extraction": { "review_status": "unverified", "tier_rationale": "Succinylcholine plasma PK is dominated by rapid BCHE-mediated hydrolysis; published compartmental parameters vary by assay and are not openly reconciled. Curated as the substrate anchor for the BCHE pharmacogenomic modifier; KERNEL PENDING.", "source_locator": "Roy and Varin 2004" },
+      "primary_citation": "lockridge-2015-bche"
+    },
+    {
+      "symbol": "Cl1", "label": "plasma hydrolysis clearance (BCHE-mediated)",
+      "value": { "central": null, "low": null, "high": null, "units": "L/min" },
+      "covariate_model": "BCHE-dependent; atypical phenotype reduces hydrolysis (see pharmacogenomic_modifiers)",
+      "tier": "D",
+      "extraction": { "review_status": "unverified", "source_locator": "Roy and Varin 2004; Lockridge 2015 (BCHE mechanism)" },
+      "primary_citation": "lockridge-2015-bche"
+    }
+  ],
+  "covariates": { "required": ["weight"], "optional": ["bche_phenotype"], "lbm_equation": null },
+  "applicability_envelope": {
+    "age_years": { "min": 18, "max": 85 },
+    "weight_kg": { "min": 45, "max": 120 },
+    "bche_phenotype": ["normal", "heterozygous_atypical", "homozygous_atypical"],
+    "populations": ["adult"],
+    "derivation_n": null
+  },
+  "known_failure_modes": [],
+  "predictive_performance": [],
+  "pharmacogenomic_modifiers": [
+    {
+      "gene": "BCHE",
+      "phenotype": { "dimension": "bche_phenotype", "value": "homozygous_atypical" },
+      "phenotype_basis": "dibucaine number < 30 (dibucaine-resistant / atypical homozygote)",
+      "affected_parameter": "Cl",
+      "substrate_scope": ["succinylcholine", "mivacurium", "ester_la"],
+      "adjustment": { "type": "scale_factor", "value": 0.2, "equation": null, "direction": "prolong" },
+      "evidence_tier": "D",
+      "applied_by_default": false,
+      "caveat": "The prolonged block is well-documented; the SCALE (x0.2 on hydrolysis clearance) is ILLUSTRATIVE and highly individual — it encodes the phenotype's direction and rough magnitude, NOT a precise clearance. Homozygous atypical patients can have apnea lasting hours; the honest message is 'expect prolonged block / prepare', never a computed dose.",
+      "primary_citation": "lockridge-2015-bche",
+      "extraction": { "review_status": "unverified", "tier_rationale": "Kinetic modifier (Tier-D by construction): reduced BCHE hydrolysis -> prolonged succinylcholine effect for a given dose. Substrate-scoped to BCHE substrates only (excludes remifentanil/amide-LA/rocuronium). Opt-in, forward-only.", "source_locator": "Lockridge 2015" }
+    }
+  ],
+  "pharmacogenomic_safety_flags": [
+    {
+      "gene": "BCHE",
+      "phenotype": { "dimension": "bche_phenotype", "value": "homozygous_atypical" },
+      "trigger_agents": ["succinylcholine", "mivacurium"],
+      "consequence": "markedly prolonged neuromuscular block (succinylcholine apnea, hours in the homozygous atypical patient)",
+      "action": "EXPECT and prepare for prolonged block; consider an alternative relaxant. This is an awareness flag, NOT a dose adjustment.",
+      "safety_critical": true,
+      "kind": "awareness",
+      "evidence_tier": "B",
+      "primary_citation": "lockridge-2015-bche",
+      "extraction": { "review_status": "unverified", "tier_rationale": "The avoidance/awareness dimension of atypical BCHE: prolonged block is the clinically load-bearing fact (prepare, do not titrate). Carried as a flag (no number) alongside the kinetic modifier, because BCHE is genuinely both.", "source_locator": "Lockridge 2015" }
+    },
+    {
+      "gene": "RYR1",
+      "phenotype": { "dimension": "mh_susceptibility", "value": true },
+      "trigger_agents": ["succinylcholine", "volatile_anesthetics"],
+      "consequence": "malignant hyperthermia — a life-threatening hypermetabolic crisis",
+      "action": "AVOID succinylcholine (and volatile agents) in an MH-susceptible patient.",
+      "safety_critical": true,
+      "kind": "avoidance",
+      "evidence_tier": "A",
+      "primary_citation": "gonsalves-2019-mh-cpic",
+      "extraction": { "review_status": "unverified", "tier_rationale": "Succinylcholine is an MH trigger (CPIC). A susceptibility, never a kinetic change — a hard avoidance flag with no dose effect.", "source_locator": "Gonsalves 2019 (CPIC)" }
+    }
+  ],
+  "tier": "D",
+  "extraction": {
+    "review_status": "unverified",
+    "tier_rationale": "KERNEL PENDING. Curated as the BCHE-substrate anchor for the v0.9 pharmacogenomic modifier and the atypical-BCHE prolonged-block awareness flag, plus the MH avoidance flag. simulate() refuses this model (no verified kernel) rather than ship succinylcholine compartmental parameters that cannot be reconciled to a primary source; the pgx overlay and exports still surface its modifier/flags.",
+    "source_locator": "Roy and Varin 2004 (PK); Lockridge 2015 (BCHE); Gonsalves 2019 (MH/CPIC)"
+  },
+  "primary_citation": "lockridge-2015-bche",
+  "notes": "KERNEL PENDING. Anchors the v0.9 BCHE story on a real substrate: the homozygous-atypical kinetic modifier (opt-in, Tier-D, substrate-scoped) and the prolonged-block awareness flag. The substrate guardrail (remifentanil/amide-LA/rocuronium NOT affected) is enforced in code. The prolonged-recovery forward BAND awaits a verified succinylcholine kernel — an honest gap, not a fabricated curve."
+}

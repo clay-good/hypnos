@@ -281,6 +281,122 @@ class OrganFinding:
     extrapolation: bool
 
 
+@dataclass(frozen=True)
+class SizeModel:
+    """Allometric size scaling — the universal, theory-based part (v0.8 §3).
+
+    Clearances scale with ``weight^cl_exponent`` (theory: ¾), volumes with
+    ``weight^v_exponent`` (theory: 1.0), relative to ``reference_weight_kg``.
+    ``exponent_basis`` records the v0.7 Trap 5 distinction (fixed-by-theory vs
+    fitted)."""
+
+    cl_exponent: float
+    v_exponent: float
+    reference_weight_kg: float
+    exponent_basis: str = "theory_fixed"
+    size_descriptor: Optional[str] = None
+    tier: str = "C"
+    primary_citation: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class MaturationModel:
+    """PMA-driven clearance maturation — the Anderson–Holford sigmoid (v0.8 §3).
+
+    ``MF(PMA) = PMA^Hill / (TM50^Hill + PMA^Hill)``. The ``driver`` is mandatory and
+    must be a PMA-class clock (``pma_weeks``) — driving maturation off chronological
+    age is the cardinal pediatric sin (v0.8 §4 Trap 1)."""
+
+    tm50_weeks: float
+    hill: float
+    driver: str = "pma_weeks"
+    function: str = "sigmoidal_pma"
+    affected_parameter: str = "Cl"
+    tier: str = "D"
+    primary_citation: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class DevelopmentalModel:
+    """An adult model's developmental extrapolation block (v0.8 §4).
+
+    Tier-D by construction, opt-in only (``applied_by_default`` is always false for an
+    extrapolation), always cited. ``allometry_only`` carries the over-dose caveat
+    (un-modeled maturation OVER-states neonatal clearance); ``allometry_plus_maturation``
+    composes both."""
+
+    extrapolation_basis: str
+    evidence_tier: str = "D"
+    applied_by_default: bool = False
+    size: Optional[SizeModel] = None
+    maturation: Optional[MaturationModel] = None
+    caveat: Optional[str] = None
+    primary_citation: Optional[str] = None
+    tier: str = "D"
+    extraction: Dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def has_maturation(self) -> bool:
+        return self.maturation is not None
+
+
+@dataclass(frozen=True)
+class PharmacogenomicModifier:
+    """A KINETIC pharmacogenomic modifier (v0.9 §4) — scales a prediction.
+
+    Opt-in, Tier-D by construction, substrate-scoped, always cited. It is a different
+    object from a safety flag: a modifier scales a number; a flag forbids a trigger and
+    carries no number. The schema forbids this block from carrying ``trigger_agents``."""
+
+    gene: str
+    phenotype_dimension: str
+    phenotype_value: str
+    affected_parameter: str
+    substrate_scope: List[str]
+    adjustment: Dict[str, Any]
+    evidence_tier: str = "D"
+    applied_by_default: bool = False
+    phenotype_basis: Optional[str] = None
+    caveat: Optional[str] = None
+    primary_citation: Optional[str] = None
+    extraction: Dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def scale_factor(self) -> Optional[float]:
+        return self.adjustment.get("value") if self.adjustment.get("type") == "scale_factor" else None
+
+    @property
+    def direction(self) -> Optional[str]:
+        return self.adjustment.get("direction")
+
+
+@dataclass(frozen=True)
+class PharmacogenomicSafetyFlag:
+    """A pharmacogenomic SUSCEPTIBILITY rendered as an avoidance/awareness flag (v0.9 §4).
+
+    Forbids a trigger; carries NO kinetic effect. ``affects_kinetics`` is False by
+    construction — the machine-checkable form of v0.9 Trap 2 (a susceptibility is never
+    a clearance change). ``kind`` is ``avoidance`` (a hard contraindication, e.g. MH) or
+    ``awareness`` (expect a prolonged effect, e.g. atypical BCHE)."""
+
+    gene: str
+    phenotype_dimension: str
+    phenotype_value: Any
+    consequence: str
+    action: str
+    safety_critical: bool = True
+    trigger_agents: List[str] = field(default_factory=list)
+    kind: str = "avoidance"
+    evidence_tier: str = "C"
+    primary_citation: Optional[str] = None
+    extraction: Dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def affects_kinetics(self) -> bool:
+        """Always False — a safety flag is never a kinetic effect (v0.9 §2 Trap 2)."""
+        return False
+
+
 # Standard clinical-staging thresholds for "organ impairment is present". These are
 # DEFINITIONAL staging cut-points (KDIGO CKD stage ≥3 at CrCl<60; reduced ejection
 # fraction <40%; hypoalbuminemia <3.5 g/dL; any Child-Pugh class = chronic liver
@@ -299,11 +415,18 @@ class Envelope:
     crcl_ml_min: Range = field(default_factory=Range)
     albumin_g_dl: Range = field(default_factory=Range)
     ejection_fraction_pct: Range = field(default_factory=Range)
+    pma_weeks: Range = field(default_factory=Range)
+    postnatal_age_days: Range = field(default_factory=Range)
+    gestational_age_weeks: Range = field(default_factory=Range)
     populations: List[str] = field(default_factory=list)
     derivation_n: Optional[int] = None
     organ_tolerance: List[Dict[str, Any]] = field(default_factory=list)
 
-    _COVARIATE_RANGES = ("age_years", "weight_kg", "height_cm", "bmi_kg_m2")
+    # Demographic + developmental ranges checked against a patient's covariates. The
+    # developmental (PMA/postnatal/gestational) dimensions only trigger when the patient
+    # declares them, so a normal adult simulation is unaffected (v0.8 §4).
+    _COVARIATE_RANGES = ("age_years", "weight_kg", "height_cm", "bmi_kg_m2",
+                         "pma_weeks", "postnatal_age_days", "gestational_age_weeks")
 
     def check(self, patient: Dict[str, Any]) -> List[str]:
         """Return a list of human-readable envelope-violation messages (empty == in envelope)."""
@@ -313,6 +436,9 @@ class Envelope:
             "weight_kg": ("weight", patient.get("weight")),
             "height_cm": ("height", patient.get("height")),
             "bmi_kg_m2": ("bmi", _bmi(patient)),
+            "pma_weeks": ("pma_weeks", patient.get("pma_weeks")),
+            "postnatal_age_days": ("postnatal_age_days", patient.get("postnatal_age_days")),
+            "gestational_age_weeks": ("gestational_age_weeks", patient.get("gestational_age_weeks")),
         }
         for attr in self._COVARIATE_RANGES:
             rng: Range = getattr(self, attr)
@@ -487,6 +613,18 @@ class Model:
         return self.raw["extraction"]
 
     @property
+    def source_review(self) -> Optional[Dict[str, Any]]:
+        """Provenance for an automated source cross-check (the ``pending_human_review``
+        state), or None. Records what was compared, against which fetched source(s), and
+        the outcome — auditable evidence that is explicitly NOT human verification."""
+        return self.raw.get("extraction", {}).get("source_review")
+
+    @property
+    def is_source_reviewed(self) -> bool:
+        """True when an automated cross-check has populated evidence (pending human sign-off)."""
+        return self.review_status == "pending_human_review"
+
+    @property
     def parameters(self) -> List[Parameter]:
         out = []
         for p in self.raw.get("parameters", []):
@@ -562,10 +700,105 @@ class Model:
             crcl_ml_min=Range(**env.get("crcl_ml_min", {})),
             albumin_g_dl=Range(**env.get("albumin_g_dl", {})),
             ejection_fraction_pct=Range(**env.get("ejection_fraction_pct", {})),
+            pma_weeks=Range(**env.get("pma_weeks", {})),
+            postnatal_age_days=Range(**env.get("postnatal_age_days", {})),
+            gestational_age_weeks=Range(**env.get("gestational_age_weeks", {})),
             populations=env.get("populations", []),
             derivation_n=env.get("derivation_n"),
             organ_tolerance=env.get("organ_tolerance", []),
         )
+
+    # --- developmental sublayer (v0.8) ------------------------------------
+    @property
+    def developmental_model(self) -> Optional[DevelopmentalModel]:
+        """The adult model's developmental extrapolation block (v0.8 §4), or None.
+
+        None is an explicit gap — never an assumption that an adult model may be
+        carried into a neonate. The block is Tier-D by construction and opt-in."""
+        raw = self.raw.get("developmental_model")
+        if not raw:
+            return None
+        size = None
+        if raw.get("size"):
+            s = raw["size"]
+            size = SizeModel(
+                cl_exponent=s["cl_exponent"], v_exponent=s["v_exponent"],
+                reference_weight_kg=s["reference_weight_kg"],
+                exponent_basis=s.get("exponent_basis", "theory_fixed"),
+                size_descriptor=s.get("size_descriptor"),
+                tier=s.get("tier", "C"), primary_citation=s.get("primary_citation"),
+            )
+        mat = None
+        if raw.get("maturation"):
+            mm = raw["maturation"]
+            mat = MaturationModel(
+                tm50_weeks=mm["tm50_weeks"], hill=mm["hill"],
+                driver=mm.get("driver", "pma_weeks"),
+                function=mm.get("function", "sigmoidal_pma"),
+                affected_parameter=mm.get("affected_parameter", "Cl"),
+                tier=mm.get("tier", "D"), primary_citation=mm.get("primary_citation"),
+            )
+        return DevelopmentalModel(
+            extrapolation_basis=raw["extrapolation_basis"],
+            evidence_tier=raw.get("evidence_tier", "D"),
+            applied_by_default=bool(raw.get("applied_by_default", False)),
+            size=size, maturation=mat, caveat=raw.get("caveat"),
+            primary_citation=raw.get("primary_citation"),
+            tier=raw.get("tier", "D"), extraction=raw.get("extraction", {}),
+        )
+
+    @property
+    def has_developmental_model(self) -> bool:
+        return self.raw.get("developmental_model") is not None
+
+    @property
+    def is_fitted_pediatric(self) -> bool:
+        """True when the model was actually fitted in children (evidence, not annotation).
+
+        Detected from a declared pediatric population — the developmental machinery only
+        *labels* such a model; it keeps its own tier (v0.8 §2)."""
+        pops = [p.lower() for p in self.applicability_envelope.populations]
+        return any(p in ("child", "pediatric", "neonate", "infant") for p in pops)
+
+    # --- pharmacogenomic sublayer (v0.9) ----------------------------------
+    @property
+    def pharmacogenomic_modifiers(self) -> List[PharmacogenomicModifier]:
+        """Cited, opt-in, Tier-D KINETIC modifiers (v0.9 §4). Empty == an honest gap."""
+        out: List[PharmacogenomicModifier] = []
+        for m in self.raw.get("pharmacogenomic_modifiers", []):
+            ph = m.get("phenotype", {})
+            out.append(PharmacogenomicModifier(
+                gene=m["gene"], phenotype_dimension=ph.get("dimension", ""),
+                phenotype_value=ph.get("value", ""), affected_parameter=m["affected_parameter"],
+                substrate_scope=list(m.get("substrate_scope", [])),
+                adjustment=m.get("adjustment", {}),
+                evidence_tier=m.get("evidence_tier", "D"),
+                applied_by_default=bool(m.get("applied_by_default", False)),
+                phenotype_basis=m.get("phenotype_basis"), caveat=m.get("caveat"),
+                primary_citation=m.get("primary_citation"), extraction=m.get("extraction", {}),
+            ))
+        return out
+
+    @property
+    def pharmacogenomic_safety_flags(self) -> List[PharmacogenomicSafetyFlag]:
+        """Genotype susceptibilities as avoidance/awareness flags (v0.9 §4). No kinetics."""
+        out: List[PharmacogenomicSafetyFlag] = []
+        for f in self.raw.get("pharmacogenomic_safety_flags", []):
+            ph = f.get("phenotype", {})
+            out.append(PharmacogenomicSafetyFlag(
+                gene=f["gene"], phenotype_dimension=ph.get("dimension", ""),
+                phenotype_value=ph.get("value"), consequence=f["consequence"],
+                action=f["action"], safety_critical=bool(f.get("safety_critical", True)),
+                trigger_agents=list(f.get("trigger_agents", [])),
+                kind=f.get("kind", "avoidance"), evidence_tier=f.get("evidence_tier", "C"),
+                primary_citation=f.get("primary_citation"), extraction=f.get("extraction", {}),
+            ))
+        return out
+
+    @property
+    def has_pharmacogenomics(self) -> bool:
+        return bool(self.raw.get("pharmacogenomic_modifiers")
+                    or self.raw.get("pharmacogenomic_safety_flags"))
 
     @property
     def known_failure_modes(self) -> List[FailureMode]:
@@ -619,8 +852,13 @@ class Model:
         """Local-anesthetic records are doubly safety-critical (v0.6 §7): they carry
         `hypnos:safetyCritical` in every export so a downstream consumer is twice-warned
         — the concentration-vs-threshold view is precisely the artifact that tempts the
-        forbidden 'what is the max safe dose?' question."""
-        return self.subsystem == "local_anesthetics"
+        forbidden 'what is the max safe dose?' question.
+
+        A model carrying a pharmacogenomic safety flag (v0.9 — e.g. an MH avoidance flag
+        on a volatile) is likewise safety-critical: the avoidance fact must be twice-warned
+        in every export."""
+        return self.subsystem == "local_anesthetics" or bool(
+            self.raw.get("pharmacogenomic_safety_flags"))
 
     # --- external validation (v0.4 layer) ---------------------------------
     @property

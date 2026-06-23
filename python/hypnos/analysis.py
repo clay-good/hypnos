@@ -451,6 +451,136 @@ def validate_against_cohort(
     )
 
 
+# --------------------------------------------------------------------------- #
+# Envelope stratification + cross-model leaderboard (v0.4 VE2/VE3)
+# --------------------------------------------------------------------------- #
+def partition_by_envelope(
+    ds: Dataset, model_id: str, subjects: Sequence[SubjectRecord]
+) -> Tuple[List[SubjectRecord], List[SubjectRecord]]:
+    """Split a cohort into (in-envelope, out-of-envelope) subjects for one model (v0.4 §4.2).
+
+    A subject is *in envelope* when its covariates raise no
+    :meth:`Envelope.check` violation for ``model_id`` — the exact demographic test
+    `evaluate_safety` uses to grey a model. This is the stratification axis that turns
+    v0.1's *asserted* failure modes ("Schnider misbehaves at high BMI") into *measured*
+    ones: compute the metrics separately in each stratum and the envelope claim becomes
+    empirical. The split is per-model (each model has its own envelope)."""
+    from .covariates import point_patient
+
+    model = ds[model_id]
+    in_env: List[SubjectRecord] = []
+    out_env: List[SubjectRecord] = []
+    for subj in subjects:
+        violations = model.applicability_envelope.check(point_patient(subj.covariates))
+        (in_env if not violations else out_env).append(subj)
+    return in_env, out_env
+
+
+@dataclass
+class LeaderboardEntry:
+    """One model's place in the cross-model leaderboard, with its envelope strata."""
+
+    model_id: str
+    pd_model: Optional[str]
+    declared_tier: str
+    overall: CohortValidation
+    in_envelope: Optional[CohortValidation] = None
+    out_envelope: Optional[CohortValidation] = None
+
+    @property
+    def mdape(self) -> float:
+        """Overall MDAPE (inaccuracy) — the ranking key. nan sorts last."""
+        return self.overall.population.mdape
+
+
+@dataclass
+class Leaderboard:
+    """A reproducible, envelope-stratified, cross-model leaderboard on ONE cohort (v0.4 §7.1).
+
+    The point the published numbers cannot make: every model here is scored on the *same*
+    subjects, by the *same* kernels, with a pinned seed — so the ranking compares models,
+    not cohorts-and-methods. Entries are ordered best (lowest overall MDAPE) first."""
+
+    dataset: str
+    target: str
+    n_subjects: int
+    seed: int
+    entries: List[LeaderboardEntry] = field(default_factory=list)
+    manifest: Dict[str, Any] = field(default_factory=dict)
+
+    def to_record(self) -> Dict[str, Any]:
+        """Serialize the whole leaderboard to a committable, derived-metrics-only artifact."""
+        def strat(cv: Optional[CohortValidation]) -> Optional[Dict[str, Any]]:
+            return cv.to_record() if cv is not None else None
+        return {
+            "dataset": self.dataset, "target": self.target,
+            "n_subjects": self.n_subjects, "seed": self.seed,
+            "manifest": self.manifest,
+            "leaderboard": [
+                {
+                    "rank": i + 1, "model_id": e.model_id, "pd_model": e.pd_model,
+                    "declared_tier": e.declared_tier,
+                    "overall": strat(e.overall),
+                    "in_envelope": strat(e.in_envelope),
+                    "out_envelope": strat(e.out_envelope),
+                }
+                for i, e in enumerate(self.entries)
+            ],
+        }
+
+
+def cross_model_leaderboard(
+    ds: Dataset,
+    subjects: Sequence[SubjectRecord],
+    candidates: Sequence[Tuple[str, Optional[str]]],
+    *,
+    target: str = "bis",
+    stratify_by_envelope: bool = True,
+    dataset: str = "cohort",
+    seed: int = 0,
+    manifest: Optional[Dict[str, Any]] = None,
+) -> Leaderboard:
+    """Score every candidate (PK[, PD]) stack on ONE cohort and rank them (v0.4 §7.1).
+
+    ``candidates`` is a list of ``(pk_model_id, pd_model_id)`` pairs (``pd_model_id`` is
+    ``None`` for a ``cp``/``ce`` target). Each is run through the *same*
+    :func:`validate_against_cohort` engine on the *same* subjects with the *same* seed,
+    so the ranking is apples-to-apples. With ``stratify_by_envelope`` each model is also
+    scored on its in- and out-of-envelope sub-cohorts (v0.4 §4.2), turning the asserted
+    failure modes into measured ones. A candidate that cannot be scored (no scorable
+    observations, kernel pending) is skipped with no fabricated number. Deterministic:
+    identical ``(subjects, candidates, seed)`` -> identical leaderboard."""
+    entries: List[LeaderboardEntry] = []
+    for pk_id, pd_id in candidates:
+        try:
+            overall = validate_against_cohort(
+                ds, pk_id, subjects, target=target, pd_model=pd_id, dataset=dataset, seed=seed)
+        except (ValueError, NotImplementedError):
+            continue
+        if overall.n_subjects == 0:
+            continue
+        in_cv = out_cv = None
+        if stratify_by_envelope:
+            in_subj, out_subj = partition_by_envelope(ds, pk_id, subjects)
+            if in_subj:
+                in_cv = validate_against_cohort(ds, pk_id, in_subj, target=target,
+                                                pd_model=pd_id, dataset=dataset, seed=seed)
+                in_cv.in_envelope = True
+            if out_subj:
+                out_cv = validate_against_cohort(ds, pk_id, out_subj, target=target,
+                                                 pd_model=pd_id, dataset=dataset, seed=seed)
+                out_cv.in_envelope = False
+        entries.append(LeaderboardEntry(
+            model_id=pk_id, pd_model=pd_id, declared_tier=ds[pk_id].tier,
+            overall=overall, in_envelope=in_cv, out_envelope=out_cv))
+
+    # rank by overall MDAPE (inaccuracy), nan last
+    entries.sort(key=lambda e: (not np.isfinite(e.mdape), e.mdape))
+    return Leaderboard(
+        dataset=dataset, target=target, n_subjects=len(list(subjects)), seed=seed,
+        entries=entries, manifest=manifest or {})
+
+
 # Covariate columns recognized by the generic CSV adapter (numeric unless noted).
 _CSV_COVARIATES = ("age", "weight", "height", "crcl_ml_min", "albumin_g_dl",
                    "ejection_fraction_pct")

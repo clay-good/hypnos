@@ -1,7 +1,11 @@
 {
   "id": "hypnotics_iv.propofol.kataria_1994",
   "subsystem": "hypnotics_iv",
-  "drug": { "name": "propofol", "unii": "YI7VU623SF", "atc": "N01AX10" },
+  "drug": {
+    "name": "propofol",
+    "unii": "YI7VU623SF",
+    "atc": "N01AX10"
+  },
   "purpose": "pk",
   "label": "Propofol PK — Kataria (pediatric, 1994)",
   "structure": {
@@ -10,62 +14,137 @@
     "elimination": "linear",
     "effect_compartment": false
   },
-  "kernel": { "implemented": true, "function": "propofol_kataria_1994" },
+  "kernel": {
+    "implemented": true,
+    "function": "propofol_kataria_1994"
+  },
   "parameters": [
     {
-      "symbol": "V1", "label": "central volume (weight-proportional)",
-      "value": { "central": 9.43, "low": null, "high": null, "units": "L" },
+      "symbol": "V1",
+      "label": "central volume (weight-proportional)",
+      "value": {
+        "central": 9.43,
+        "low": null,
+        "high": null,
+        "units": "L"
+      },
       "covariate_model": "V1 = 0.41 * WGT",
       "tier": "C",
-      "extraction": { "review_status": "unverified", "tier_rationale": "Single pediatric derivation cohort (n=53, ages 3-11 y). Central value shown at a 23 kg reference child.", "source_locator": "Kataria 1994, Table (weight-proportional model)" },
+      "extraction": {
+        "review_status": "unverified",
+        "tier_rationale": "Single pediatric derivation cohort (n=53, ages 3-11 y). Central value shown at a 23 kg reference child.",
+        "source_locator": "Kataria 1994, Table (weight-proportional model)"
+      },
       "primary_citation": "kataria-1994-propofol-pediatric"
     },
     {
-      "symbol": "V2", "label": "rapid-peripheral volume (weight + age)",
-      "value": { "central": 23.64, "low": null, "high": null, "units": "L" },
+      "symbol": "V2",
+      "label": "rapid-peripheral volume (weight + age)",
+      "value": {
+        "central": 23.64,
+        "low": null,
+        "high": null,
+        "units": "L"
+      },
       "covariate_model": "V2 = 0.78 * WGT + 3.1 * AGE - 16",
       "tier": "C",
-      "extraction": { "review_status": "unverified", "tier_rationale": "The age-dependent V2 term is the Kataria model's distinctive feature and the field most needing human PDF confirmation (covariate equations are where transcription errors hide).", "source_locator": "Kataria 1994" },
+      "extraction": {
+        "review_status": "unverified",
+        "tier_rationale": "The age-dependent V2 term is the Kataria model's distinctive feature and the field most needing human PDF confirmation (covariate equations are where transcription errors hide).",
+        "source_locator": "Kataria 1994"
+      },
       "primary_citation": "kataria-1994-propofol-pediatric"
     },
     {
-      "symbol": "V3", "label": "slow-peripheral volume (weight-proportional)",
-      "value": { "central": 158.7, "low": null, "high": null, "units": "L" },
+      "symbol": "V3",
+      "label": "slow-peripheral volume (weight-proportional)",
+      "value": {
+        "central": 158.7,
+        "low": null,
+        "high": null,
+        "units": "L"
+      },
       "covariate_model": "V3 = 6.9 * WGT",
       "tier": "C",
-      "extraction": { "review_status": "unverified", "source_locator": "Kataria 1994" },
+      "extraction": {
+        "review_status": "unverified",
+        "source_locator": "Kataria 1994"
+      },
       "primary_citation": "kataria-1994-propofol-pediatric"
     },
     {
-      "symbol": "Cl1", "label": "elimination clearance (weight-proportional)",
-      "value": { "central": 0.805, "low": null, "high": null, "units": "L/min" },
+      "symbol": "Cl1",
+      "label": "elimination clearance (weight-proportional)",
+      "value": {
+        "central": 0.805,
+        "low": null,
+        "high": null,
+        "units": "L/min"
+      },
       "covariate_model": "Cl1 = 0.035 * WGT",
       "tier": "C",
-      "extraction": { "review_status": "unverified", "source_locator": "Kataria 1994" },
+      "extraction": {
+        "review_status": "unverified",
+        "source_locator": "Kataria 1994"
+      },
       "primary_citation": "kataria-1994-propofol-pediatric"
     },
     {
-      "symbol": "Cl2", "label": "rapid intercompartmental clearance (weight-proportional)",
-      "value": { "central": 1.771, "low": null, "high": null, "units": "L/min" },
+      "symbol": "Cl2",
+      "label": "rapid intercompartmental clearance (weight-proportional)",
+      "value": {
+        "central": 1.771,
+        "low": null,
+        "high": null,
+        "units": "L/min"
+      },
       "covariate_model": "Cl2 = 0.077 * WGT",
       "tier": "C",
-      "extraction": { "review_status": "unverified", "source_locator": "Kataria 1994" },
+      "extraction": {
+        "review_status": "unverified",
+        "source_locator": "Kataria 1994"
+      },
       "primary_citation": "kataria-1994-propofol-pediatric"
     },
     {
-      "symbol": "Cl3", "label": "slow intercompartmental clearance (weight-proportional)",
-      "value": { "central": 0.598, "low": null, "high": null, "units": "L/min" },
+      "symbol": "Cl3",
+      "label": "slow intercompartmental clearance (weight-proportional)",
+      "value": {
+        "central": 0.598,
+        "low": null,
+        "high": null,
+        "units": "L/min"
+      },
       "covariate_model": "Cl3 = 0.026 * WGT",
       "tier": "C",
-      "extraction": { "review_status": "unverified", "source_locator": "Kataria 1994" },
+      "extraction": {
+        "review_status": "unverified",
+        "source_locator": "Kataria 1994"
+      },
       "primary_citation": "kataria-1994-propofol-pediatric"
     }
   ],
-  "covariates": { "required": ["weight", "age"], "optional": [], "lbm_equation": null },
+  "covariates": {
+    "required": [
+      "weight",
+      "age"
+    ],
+    "optional": [],
+    "lbm_equation": null
+  },
   "applicability_envelope": {
-    "age_years": { "min": 3, "max": 11 },
-    "weight_kg": { "min": 14, "max": 45 },
-    "populations": ["child", "pediatric"],
+    "age_years": {
+      "min": 3,
+      "max": 11
+    },
+    "weight_kg": {
+      "min": 14,
+      "max": 45
+    },
+    "populations": [
+      "child",
+      "pediatric"
+    ],
     "derivation_n": 53
   },
   "known_failure_modes": [
@@ -87,9 +166,23 @@
   "predictive_performance": [],
   "tier": "C",
   "extraction": {
-    "review_status": "unverified",
+    "review_status": "pending_human_review",
     "tier_rationale": "Single pediatric derivation cohort (53 healthy children, 3-11 y); the canonical pediatric propofol model that the literature routinely compares head-to-head with Paedfusor ('Kataria vs Paedfusor'). Weight-proportional volumes/clearances with an age term on V2. PK-only (the 1994 disposition study published no ke0). Kernel transcribed from the standard published parameter set (same STANPUMP/Shafer lineage as Minto); review_status remains UNVERIFIED pending human confirmation of every covariate equation against the primary PDF, especially the age term in V2.",
-    "source_locator": "Kataria 1994, Anesthesiology 80:104-122"
+    "source_locator": "Kataria 1994, Anesthesiology 80:104-122",
+    "source_review": {
+      "reviewed_by": "automated source cross-check (Claude Opus 4.8 via Hypnos research agents)",
+      "reviewed_date": "2026-06-23",
+      "method": "fetched open-source reproductions, primary-paper PubMed abstracts, and/or the tci R package source, then numerically compared each curated value against the fetched values",
+      "sources": [
+        "kataria-1994-propofol-pediatric (primary; results table paywalled, abstract read)",
+        "https://github.com/opentiva/opentiva (opentiva/propofol.py)",
+        "https://aneskey.com/propofol-pk-pd/",
+        "https://pubmed.ncbi.nlm.nih.gov/8291699/"
+      ],
+      "outcome": "match",
+      "notes": "All 6 covariate coefficients (V1 0.41*WGT, V2 0.78*WGT+3.1*AGE-16, V3 6.9*WGT, Cl1 0.035*WGT, Cl2 0.077*WGT, Cl3 0.026*WGT) confirmed against two independent reproductions; the distinctive age term on V2 corroborated by the primary PubMed abstract ('age significantly improved V2'). Pediatric 3-11 y. HUMAN ITEM: confirm against the primary Anesthesiology results table.",
+      "human_verified": false
+    }
   },
   "primary_citation": "kataria-1994-propofol-pediatric",
   "notes": "Completes the spec's named pediatric pair (Kataria/Paedfusor). PK-only (ke0=0): the pediatric model-divergence view compares Kataria vs Paedfusor on plasma concentration. Volumes/clearances at a 23 kg, 7 y reference child; the kernel recomputes them per patient from the covariate equations."

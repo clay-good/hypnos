@@ -26,7 +26,10 @@ def test_reference_individual_exact(ds):
     assert abs(vc["Cl2"] - 1.72) < 1e-6
     assert abs(vc["Cl3"] - 0.124) < 1e-6
     assert abs(vc["ke0"] - 1.09) < 1e-6
-    assert ds[ELEVELD].review_status == "unverified"
+    # values were cross-checked against real sources (pending_human_review), but an
+    # automated check NEVER reaches human verification — the governance line holds.
+    assert ds[ELEVELD].review_status != "verified"
+    assert ds[ELEVELD].source_review["human_verified"] is False
 
 
 def test_faster_ke0_than_minto(ds):

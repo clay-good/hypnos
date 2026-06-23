@@ -49,7 +49,8 @@ def test_export_model_csv(ds):
 
 
 def test_kernel_pending_param_has_blank_central(ds):
-    # fentanyl V1 has central=null (kernel pending) -> blank cell, not "None"
+    # rocuronium V1 has central=null (kernel pending) -> blank cell, not "None"
+    # (fentanyl's params were source-filled, so rocuronium is now the null-valued example)
     rows = list(csv.DictReader(io.StringIO(csv_flat.build(ds))))
-    fent = [r for r in rows if r["model_id"] == "opioids.fentanyl.shafer_1990" and r["symbol"] == "V1"]
-    assert fent and fent[0]["central"] == ""
+    roc = [r for r in rows if r["model_id"] == "nmb_agents.rocuronium.wierda_1991" and r["symbol"] == "V1"]
+    assert roc and roc[0]["central"] == ""

@@ -8,18 +8,22 @@ See spec §10.
 """
 from __future__ import annotations
 
-__version__ = "0.7.0"
+__version__ = "0.9.0"
 
 CLINICAL_USE = "PROHIBITED — research/education/simulation only"
 
 from .analysis import (  # noqa: E402
     CohortValidation,
     DecrementTime,
+    Leaderboard,
+    LeaderboardEntry,
     PeakEffect,
     PopulationPerformance,
     SubjectRecord,
     VarvelResult,
+    cross_model_leaderboard,
     decrement_time,
+    partition_by_envelope,
     performance_error,
     pooled_performance,
     subjects_from_cohort_self_consistency,
@@ -49,27 +53,46 @@ from .inhalational import (  # noqa: E402
     washout_comparison,
 )
 from .load import Dataset, load  # noqa: E402
+from .developmental import (  # noqa: E402
+    allometric_scale,
+    apply_developmental,
+    linear_per_kg_scale,
+    maturation_factor,
+)
 from .models import (  # noqa: E402
     CovariateModel,
     DerivedInput,
+    DevelopmentalModel,
     EstimateCovariance,
     EstimationUncertainty,
+    MaturationModel,
     Model,
     OmegaBlock,
     Parameter,
     ParameterVariability,
+    PharmacogenomicModifier,
+    PharmacogenomicSafetyFlag,
     ResidualError,
+    SizeModel,
     ToxicityThreshold,
     worst_tier,
+)
+from .pharmacogenomics import (  # noqa: E402
+    PgxFinding,
+    PgxOverlay,
+    pgx_overlay,
 )
 from .simulate import (  # noqa: E402
     Comparison,
     CovariateDivergence,
+    DevelopmentalExtrapolation,
+    DevelopmentalOverlay,
     EquationCurve,
     InteractionResult,
     SimulationResult,
     compare,
     covariate_divergence,
+    developmental_overlay,
     simulate,
     simulate_interaction,
 )
@@ -109,12 +132,27 @@ __all__ = [
     "simulate",
     "compare",
     "covariate_divergence",
+    "developmental_overlay",
     "simulate_interaction",
     "Comparison",
     "CovariateDivergence",
+    "DevelopmentalExtrapolation",
+    "DevelopmentalOverlay",
     "EquationCurve",
     "SimulationResult",
     "InteractionResult",
+    "DevelopmentalModel",
+    "SizeModel",
+    "MaturationModel",
+    "allometric_scale",
+    "maturation_factor",
+    "apply_developmental",
+    "linear_per_kg_scale",
+    "PharmacogenomicModifier",
+    "PharmacogenomicSafetyFlag",
+    "pgx_overlay",
+    "PgxOverlay",
+    "PgxFinding",
     "mac",
     "MacResult",
     "washin",
@@ -131,6 +169,10 @@ __all__ = [
     "varvel_metrics",
     "pooled_performance",
     "validate_against_cohort",
+    "cross_model_leaderboard",
+    "partition_by_envelope",
+    "Leaderboard",
+    "LeaderboardEntry",
     "subjects_from_csv",
     "subjects_from_cohort_self_consistency",
     "subjects_from_vitaldb",

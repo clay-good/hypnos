@@ -154,6 +154,75 @@ def la_rdf(model: Model, drug: Optional[Dict[str, Any]] = None, indent: str = " 
     return "\n".join(lines)
 
 
+def developmental_rdf(model: Model, indent: str = "  ") -> str:
+    """``hypnos:`` RDF predicates for the developmental extrapolation block (v0.8 §7).
+
+    The allometric size scaling and the PMA maturation function ride as metadata so they
+    travel with an SBML/PharmML model whose core is deterministic, carrying the Tier-D flag,
+    the opt-in flag, and (for ``allometry_only``) the over-dose caveat. The maturation driver
+    is emitted as PMA with a comment forbidding chronological-age substitution (Trap 1).
+    Returns ``""`` when the model carries no developmental block."""
+    dev = model.developmental_model
+    if dev is None:
+        return ""
+    pad = f"{indent}    "
+    lines = [
+        f'{pad}<hypnos:developmentalModel hypnos:extrapolationBasis="{dev.extrapolation_basis}" '
+        f'hypnos:evidenceTier="{dev.evidence_tier}" hypnos:appliedByDefault="{str(dev.applied_by_default).lower()}">',
+    ]
+    if dev.size is not None:
+        s = dev.size
+        desc = f' hypnos:sizeDescriptor="{s.size_descriptor}"' if s.size_descriptor else ""
+        lines.append(
+            f'{pad}  <hypnos:allometricSize hypnos:clExponent="{s.cl_exponent:g}" '
+            f'hypnos:vExponent="{s.v_exponent:g}" hypnos:referenceWeightKg="{s.reference_weight_kg:g}" '
+            f'hypnos:exponentBasis="{s.exponent_basis}"{desc} hypnos:tier="{s.tier}"/>')
+    if dev.maturation is not None:
+        m = dev.maturation
+        lines.append(
+            f'{pad}  <!-- maturation driver is PMA (post-menstrual age); a downstream consumer '
+            f'MUST NOT substitute chronological age (v0.8 Trap 1) -->')
+        lines.append(
+            f'{pad}  <hypnos:maturationFunction hypnos:function="{m.function}" '
+            f'hypnos:tm50Weeks="{m.tm50_weeks:g}" hypnos:hill="{m.hill:g}" hypnos:driver="{m.driver}" '
+            f'hypnos:affectedParameter="{m.affected_parameter}" hypnos:tier="{m.tier}"/>')
+    else:
+        lines.append(f'{pad}  <hypnos:maturationCaveat>allometry_only — maturation un-modeled; '
+                     f'neonatal clearance OVER-stated, exposure UNDER-predicted</hypnos:maturationCaveat>')
+    lines.append(f'{pad}  <hypnos:developmentalExtrapolation>true</hypnos:developmentalExtrapolation>')
+    lines.append(f'{pad}</hypnos:developmentalModel>')
+    return "\n".join(lines)
+
+
+def pharmacogenomics_rdf(model: Model, indent: str = "  ") -> str:
+    """``hypnos:`` RDF predicates for the pharmacogenomic blocks (v0.9 §7).
+
+    Kinetic modifiers ride as ``hypnos:pharmacogenomicModifier`` metadata (genotype is a
+    covariate the core formats describe only weakly); safety flags ride as
+    ``hypnos:safetyCritical`` + ``hypnos:pharmacogenomicSafetyFlag``, **explicitly not** as
+    any parameter change — the RDF carrier keeps the avoidance fact lossless and portable
+    without ever encoding it as a number a deterministic consumer might apply. Returns ``""``
+    when the model carries no pharmacogenomic blocks."""
+    if not model.has_pharmacogenomics:
+        return ""
+    pad = f"{indent}    "
+    lines: List[str] = []
+    for mod in model.pharmacogenomic_modifiers:
+        sf = mod.scale_factor
+        sf_attr = f' hypnos:scaleFactor="{sf:.10g}"' if sf is not None else ""
+        lines.append(
+            f'{pad}<hypnos:pharmacogenomicModifier hypnos:gene="{mod.gene}" '
+            f'hypnos:phenotype="{mod.phenotype_value}" hypnos:affectedParameter="{mod.affected_parameter}"'
+            f'{sf_attr} hypnos:substrateScope="{" ".join(mod.substrate_scope)}" '
+            f'hypnos:evidenceTier="{mod.evidence_tier}" hypnos:appliedByDefault="false"/>')
+    for flag in model.pharmacogenomic_safety_flags:
+        lines.append(
+            f'{pad}<hypnos:pharmacogenomicSafetyFlag hypnos:gene="{flag.gene}" '
+            f'hypnos:kind="{flag.kind}" hypnos:triggers="{" ".join(flag.trigger_agents)}" '
+            f'hypnos:affectsKinetics="false" hypnos:evidenceTier="{flag.evidence_tier}"/>')
+    return "\n".join(lines)
+
+
 def rdf_annotation_xml(model: Model, ds=None, tier: Optional[str] = None, indent: str = "  ",
                        extra_predicates: str = "") -> str:
     """A small RDF/MIRIAM block embeddable in SBML/PharmML <annotation> elements.

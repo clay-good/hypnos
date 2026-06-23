@@ -1,0 +1,419 @@
+{
+  "dataset": "vitaldb",
+  "target": "bis",
+  "n_subjects": 30,
+  "seed": 7,
+  "manifest": {
+    "source": "vitaldb",
+    "n_cases_requested": 30,
+    "tracks": [
+      "BIS/BIS",
+      "Orchestra/PPF20_RATE"
+    ],
+    "interval_s": 10.0,
+    "propofol_mg_per_ml": 20.0,
+    "pd_model": "pd_effect.propofol.bis_sigmoid",
+    "seed": 7,
+    "hypnos_version": "0.9.0",
+    "caveats": [
+      "Observation = MEASURED BIS (independent); the pump's predicted Ce is never used.",
+      "Propofol-only PK->BIS stack: remifentanil synergy is NOT modelled, so BIS is systematically OVER-predicted (depth under-predicted) in balanced anaesthesia \u2014 a real, interpretable bias. The cross-model RANKING is still apples-to-apples (shared cohort + PD link).",
+      "All PK models share one PD-BIS link, so differences reflect the PK model + that shared link.",
+      "Track names + PPF20 vial conc + the shared PD link are domain-review items; verify per cohort.",
+      "Raw VitalDB records are NOT committed (spec \u00a73); only this aggregate leaderboard + manifest are."
+    ]
+  },
+  "leaderboard": [
+    {
+      "rank": 1,
+      "model_id": "hypnotics_iv.propofol.marsh_1991",
+      "pd_model": "pd_effect.propofol.bis_sigmoid",
+      "declared_tier": "B",
+      "overall": {
+        "dataset": "vitaldb",
+        "mode": "pd_bis",
+        "target": "bis",
+        "cohort": {
+          "n_subjects": 30,
+          "filter": "all",
+          "in_envelope": null
+        },
+        "metrics": [
+          {
+            "name": "MDPE",
+            "value": -32.31,
+            "units": "%",
+            "ci95": {
+              "low": -35.9723,
+              "high": -27.8866
+            }
+          },
+          {
+            "name": "MDAPE",
+            "value": 32.31,
+            "units": "%",
+            "ci95": {
+              "low": 28.0072,
+              "high": 35.9944
+            }
+          },
+          {
+            "name": "wobble",
+            "value": 7.2756,
+            "units": "%",
+            "ci95": {
+              "low": 6.1641,
+              "high": 9.0057
+            }
+          },
+          {
+            "name": "divergence",
+            "value": 0.9387,
+            "units": "%/h",
+            "ci95": {
+              "low": -0.4485,
+              "high": 3.5034
+            }
+          }
+        ],
+        "provenance": {
+          "computed_by": "hypnos",
+          "seed": 7
+        },
+        "reproducible": true
+      },
+      "in_envelope": {
+        "dataset": "vitaldb",
+        "mode": "pd_bis",
+        "target": "bis",
+        "cohort": {
+          "n_subjects": 30,
+          "filter": "all",
+          "in_envelope": true
+        },
+        "metrics": [
+          {
+            "name": "MDPE",
+            "value": -32.31,
+            "units": "%",
+            "ci95": {
+              "low": -35.9723,
+              "high": -27.8866
+            }
+          },
+          {
+            "name": "MDAPE",
+            "value": 32.31,
+            "units": "%",
+            "ci95": {
+              "low": 28.0072,
+              "high": 35.9944
+            }
+          },
+          {
+            "name": "wobble",
+            "value": 7.2756,
+            "units": "%",
+            "ci95": {
+              "low": 6.1641,
+              "high": 9.0057
+            }
+          },
+          {
+            "name": "divergence",
+            "value": 0.9387,
+            "units": "%/h",
+            "ci95": {
+              "low": -0.4485,
+              "high": 3.5034
+            }
+          }
+        ],
+        "provenance": {
+          "computed_by": "hypnos",
+          "seed": 7
+        },
+        "reproducible": true
+      },
+      "out_envelope": null
+    },
+    {
+      "rank": 2,
+      "model_id": "hypnotics_iv.propofol.schnider_1998",
+      "pd_model": "pd_effect.propofol.bis_sigmoid",
+      "declared_tier": "B",
+      "overall": {
+        "dataset": "vitaldb",
+        "mode": "pd_bis",
+        "target": "bis",
+        "cohort": {
+          "n_subjects": 30,
+          "filter": "all",
+          "in_envelope": null
+        },
+        "metrics": [
+          {
+            "name": "MDPE",
+            "value": -33.3552,
+            "units": "%",
+            "ci95": {
+              "low": -38.2824,
+              "high": -28.3444
+            }
+          },
+          {
+            "name": "MDAPE",
+            "value": 33.6777,
+            "units": "%",
+            "ci95": {
+              "low": 29.1145,
+              "high": 38.5899
+            }
+          },
+          {
+            "name": "wobble",
+            "value": 7.6307,
+            "units": "%",
+            "ci95": {
+              "low": 6.5264,
+              "high": 9.2745
+            }
+          },
+          {
+            "name": "divergence",
+            "value": 0.9279,
+            "units": "%/h",
+            "ci95": {
+              "low": -0.1453,
+              "high": 3.5532
+            }
+          }
+        ],
+        "provenance": {
+          "computed_by": "hypnos",
+          "seed": 7
+        },
+        "reproducible": true
+      },
+      "in_envelope": {
+        "dataset": "vitaldb",
+        "mode": "pd_bis",
+        "target": "bis",
+        "cohort": {
+          "n_subjects": 22,
+          "filter": "all",
+          "in_envelope": true
+        },
+        "metrics": [
+          {
+            "name": "MDPE",
+            "value": -32.6905,
+            "units": "%",
+            "ci95": {
+              "low": -38.8462,
+              "high": -26.541
+            }
+          },
+          {
+            "name": "MDAPE",
+            "value": 33.0723,
+            "units": "%",
+            "ci95": {
+              "low": 27.7369,
+              "high": 39.129
+            }
+          },
+          {
+            "name": "wobble",
+            "value": 7.5833,
+            "units": "%",
+            "ci95": {
+              "low": 6.5279,
+              "high": 10.4889
+            }
+          },
+          {
+            "name": "divergence",
+            "value": 0.4021,
+            "units": "%/h",
+            "ci95": {
+              "low": -0.6422,
+              "high": 3.03
+            }
+          }
+        ],
+        "provenance": {
+          "computed_by": "hypnos",
+          "seed": 7
+        },
+        "reproducible": true
+      },
+      "out_envelope": {
+        "dataset": "vitaldb",
+        "mode": "pd_bis",
+        "target": "bis",
+        "cohort": {
+          "n_subjects": 8,
+          "filter": "all",
+          "in_envelope": false
+        },
+        "metrics": [
+          {
+            "name": "MDPE",
+            "value": -34.8099,
+            "units": "%",
+            "ci95": {
+              "low": -45.0108,
+              "high": -25.4587
+            }
+          },
+          {
+            "name": "MDAPE",
+            "value": 34.8506,
+            "units": "%",
+            "ci95": {
+              "low": 28.2457,
+              "high": 45.1332
+            }
+          },
+          {
+            "name": "wobble",
+            "value": 8.0259,
+            "units": "%",
+            "ci95": {
+              "low": 5.5928,
+              "high": 9.4851
+            }
+          },
+          {
+            "name": "divergence",
+            "value": 3.3221,
+            "units": "%/h",
+            "ci95": {
+              "low": -0.0612,
+              "high": 12.3579
+            }
+          }
+        ],
+        "provenance": {
+          "computed_by": "hypnos",
+          "seed": 7
+        },
+        "reproducible": true
+      }
+    },
+    {
+      "rank": 3,
+      "model_id": "hypnotics_iv.propofol.eleveld_2018",
+      "pd_model": "pd_effect.propofol.bis_sigmoid",
+      "declared_tier": "A",
+      "overall": {
+        "dataset": "vitaldb",
+        "mode": "pd_bis",
+        "target": "bis",
+        "cohort": {
+          "n_subjects": 30,
+          "filter": "all",
+          "in_envelope": null
+        },
+        "metrics": [
+          {
+            "name": "MDPE",
+            "value": -34.4044,
+            "units": "%",
+            "ci95": {
+              "low": -39.6177,
+              "high": -30.8567
+            }
+          },
+          {
+            "name": "MDAPE",
+            "value": 34.4044,
+            "units": "%",
+            "ci95": {
+              "low": 30.8567,
+              "high": 39.6177
+            }
+          },
+          {
+            "name": "wobble",
+            "value": 7.0627,
+            "units": "%",
+            "ci95": {
+              "low": 5.9473,
+              "high": 8.8494
+            }
+          },
+          {
+            "name": "divergence",
+            "value": 1.0564,
+            "units": "%/h",
+            "ci95": {
+              "low": 0.1614,
+              "high": 4.5628
+            }
+          }
+        ],
+        "provenance": {
+          "computed_by": "hypnos",
+          "seed": 7
+        },
+        "reproducible": true
+      },
+      "in_envelope": {
+        "dataset": "vitaldb",
+        "mode": "pd_bis",
+        "target": "bis",
+        "cohort": {
+          "n_subjects": 30,
+          "filter": "all",
+          "in_envelope": true
+        },
+        "metrics": [
+          {
+            "name": "MDPE",
+            "value": -34.4044,
+            "units": "%",
+            "ci95": {
+              "low": -39.6177,
+              "high": -30.8567
+            }
+          },
+          {
+            "name": "MDAPE",
+            "value": 34.4044,
+            "units": "%",
+            "ci95": {
+              "low": 30.8567,
+              "high": 39.6177
+            }
+          },
+          {
+            "name": "wobble",
+            "value": 7.0627,
+            "units": "%",
+            "ci95": {
+              "low": 5.9473,
+              "high": 8.8494
+            }
+          },
+          {
+            "name": "divergence",
+            "value": 1.0564,
+            "units": "%/h",
+            "ci95": {
+              "low": 0.1614,
+              "high": 4.5628
+            }
+          }
+        ],
+        "provenance": {
+          "computed_by": "hypnos",
+          "seed": 7
+        },
+        "reproducible": true
+      },
+      "out_envelope": null
+    }
+  ]
+}

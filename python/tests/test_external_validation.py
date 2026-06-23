@@ -383,3 +383,75 @@ def test_self_consistency_recovers_the_known_offset():
         assert cv.population.mdpe == pytest.approx(offset, abs=1e-6)
         assert cv.population.mdape == pytest.approx(abs(offset), abs=1e-6)
         assert cv.population.wobble == pytest.approx(0.0, abs=1e-6)   # no intra-subject scatter
+
+
+# --------------------------------------------------------------------------- #
+# Envelope stratification + the cross-model leaderboard (v0.4 VE2/VE3)
+# --------------------------------------------------------------------------- #
+from hypnos.analysis import (  # noqa: E402
+    cross_model_leaderboard,
+    partition_by_envelope,
+)
+
+ELEVELD = "hypnotics_iv.propofol.eleveld_2018"
+MARSH = "hypnotics_iv.propofol.marsh_1991"
+SCHNIDER = "hypnotics_iv.propofol.schnider_1998"
+BIS_PD = "pd_effect.propofol.bis_sigmoid"
+
+
+def _subj(cov):
+    return SubjectRecord(covariates=cov, schedule=[("bolus", 0.0, "2 mg/kg")],
+                         observations=[(5.0, 40.0, "bis")], subject_id="x")
+
+
+def test_partition_by_envelope_is_per_model():
+    ds = hypnos.load()
+    healthy = _subj(dict(age=40, weight=75, height=178, sex="M"))      # in-envelope everywhere
+    obese = _subj(dict(age=40, weight=140, height=172, sex="M"))       # BMI 47 -> outside Schnider [20,42]
+    in_s, out_s = partition_by_envelope(ds, SCHNIDER, [healthy, obese])
+    assert healthy in in_s and obese in out_s                          # Schnider greys the obese subject
+    in_e, out_e = partition_by_envelope(ds, ELEVELD, [healthy, obese])
+    assert out_e == []                                                 # Eleveld's envelope covers both
+
+
+def test_leaderboard_self_consistency_ranks_source_first():
+    # cohort = Eleveld's own BIS predictions (0% offset) -> Eleveld must score ~0 and rank #1.
+    ds = hypnos.load()
+    subs = subjects_from_cohort_self_consistency(ds, ELEVELD, target="bis",
+                                                 pd_model=BIS_PD, offset_pct=0.0)
+    cands = [(ELEVELD, BIS_PD), (MARSH, BIS_PD), (SCHNIDER, BIS_PD)]
+    lb = cross_model_leaderboard(ds, subs, cands, target="bis", seed=7, dataset="sc")
+    assert [e.model_id for e in lb.entries][0] == ELEVELD             # ranked best (lowest MDAPE)
+    assert lb.entries[0].overall.population.mdape == pytest.approx(0.0, abs=1e-6)
+    # ordering is monotone in MDAPE (nan last)
+    mdapes = [e.mdape for e in lb.entries]
+    assert mdapes == sorted(mdapes)
+
+
+def test_leaderboard_is_deterministic():
+    ds = hypnos.load()
+    subs = subjects_from_cohort_self_consistency(ds, ELEVELD, target="bis", pd_model=BIS_PD, offset_pct=10.0)
+    cands = [(ELEVELD, BIS_PD), (MARSH, BIS_PD)]
+    a = cross_model_leaderboard(ds, subs, cands, target="bis", seed=3).to_record()
+    b = cross_model_leaderboard(ds, subs, cands, target="bis", seed=3).to_record()
+    assert a == b                                                     # same (subjects, candidates, seed)
+
+
+def test_leaderboard_skips_kernel_pending_candidate():
+    # a kernel-pending model raises NotImplementedError in the engine -> skipped, never a
+    # fabricated number (the never-invent rule carried into the leaderboard).
+    ds = hypnos.load()
+    subs = subjects_from_cohort_self_consistency(ds, ELEVELD, target="bis", pd_model=BIS_PD, offset_pct=0.0)
+    cands = [(ELEVELD, BIS_PD), ("nmb_agents.succinylcholine.roy_2004", BIS_PD)]
+    lb = cross_model_leaderboard(ds, subs, cands, target="bis", seed=1)
+    ids = [e.model_id for e in lb.entries]
+    assert ELEVELD in ids and "nmb_agents.succinylcholine.roy_2004" not in ids
+
+
+def test_leaderboard_record_shape():
+    ds = hypnos.load()
+    subs = subjects_from_cohort_self_consistency(ds, ELEVELD, target="bis", pd_model=BIS_PD, offset_pct=5.0)
+    lb = cross_model_leaderboard(ds, subs, [(ELEVELD, BIS_PD)], target="bis", seed=0, dataset="sc")
+    rec = lb.to_record()
+    assert rec["target"] == "bis" and rec["leaderboard"][0]["rank"] == 1
+    assert rec["leaderboard"][0]["overall"]["metrics"][0]["name"] == "MDPE"

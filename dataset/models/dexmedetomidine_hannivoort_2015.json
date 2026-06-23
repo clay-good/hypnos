@@ -1,7 +1,11 @@
 {
   "id": "alpha2_agonists.dexmedetomidine.hannivoort_2015",
   "subsystem": "alpha2_agonists",
-  "drug": { "name": "dexmedetomidine", "unii": "67VB76HONO", "atc": "N05CM18" },
+  "drug": {
+    "name": "dexmedetomidine",
+    "unii": "67VB76HONO",
+    "atc": "N05CM18"
+  },
   "purpose": "pk",
   "label": "Dexmedetomidine PK — Hannivoort (2015)",
   "structure": {
@@ -10,76 +14,183 @@
     "elimination": "linear",
     "effect_compartment": false
   },
-  "kernel": { "implemented": true, "function": "dexmedetomidine_hannivoort_2015" },
+  "kernel": {
+    "implemented": true,
+    "function": "dexmedetomidine_hannivoort_2015"
+  },
   "parameters": [
     {
-      "symbol": "V1", "label": "central volume (70 kg reference)",
-      "value": { "central": 1.78, "low": null, "high": null, "units": "L" },
+      "symbol": "V1",
+      "label": "central volume (70 kg reference)",
+      "value": {
+        "central": 1.78,
+        "low": null,
+        "high": null,
+        "units": "L"
+      },
       "covariate_model": "V1 = 1.78 * (WGT/70)",
       "tier": "B",
-      "extraction": { "review_status": "unverified", "tier_rationale": "Allometric three-compartment model; volumes scale linearly with weight. Better predictive performance than earlier models (Dyck) in healthy adults.", "source_locator": "Hannivoort 2015, Table 2" },
+      "extraction": {
+        "review_status": "unverified",
+        "tier_rationale": "Allometric three-compartment model; volumes scale linearly with weight. Better predictive performance than earlier models (Dyck) in healthy adults.",
+        "source_locator": "Hannivoort 2015, Table 2"
+      },
       "primary_citation": "hannivoort-2015-dexmedetomidine"
     },
     {
-      "symbol": "V2", "label": "rapid peripheral volume (70 kg reference)",
-      "value": { "central": 30.3, "low": null, "high": null, "units": "L" },
+      "symbol": "V2",
+      "label": "rapid peripheral volume (70 kg reference)",
+      "value": {
+        "central": 30.3,
+        "low": null,
+        "high": null,
+        "units": "L"
+      },
       "covariate_model": "V2 = 30.3 * (WGT/70)",
       "tier": "B",
-      "extraction": { "review_status": "unverified", "source_locator": "Hannivoort 2015, Table 2" },
+      "extraction": {
+        "review_status": "unverified",
+        "source_locator": "Hannivoort 2015, Table 2"
+      },
       "primary_citation": "hannivoort-2015-dexmedetomidine"
     },
     {
-      "symbol": "V3", "label": "slow peripheral volume (70 kg reference)",
-      "value": { "central": 52.0, "low": null, "high": null, "units": "L" },
+      "symbol": "V3",
+      "label": "slow peripheral volume (70 kg reference)",
+      "value": {
+        "central": 52.0,
+        "low": null,
+        "high": null,
+        "units": "L"
+      },
       "covariate_model": "V3 = 52.0 * (WGT/70)",
       "tier": "B",
-      "extraction": { "review_status": "unverified", "source_locator": "Hannivoort 2015, Table 2" },
+      "extraction": {
+        "review_status": "unverified",
+        "source_locator": "Hannivoort 2015, Table 2"
+      },
       "primary_citation": "hannivoort-2015-dexmedetomidine"
     },
     {
-      "symbol": "Cl1", "label": "metabolic clearance (70 kg reference)",
-      "value": { "central": 0.686, "low": null, "high": null, "units": "L/min" },
+      "symbol": "Cl1",
+      "label": "metabolic clearance (70 kg reference)",
+      "value": {
+        "central": 0.686,
+        "low": null,
+        "high": null,
+        "units": "L/min"
+      },
       "covariate_model": "Cl1 = 0.686 * (WGT/70)^0.75",
       "tier": "B",
-      "extraction": { "review_status": "unverified", "source_locator": "Hannivoort 2015, Table 2" },
+      "extraction": {
+        "review_status": "unverified",
+        "source_locator": "Hannivoort 2015, Table 2"
+      },
       "primary_citation": "hannivoort-2015-dexmedetomidine"
     },
     {
-      "symbol": "Cl2", "label": "rapid intercompartmental clearance (70 kg reference)",
-      "value": { "central": 2.98, "low": null, "high": null, "units": "L/min" },
+      "symbol": "Cl2",
+      "label": "rapid intercompartmental clearance (70 kg reference)",
+      "value": {
+        "central": 2.98,
+        "low": null,
+        "high": null,
+        "units": "L/min"
+      },
       "covariate_model": "Cl2 = 2.98 * (WGT/70)^0.75",
       "tier": "B",
-      "extraction": { "review_status": "unverified", "source_locator": "Hannivoort 2015, Table 2" },
+      "extraction": {
+        "review_status": "unverified",
+        "source_locator": "Hannivoort 2015, Table 2"
+      },
       "primary_citation": "hannivoort-2015-dexmedetomidine"
     },
     {
-      "symbol": "Cl3", "label": "slow intercompartmental clearance (70 kg reference)",
-      "value": { "central": 0.602, "low": null, "high": null, "units": "L/min" },
+      "symbol": "Cl3",
+      "label": "slow intercompartmental clearance (70 kg reference)",
+      "value": {
+        "central": 0.602,
+        "low": null,
+        "high": null,
+        "units": "L/min"
+      },
       "covariate_model": "Cl3 = 0.602 * (WGT/70)^0.75",
       "tier": "B",
-      "extraction": { "review_status": "unverified", "source_locator": "Hannivoort 2015, Table 2" },
+      "extraction": {
+        "review_status": "unverified",
+        "source_locator": "Hannivoort 2015, Table 2"
+      },
       "primary_citation": "hannivoort-2015-dexmedetomidine"
     }
   ],
-  "covariates": { "required": ["weight"], "optional": ["age"], "lbm_equation": null },
+  "covariates": {
+    "required": [
+      "weight"
+    ],
+    "optional": [
+      "age"
+    ],
+    "lbm_equation": null
+  },
   "applicability_envelope": {
-    "age_years": { "min": 18, "max": 70 },
-    "weight_kg": { "min": 51, "max": 110 },
-    "bmi_kg_m2": { "min": 20, "max": 30 },
-    "populations": ["healthy_adult"],
+    "age_years": {
+      "min": 18,
+      "max": 70
+    },
+    "weight_kg": {
+      "min": 51,
+      "max": 110
+    },
+    "bmi_kg_m2": {
+      "min": 20,
+      "max": 30
+    },
+    "populations": [
+      "healthy_adult"
+    ],
     "derivation_n": 18
   },
   "known_failure_modes": [],
   "predictive_performance": [
-    { "metric": "MDPE", "value": 5.6, "units": "%", "population": "external validation, sedated adults under spinal anesthesia (best of 9 published dexmedetomidine models)", "citation": "obara-2018-dexmed-validation" },
-    { "metric": "MDAPE", "value": 18.1, "units": "%", "population": "external validation, sedated adults under spinal anesthesia (best of 9 published dexmedetomidine models)", "citation": "obara-2018-dexmed-validation" },
-    { "metric": "wobble", "value": 6.2, "units": "%", "population": "external validation, sedated adults under spinal anesthesia", "citation": "obara-2018-dexmed-validation" }
+    {
+      "metric": "MDPE",
+      "value": 5.6,
+      "units": "%",
+      "population": "external validation, sedated adults under spinal anesthesia (best of 9 published dexmedetomidine models)",
+      "citation": "obara-2018-dexmed-validation"
+    },
+    {
+      "metric": "MDAPE",
+      "value": 18.1,
+      "units": "%",
+      "population": "external validation, sedated adults under spinal anesthesia (best of 9 published dexmedetomidine models)",
+      "citation": "obara-2018-dexmed-validation"
+    },
+    {
+      "metric": "wobble",
+      "value": 6.2,
+      "units": "%",
+      "population": "external validation, sedated adults under spinal anesthesia",
+      "citation": "obara-2018-dexmed-validation"
+    }
   ],
   "tier": "B",
   "extraction": {
-    "review_status": "unverified",
+    "review_status": "pending_human_review",
     "tier_rationale": "Robust allometric model from a healthy-volunteer TCI study (n=18); narrow BMI range (20.6-29.3) and adult-only. Concentrations conventionally ng/mL (Hypnos uses ug/mL = ng/mL / 1000). PK-only (no effect-site link in the base model). Awaits human PDF verification of every covariate equation.",
-    "source_locator": "Hannivoort 2015, Table 2"
+    "source_locator": "Hannivoort 2015, Table 2",
+    "source_review": {
+      "reviewed_by": "automated source cross-check (Claude Opus 4.8 via Hypnos research agents)",
+      "reviewed_date": "2026-06-23",
+      "method": "fetched open-access reproductions, primary-paper PubMed abstracts, FDA labels, and/or the tci R package source, then numerically compared each curated typical-value parameter against the fetched values (see sources)",
+      "sources": [
+        "https://pubmed.ncbi.nlm.nih.gov/26068206/ (primary abstract; values quoted verbatim)",
+        "https://github.com/luktinghin/simtiva (pharmacology.js)"
+      ],
+      "outcome": "match",
+      "notes": "All 6 parameters (V1 1.78, V2 30.3, V3 52.0, Cl1 0.686, Cl2 2.98, Cl3 0.602 L/min) quoted VERBATIM in the primary-paper PubMed abstract for a 70 kg individual; the weight-allometric structure (volumes ~ WGT, clearances ~ WGT^0.75) confirmed by an independent implementation. Clearances are in L/min in the source (no unit conversion needed).",
+      "human_verified": false
+    }
   },
   "primary_citation": "hannivoort-2015-dexmedetomidine",
   "notes": "Allometric scaling to a 70 kg reference: volumes ^1, clearances ^0.75. No effect-compartment in the base PK model; effect-site (sedation) link is out of scope here."

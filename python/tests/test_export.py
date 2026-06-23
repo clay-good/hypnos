@@ -1,4 +1,3 @@
-import re
 import xml.dom.minidom as minidom
 import xml.etree.ElementTree as ET
 

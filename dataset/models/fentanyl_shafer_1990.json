@@ -14,18 +14,58 @@
   "parameters": [
     {
       "symbol": "V1", "label": "central volume",
-      "value": { "central": null, "low": null, "high": null, "units": "L" },
-      "covariate_model": "see Shafer 1990 (transcription pending verification)",
+      "value": { "central": 6.09, "low": null, "high": null, "units": "L" },
+      "covariate_model": "V1 = 6.09 L (absolute; Shafer 1990 standard adult, valid ~40-90 kg)",
       "tier": "C",
-      "extraction": { "review_status": "unverified", "tier_rationale": "Widely used in TCI (STANPUMP), but published parameterizations of the Shafer fentanyl model differ across secondary sources; exact micro-rate constants are pending field-by-field transcription from the primary PDF.", "source_locator": "Shafer 1990" },
+      "extraction": { "review_status": "pending_human_review", "tier_rationale": "Source-filled from open reproductions of the Shafer 1990 STANPUMP fentanyl set (opentiva micro-rate constants k10 0.0827, k12 0.471, k13 0.225, k21 0.102, k31 0.006 -> V1 6.09; cross-checked vs the OpenTCI/Mandel MATLAB volume/clearance arrays). Absolute (not weight-scaled) in the canonical adult parameterization.", "source_locator": "Shafer & Varvel 1990, Anesthesiology 73:1091" },
+      "primary_citation": "shafer-1990-fentanyl"
+    },
+    {
+      "symbol": "V2", "label": "rapid-peripheral volume",
+      "value": { "central": 28.1, "low": null, "high": null, "units": "L" },
+      "covariate_model": "V2 = 28.1 L (absolute; = k12*V1/k21)",
+      "tier": "C",
+      "extraction": { "review_status": "pending_human_review", "source_locator": "Shafer 1990 (opentiva / OpenTCI reproductions)" },
+      "primary_citation": "shafer-1990-fentanyl"
+    },
+    {
+      "symbol": "V3", "label": "slow-peripheral volume",
+      "value": { "central": 228.0, "low": null, "high": null, "units": "L" },
+      "covariate_model": "V3 = 228 L (absolute; = k13*V1/k31)",
+      "tier": "C",
+      "extraction": { "review_status": "pending_human_review", "source_locator": "Shafer 1990 (opentiva / OpenTCI reproductions)" },
+      "primary_citation": "shafer-1990-fentanyl"
+    },
+    {
+      "symbol": "Cl1", "label": "elimination clearance",
+      "value": { "central": 0.504, "low": null, "high": null, "units": "L/min" },
+      "covariate_model": "Cl1 = 0.504 L/min (absolute; = k10*V1)",
+      "tier": "C",
+      "extraction": { "review_status": "pending_human_review", "source_locator": "Shafer 1990 (opentiva / OpenTCI reproductions)" },
+      "primary_citation": "shafer-1990-fentanyl"
+    },
+    {
+      "symbol": "Cl2", "label": "rapid intercompartmental clearance",
+      "value": { "central": 2.87, "low": null, "high": null, "units": "L/min" },
+      "covariate_model": "Cl2 = 2.87 L/min (absolute; = k12*V1)",
+      "tier": "C",
+      "extraction": { "review_status": "pending_human_review", "source_locator": "Shafer 1990 (opentiva / OpenTCI reproductions)" },
+      "primary_citation": "shafer-1990-fentanyl"
+    },
+    {
+      "symbol": "Cl3", "label": "slow intercompartmental clearance",
+      "value": { "central": 1.37, "low": null, "high": null, "units": "L/min" },
+      "covariate_model": "Cl3 = 1.37 L/min (absolute; = k13*V1)",
+      "tier": "C",
+      "extraction": { "review_status": "pending_human_review", "source_locator": "Shafer 1990 (opentiva / OpenTCI reproductions)" },
       "primary_citation": "shafer-1990-fentanyl"
     },
     {
       "symbol": "ke0", "label": "effect-site equilibration rate constant",
       "value": { "central": 0.147, "low": null, "high": null, "units": "1/min" },
-      "covariate_model": "ke0 = 0.147 (commonly cited; pending verification)",
+      "covariate_model": "ke0 = 0.147 1/min (OpenTCI/Mandel; opentiva codes 0.12 — implementations differ)",
       "tier": "C",
-      "extraction": { "review_status": "unverified", "source_locator": "Shafer 1990 (PD)" },
+      "extraction": { "review_status": "pending_human_review", "source_locator": "Shafer 1990 (PD); OpenTCI/Mandel" },
       "primary_citation": "shafer-1990-fentanyl"
     }
   ],
@@ -40,10 +80,22 @@
   "predictive_performance": [],
   "tier": "C",
   "extraction": {
-    "review_status": "unverified",
-    "tier_rationale": "Curated record with verified citation; KERNEL PENDING. Secondary sources disagree on the exact Shafer fentanyl micro-rate constants, so simulate() refuses this model rather than ship numbers that cannot be reconciled to the primary PDF. The honesty stance applied to the opioid breadth.",
-    "source_locator": "Shafer 1990"
+    "review_status": "pending_human_review",
+    "tier_rationale": "Parameters SOURCE-FILLED (V1 6.09, V2 28.1, V3 228 L; Cl1 0.504, Cl2 2.87, Cl3 1.37 L/min; ke0 0.147) from two independent open reproductions of the Shafer 1990 STANPUMP fentanyl set (opentiva micro-rate constants and the OpenTCI/Mandel MATLAB arrays, which agree to displayed precision). KERNEL STILL PENDING: simulate() continues to refuse this model until a human confirms the values against the primary PDF and a verified kernel is wired. Absolute (not weight-scaled) for the standard 40-90 kg adult; the Shafer 'pharmacokinetic mass' adjustment applies above ~80 kg.",
+    "source_locator": "Shafer & Varvel 1990, Anesthesiology 73:1091-1102",
+    "source_review": {
+      "reviewed_by": "automated source cross-check (Claude Opus 4.8 via Hypnos research agents)",
+      "reviewed_date": "2026-06-23",
+      "method": "fetched two open implementations of the Shafer 1990 fentanyl model and reconciled their micro-rate constants / volume-clearance arrays to the displayed precision",
+      "sources": [
+        "https://github.com/opentiva/opentiva (opentiva/fentanyl.py, Shafer class; cites PMID 2248388)",
+        "http://opentci.org/code/matlab/mandel-fentanyl-shafer-1990 (Mandel MATLAB volume/clearance arrays + ke0 0.147)"
+      ],
+      "outcome": "match",
+      "notes": "V1 6.09, V2 28.1, V3 228 L and Cl1 0.504, Cl2 2.87, Cl3 1.37 L/min agree across both sources (opentiva micro-rate constants k10 0.0827/k12 0.471/k13 0.225/k21 0.102/k31 0.006 reduce exactly to the OpenTCI volume/clearance arrays). ke0: 0.147 (OpenTCI/Mandel, the curated value) vs 0.12 (opentiva) — a real implementation split, flagged. Specifically the SHAFER set, distinct from the Scott/McClain fentanyl models. Primary Anesthesiology PDF paywalled (not directly read). HUMAN ITEMS: confirm against the primary table, resolve the ke0 0.147-vs-0.12 split, and wire/verify the kernel before simulation is enabled.",
+      "human_verified": false
+    }
   },
   "primary_citation": "shafer-1990-fentanyl",
-  "notes": "KERNEL PENDING. Fentanyl-family breadth placeholder with full provenance; promoting to an executable kernel requires verified transcription of V1/V2/V3/Cl1/Cl2/Cl3 from Anesthesiology 1990;73:1091-1102. sufentanil (Gepts) and alfentanil (Maitre) are future siblings."
+  "notes": "Parameters source-filled from open Shafer-1990 reproductions (pending_human_review); KERNEL STILL PENDING until human verification + a wired kernel. The volumes/clearances are absolute (standard adult). sufentanil (Gepts) and alfentanil (Maitre) are future siblings."
 }

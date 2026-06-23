@@ -1,7 +1,11 @@
 {
   "id": "pd_effect.propofol.bis_sigmoid",
   "subsystem": "pd_effect",
-  "drug": { "name": "propofol", "unii": "YI7VU623SF", "atc": "N01AX10" },
+  "drug": {
+    "name": "propofol",
+    "unii": "YI7VU623SF",
+    "atc": "N01AX10"
+  },
   "purpose": "pd",
   "label": "Propofol PD — effect-site → BIS sigmoid Emax",
   "structure": {
@@ -9,45 +13,92 @@
     "parameterization": "volumes_clearances",
     "effect_compartment": false
   },
-  "kernel": { "implemented": true, "function": "propofol_bis_sigmoid" },
+  "kernel": {
+    "implemented": true,
+    "function": "propofol_bis_sigmoid"
+  },
   "parameters": [
     {
-      "symbol": "E0", "label": "baseline BIS (awake)",
-      "value": { "central": 93.0, "low": null, "high": null, "units": "BIS index" },
+      "symbol": "E0",
+      "label": "baseline BIS (awake)",
+      "value": {
+        "central": 93.0,
+        "low": null,
+        "high": null,
+        "units": "BIS index"
+      },
       "covariate_model": "E0 = 93",
       "tier": "C",
-      "extraction": { "review_status": "unverified" },
+      "extraction": {
+        "review_status": "unverified"
+      },
       "primary_citation": "schnider-1999-propofol-pd"
     },
     {
-      "symbol": "Emax", "label": "maximum BIS depression",
-      "value": { "central": 93.0, "low": null, "high": null, "units": "BIS index" },
+      "symbol": "Emax",
+      "label": "maximum BIS depression",
+      "value": {
+        "central": 93.0,
+        "low": null,
+        "high": null,
+        "units": "BIS index"
+      },
       "covariate_model": "Emax = 93 (drives asymptotic BIS toward ~0)",
       "tier": "C",
-      "extraction": { "review_status": "unverified" },
+      "extraction": {
+        "review_status": "unverified"
+      },
       "primary_citation": "schnider-1999-propofol-pd"
     },
     {
-      "symbol": "Ce50", "label": "effect-site concentration at half-maximal effect",
-      "value": { "central": 4.7, "low": 2.5, "high": 6.5, "units": "ug/mL" },
+      "symbol": "Ce50",
+      "label": "effect-site concentration at half-maximal effect",
+      "value": {
+        "central": 4.7,
+        "low": 2.5,
+        "high": 6.5,
+        "units": "ug/mL"
+      },
       "covariate_model": "Ce50 = 4.7 (population mean; substantial between-patient variability)",
       "tier": "C",
-      "extraction": { "review_status": "unverified", "tier_rationale": "Population-mean BIS Ce50 with wide reported spread; representative, not validated for any individual." },
+      "extraction": {
+        "review_status": "unverified",
+        "tier_rationale": "Population-mean BIS Ce50 with wide reported spread; representative, not validated for any individual."
+      },
       "primary_citation": "schnider-1999-propofol-pd"
     },
     {
-      "symbol": "gamma", "label": "Hill coefficient (steepness)",
-      "value": { "central": 1.43, "low": null, "high": null, "units": "dimensionless" },
+      "symbol": "gamma",
+      "label": "Hill coefficient (steepness)",
+      "value": {
+        "central": 1.43,
+        "low": null,
+        "high": null,
+        "units": "dimensionless"
+      },
       "covariate_model": "gamma = 1.43",
       "tier": "C",
-      "extraction": { "review_status": "unverified" },
+      "extraction": {
+        "review_status": "unverified"
+      },
       "primary_citation": "schnider-1999-propofol-pd"
     }
   ],
-  "covariates": { "required": [], "optional": ["age"], "lbm_equation": null },
+  "covariates": {
+    "required": [],
+    "optional": [
+      "age"
+    ],
+    "lbm_equation": null
+  },
   "applicability_envelope": {
-    "age_years": { "min": 18, "max": 81 },
-    "populations": ["adult"],
+    "age_years": {
+      "min": 18,
+      "max": 81
+    },
+    "populations": [
+      "adult"
+    ],
     "derivation_n": null
   },
   "known_failure_modes": [
@@ -62,9 +113,22 @@
   "predictive_performance": [],
   "tier": "C",
   "extraction": {
-    "review_status": "unverified",
+    "review_status": "contested",
     "tier_rationale": "Single-purpose population-mean sigmoid Emax for BIS; large between-subject variability and device dependence place it at Tier C. Useful for divergence/illustration, not prediction.",
-    "source_locator": "Schnider 1999"
+    "source_locator": "Schnider 1999",
+    "source_review": {
+      "reviewed_by": "automated source cross-check (Claude Opus 4.8 via Hypnos research agents)",
+      "reviewed_date": "2026-06-23",
+      "method": "fetched open-source reproductions, primary-paper PubMed abstracts, and/or the tci R package source, then numerically compared each curated value against the fetched values",
+      "sources": [
+        "pd_effect.propofol.bis_sigmoid cites schnider-1999-propofol-pd",
+        "https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=ext_id:10360845",
+        "open PD-model reproductions (Bouillon/Vuyk BIS sigmoid: Ce50~4.47, gamma 1.43)"
+      ],
+      "outcome": "discrepancy",
+      "notes": "CITATION/ATTRIBUTION DISCREPANCY (values NOT changed): the cited Schnider 1999 paper ('The influence of age on propofol pharmacodynamics', Anesthesiology 90:1502) does NOT model BIS — it uses semilinear canonical correlation and reports age-dependent loss-of-consciousness C50 (2.35/1.8/1.25 ug/mL at 25/50/75 y), NOT E0=93/Emax=93/Ce50=4.7/gamma=1.43. The curated Ce50~4.7 and gamma 1.43 match a Bouillon/Vuyk-style propofol->BIS sigmoid, not Schnider 1999. HUMAN ACTION: re-cite this propofol->BIS sigmoid to its true source (e.g. Bouillon 2004 / Vuyk) or confirm the values+citation pairing.",
+      "human_verified": false
+    }
   },
   "primary_citation": "schnider-1999-propofol-pd",
   "notes": "E = E0 - Emax * Ce^gamma / (Ce50^gamma + Ce^gamma). Pairs with any propofol PK model's effect-site output to produce a BIS trajectory; the composed simulation inherits this Tier-C floor."

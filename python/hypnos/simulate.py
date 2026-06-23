@@ -37,6 +37,8 @@ from .reference import (
     sigmoid_emax_twoslope,
     simulate as _simulate_ref,
 )
+from .developmental import apply_developmental, linear_per_kg_scale, maturation_value
+from .pharmacogenomics import genotype_triggers
 from .export.registry import INTERACTION_KERNELS, KERNELS, parse_amount, parse_rate
 from .covariates import (
     covariate_layer_tier as _cov_layer_tier,
@@ -327,6 +329,20 @@ def evaluate_safety(
                 warnings.append(f"FAILURE MODE [{fm.condition}]: {fm.behavior} -> excluded")
             else:  # warn
                 warnings.append(f"WARNING [{fm.condition}]: {fm.behavior}")
+
+    # Pharmacogenomic safety flags (v0.9 §6): a DECLARED genotype that matches a curated
+    # avoidance/awareness flag is surfaced as a contraindication-style warning with NO
+    # numeric effect (a susceptibility is never a dose change — v0.9 §2 Trap 2). Never
+    # inferred: only an explicitly declared genotype dimension can trigger.
+    for flag in model.pharmacogenomic_safety_flags:
+        if genotype_triggers(patient, flag.phenotype_dimension, flag.phenotype_value):
+            tag = "AVOID" if flag.kind == "avoidance" else "AWARENESS"
+            triggers = (" trigger(s): " + ", ".join(flag.trigger_agents)) if flag.trigger_agents else ""
+            cite = f" [{flag.primary_citation}]" if flag.primary_citation else ""
+            warnings.append(
+                f"PGx SAFETY [{tag}, {flag.gene}]: {flag.action} — {flag.consequence}"
+                f"{triggers}. This is a contraindication/awareness flag, NOT a dose change"
+                f" (Tier {flag.evidence_tier} on the gene link){cite}")
     return tier_floor, warnings, envelope_violated
 
 
@@ -591,6 +607,102 @@ def _attach_covariate_band(
 
 
 # --------------------------------------------------------------------------- #
+# Developmental extrapolation + pharmacogenomic modifiers (opt-in transforms)
+# --------------------------------------------------------------------------- #
+def _reference_adult_patient(sex: str, ref_wt: float) -> Dict[str, Any]:
+    """A nominal reference adult at the allometric reference weight (v0.8 §5).
+
+    Allometry scales the *reference (adult) disposition parameters*, so the adult model's
+    typical values are taken at this reference individual and then size/maturation-scaled
+    — never the adult covariate kernel run at neonatal covariates (which would break, e.g.
+    Schnider's LBM at 3.4 kg)."""
+    return {"weight": ref_wt, "height": 170.0, "age": 40.0, "sex": sex}
+
+
+def _apply_developmental(model: Model, kernel, point: Dict[str, Any]):
+    """Build the developmentally-extrapolated MicroParams + Tier-D warnings (v0.8 §5).
+
+    Returns ``(MicroParams, warnings)``. Raises if the model carries no curated
+    developmental block (never-invent: an extrapolation is applied only when curated)."""
+    dev = model.developmental_model
+    if dev is None:
+        raise ValueError(
+            f"{model.id}: developmental=True but no developmental_model is curated — "
+            "Hypnos will not invent an allometric/maturation extrapolation (v0.8 §5).")
+    ref_wt = dev.size.reference_weight_kg if dev.size else 70.0
+    ref_params = kernel(_reference_adult_patient(str(point.get("sex", "M")), ref_wt))
+    vc = ref_params.as_volumes_clearances()
+    scaled = apply_developmental(vc, dev, point)
+    mp = MicroParams.from_volumes_clearances(
+        V1=scaled["V1"], Cl1=scaled["Cl1"], V2=scaled.get("V2", 0.0), Cl2=scaled.get("Cl2", 0.0),
+        V3=scaled.get("V3", 0.0), Cl3=scaled.get("Cl3", 0.0), ke0=scaled.get("ke0", 0.0))
+
+    cites = [c for c in [dev.primary_citation,
+                         dev.size.primary_citation if dev.size else None,
+                         dev.maturation.primary_citation if dev.maturation else None] if c]
+    warns = [
+        f"DEVELOPMENTAL EXTRAPOLATION ({dev.extrapolation_basis}): adult model carried below "
+        f"its derivation age by allometry"
+        + ("+maturation" if dev.has_maturation else "")
+        + "; NOT validated in this patient -> Tier D"
+        + (f" [{', '.join(cites)}]" if cites else "")]
+    mf = maturation_value(dev, point)
+    if mf is not None:
+        warns.append(f"DEVELOPMENTAL: maturation factor MF(PMA={point.get('pma_weeks')}) = {mf:.3f} "
+                     f"(TM50={dev.maturation.tm50_weeks} wk, Hill={dev.maturation.hill}) applied to "
+                     f"{dev.maturation.affected_parameter}")
+    if dev.extrapolation_basis == "allometry_only":
+        warns.append(
+            "DEVELOPMENTAL CAVEAT (allometry_only): maturation is UN-MODELED — neonatal "
+            "clearance is OVER-stated and exposure UNDER-predicted, exactly where the margin "
+            "is smallest (v0.8 §5). A missing maturation block is a true gap, not a mature patient.")
+    if dev.caveat:
+        warns.append(f"DEVELOPMENTAL: {dev.caveat}")
+    return mp, warns
+
+
+def _apply_pgx_modifiers(model: Model, params: "MicroParams", point: Dict[str, Any]):
+    """Apply DECLARED, opt-in kinetic pharmacogenomic modifiers (v0.9 G1).
+
+    Returns ``(MicroParams, warnings)``. A modifier fires only when (a) its phenotype is
+    explicitly declared and triggered and (b) the model's drug is in the modifier's
+    ``substrate_scope`` (the substrate guardrail — a genetic effect never leaks to a
+    non-substrate drug, v0.9 Trap 4). Scaling the affected clearance prolongs the
+    hydrolysis-dependent effect; the magnitude is illustrative (the caveat says so), and
+    applying one forces Tier-D."""
+    warns: List[str] = []
+    vc = params.as_volumes_clearances()
+    changed = False
+    for mod in model.pharmacogenomic_modifiers:
+        if not genotype_triggers(point, mod.phenotype_dimension, mod.phenotype_value):
+            continue
+        if model.drug_name not in mod.substrate_scope:
+            continue  # substrate guardrail: not a substrate of this gene
+        sf = mod.scale_factor
+        if sf is None:
+            warns.append(f"PGx MODIFIER [{mod.gene}]: no scale_factor curated — direction only "
+                         f"(cited, Tier {mod.evidence_tier}); not applied numerically")
+            continue
+        affected = mod.affected_parameter
+        targets = ("Cl1", "Cl2", "Cl3") if affected in ("Cl", "CL", "clearance") else (affected,)
+        for sym in targets:
+            if sym in vc and vc[sym]:
+                vc[sym] = vc[sym] * sf
+                changed = True
+        warns.append(
+            f"PGx MODIFIER [{mod.gene} {mod.phenotype_value}]: {affected} x{sf:g} (opt-in, "
+            f"Tier D, forward-only) -> prolonged effect for a given dose"
+            + (f". {mod.caveat}" if mod.caveat else "")
+            + (f" [{mod.primary_citation}]" if mod.primary_citation else ""))
+    if not changed:
+        return params, warns
+    mp = MicroParams.from_volumes_clearances(
+        V1=vc["V1"], Cl1=vc["Cl1"], V2=vc.get("V2", 0.0), Cl2=vc.get("Cl2", 0.0),
+        V3=vc.get("V3", 0.0), Cl3=vc.get("Cl3", 0.0), ke0=vc.get("ke0", 0.0))
+    return mp, warns
+
+
+# --------------------------------------------------------------------------- #
 # simulate
 # --------------------------------------------------------------------------- #
 def simulate(
@@ -606,8 +718,16 @@ def simulate(
     samples: int = 2000,
     seed: Optional[int] = None,
     residual: bool = False,
+    developmental: bool = False,
+    pharmacogenomics: bool = False,
 ) -> SimulationResult:
     """Forward-simulate one PK (optionally + PD) model for one virtual patient.
+
+    ``developmental=True`` (v0.8) opt-in carries an adult model into a child by the
+    model's curated allometric size + PMA maturation block, forcing **Tier D** and
+    warning. ``pharmacogenomics=True`` (v0.9) opt-in applies a declared genotype's
+    cited, substrate-scoped kinetic modifier (also Tier-D). Both are off by default,
+    never silently reparameterize a model, and never compute a dose (specs §5/§9).
 
     With ``bands=True`` (and a mandatory integer ``seed``), also draws a seeded
     Monte-Carlo prediction band from the model's curated between-subject variability
@@ -643,7 +763,20 @@ def simulate(
             "absorption); volatiles: use hypnos.mac/washin/washout."
         )
     kernel = KERNELS[model.kernel_function]
-    params = kernel(point)
+
+    # Opt-in forward transforms (off by default; never silently reparameterize). In
+    # developmental mode the parameters are derived from the REFERENCE ADULT and then
+    # size/maturation-scaled (v0.8 §5), so the adult covariate kernel is never run at
+    # neonatal covariates (which would break, e.g. Schnider's LBM/height at 3.4 kg).
+    extra_warnings: List[str] = []
+    if developmental:
+        params, dev_warns = _apply_developmental(model, kernel, point)
+        extra_warnings.extend(dev_warns)
+    else:
+        params = kernel(point)
+    if pharmacogenomics:
+        params, pgx_warns = _apply_pgx_modifiers(model, params, point)
+        extra_warnings.extend(pgx_warns)
 
     t = np.asarray(t, dtype=float)
     weight = float(point.get("weight", 70.0))
@@ -652,7 +785,12 @@ def simulate(
 
     drug_meta = ds.drug(model.drug_name) or {}
     tier_floor, warnings, excluded = evaluate_safety(model, point, drug_meta)
+    warnings = list(warnings) + extra_warnings
     tier = worst_tier([model.tier, tier_floor])
+    # An applied developmental/pgx-kinetic extrapolation forces Tier D by construction
+    # (you cannot get an A-looking number out of an extrapolation; specs §5).
+    if developmental or (pharmacogenomics and any("PGx MODIFIER" in w for w in extra_warnings)):
+        tier = "D"
 
     result = SimulationResult(
         model_id=model_id, t=t, cp=traj.cp, ce=traj.ce, tier=tier,
@@ -929,6 +1067,123 @@ def compare(
             if band_part:
                 cmp.divergence.setdefault(k, {}).update(band_part)
     return cmp
+
+
+# --------------------------------------------------------------------------- #
+# developmental_overlay — the v0.8 headline: fitted vs extrapolated vs visibly-wrong
+# --------------------------------------------------------------------------- #
+@dataclass
+class DevelopmentalExtrapolation:
+    """One adult model carried into a child by allometry (+ maturation), Tier-D (v0.8 §6)."""
+
+    model_id: str
+    basis: str                      # allometry_only | allometry_plus_maturation
+    tier: str
+    result: SimulationResult
+    maturation_factor: Optional[float]
+    caveat: Optional[str]
+
+
+@dataclass
+class DevelopmentalOverlay:
+    """The developmental extrapolation overlay (v0.8 §6).
+
+    ``fitted`` names every model with *actual* pediatric standing (in its band) or greyed
+    (out of band, each reasoned); ``extrapolations`` are the Tier-D allometry(+maturation)
+    bands for the adult models; ``linear_per_kg`` is the deliberately-labeled, visibly-wrong
+    naive shortcut. The instrument's value is making the extrapolation honest, not
+    resolving it — every curve here is Tier-D and labeled, and none is a dose."""
+
+    drug: str
+    patient: Dict[str, Any]
+    t: np.ndarray
+    fitted: List[Dict[str, Any]] = field(default_factory=list)
+    extrapolations: List[DevelopmentalExtrapolation] = field(default_factory=list)
+    linear_per_kg: Optional[SimulationResult] = None
+    concentration_unit: str = "ug/mL"
+
+    @property
+    def conc_factor(self) -> float:
+        return concentration_factor(self.concentration_unit)
+
+
+def _linear_per_kg_result(model: Model, point: Dict[str, Any], schedule, t: np.ndarray,
+                          cu: str) -> SimulationResult:
+    """The naive linear-per-kg adult rescaling as a labeled, visibly-wrong reference (v0.8 §6)."""
+    kernel = KERNELS[model.kernel_function]
+    dev = model.developmental_model
+    ref_wt = dev.size.reference_weight_kg if dev and dev.size else 70.0
+    vc = kernel(_reference_adult_patient(str(point.get("sex", "M")), ref_wt)).as_volumes_clearances()
+    weight = float(point.get("weight", 70.0))
+    lin = linear_per_kg_scale(vc, weight, reference_weight_kg=ref_wt)
+    mp = MicroParams.from_volumes_clearances(
+        V1=lin["V1"], Cl1=lin["Cl1"], V2=lin.get("V2", 0.0), Cl2=lin.get("Cl2", 0.0),
+        V3=lin.get("V3", 0.0), Cl3=lin.get("Cl3", 0.0), ke0=lin.get("ke0", 0.0))
+    traj = _simulate_ref(mp, build_dosing(schedule, weight), t)
+    return SimulationResult(
+        model_id=f"{model.id} (linear-per-kg shortcut)", t=t, cp=traj.cp, ce=traj.ce, tier="D",
+        warnings=["LINEAR-PER-KG REFERENCE: the naive adult rescaling (every disposition "
+                  "parameter ∝ weight). Shown ONLY as a labeled, visibly-wrong reference: it "
+                  "ignores the allometric ¾-power scaling of clearance AND the PMA maturation of "
+                  "clearance — the two mechanisms (acting in opposite directions) that make a "
+                  "neonate not a small adult. The divergence between this line and the mechanistic "
+                  "extrapolation IS the teaching point; it is NEVER a dose (v0.8 §6)."],
+        params=mp, patient=dict(point), concentration_unit=cu)
+
+
+def developmental_overlay(
+    ds: Dataset,
+    *,
+    drug: str,
+    patient: Dict[str, Any],
+    schedule: Optional[Schedule] = None,
+    t: Optional[np.ndarray] = None,
+    purpose: str = "pk",
+) -> DevelopmentalOverlay:
+    """The v0.8 headline: in this child, which models have fitted standing, how far does the
+    allometry(+maturation) extrapolation of the adult models spread, and how badly does the
+    per-kg shortcut miss (v0.8 §6)?
+
+    The eligible-model set shrinks to those with actual pediatric standing (greyed + reasoned
+    where out of band); every greyed adult model with a curated developmental block is fanned
+    out as a Tier-D extrapolation; the naive linear-per-kg line is overlaid as a labeled,
+    visibly-wrong reference. No curve is a dose."""
+    from .filter import select
+    from .presets import default_schedule_for
+
+    point = _point_patient(patient)
+    schedule = schedule if schedule is not None else default_schedule_for(drug)
+    t = np.asarray(t if t is not None else np.linspace(0.0, 30.0, 300), dtype=float)
+    cu = (ds.drug(drug) or {}).get("concentration_unit", "ug/mL")
+    overlay = DevelopmentalOverlay(drug=drug, patient=dict(point), t=t, concentration_unit=cu)
+
+    rep_for_linear: Optional[Model] = None
+    for m in select(ds, drug=drug, purpose=purpose):
+        if not m.kernel_implemented or m.kernel_function not in KERNELS:
+            continue
+        floor, warns, excluded = evaluate_safety(m, point, ds.drug(m.drug_name) or {})
+        if m.is_fitted_pediatric:
+            overlay.fitted.append({
+                "model_id": m.id, "tier": worst_tier([m.tier, floor]),
+                "in_standing": not excluded, "reasons": warns})
+            continue
+        if m.has_developmental_model:
+            res = simulate(ds, m.id, patient=point, schedule=schedule, t=t, developmental=True)
+            dev = m.developmental_model
+            overlay.extrapolations.append(DevelopmentalExtrapolation(
+                model_id=m.id, basis=dev.extrapolation_basis, tier=res.tier, result=res,
+                maturation_factor=maturation_value(dev, point), caveat=dev.caveat))
+            if rep_for_linear is None:
+                rep_for_linear = m
+        else:
+            overlay.fitted.append({
+                "model_id": m.id, "tier": worst_tier([m.tier, floor]), "in_standing": False,
+                "reasons": warns + ["no developmental_model curated -> mechanistic extrapolation "
+                                    "not available (an honest gap, never a fabricated curve)"]})
+
+    if rep_for_linear is not None:
+        overlay.linear_per_kg = _linear_per_kg_result(rep_for_linear, point, schedule, t, cu)
+    return overlay
 
 
 # --------------------------------------------------------------------------- #

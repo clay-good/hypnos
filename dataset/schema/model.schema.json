@@ -98,6 +98,13 @@
         "crcl_ml_min": { "$ref": "#/$defs/range", "description": "Creatinine-clearance range the model was fit across (renal-function dimension, v0.5 §B4). Absent => the model claims no renal-impairment standing." },
         "albumin_g_dl": { "$ref": "#/$defs/range", "description": "Serum-albumin range the model was fit across (free-fraction dimension, v0.5 §B3/§B4)." },
         "ejection_fraction_pct": { "$ref": "#/$defs/range", "description": "Cardiac-output / ejection-fraction range the model was fit across (v0.5 §B4)." },
+        "pma_weeks": { "$ref": "#/$defs/range", "description": "Post-menstrual-age range (weeks) the model was fit across (v0.8 §4). PMA = gestational + postnatal age; the maturation clock, NOT chronological age. Absent => no neonatal/infant standing." },
+        "postnatal_age_days": { "$ref": "#/$defs/range", "description": "Postnatal-age range (days) the model was fit across (v0.8 §4)." },
+        "gestational_age_weeks": { "$ref": "#/$defs/range", "description": "Gestational-age range (weeks) at birth (v0.8 §4); with postnatal age it composes PMA." },
+        "bche_phenotype": { "type": "array", "items": { "type": "string", "enum": ["normal", "heterozygous_atypical", "homozygous_atypical"] }, "description": "DECLARED-only BCHE phenotype dimension (v0.9 §4). Categorical; a genotype is never inferred, only declared." },
+        "cyp2d6_phenotype": { "type": "array", "items": { "type": "string", "enum": ["PM", "IM", "EM", "UM"] }, "description": "DECLARED-only CYP2D6 metabolizer-status dimension (v0.9 §4)." },
+        "cyp3a_phenotype": { "type": "array", "items": { "type": "string", "enum": ["PM", "IM", "EM", "UM"] }, "description": "DECLARED-only CYP3A4/5 metabolizer-status dimension (v0.9 §4)." },
+        "mh_susceptibility": { "type": "boolean", "description": "DECLARED-only malignant-hyperthermia susceptibility (v0.9 §4); a susceptibility, never a kinetic dimension." },
         "populations": { "type": "array", "items": { "type": "string" } },
         "derivation_n": { "type": ["integer", "null"] },
         "organ_tolerance": {
@@ -153,6 +160,17 @@
       "description": "Rollup of how the model's derived-covariate equations are curated; drives the v0.7 covariate-equation divergence view + the UI badge (v0.7 spec §3.1/§5). 'none' => scales on raw covariates only; 'declared' => names its derived-input equations; 'computed' is caller-side (a covariate-value distribution was supplied) and never appears in the dataset.",
       "enum": ["none", "declared", "computed"]
     },
+    "developmental_model": { "$ref": "#/$defs/developmental_model" },
+    "pharmacogenomic_modifiers": {
+      "type": "array",
+      "description": "Cited, opt-in, Tier-D KINETIC modifiers a declared genotype/phenotype applies to this model (v0.9 §4). A modifier scales a prediction; it is NEVER a susceptibility flag (those carry no number).",
+      "items": { "$ref": "#/$defs/pharmacogenomic_modifier" }
+    },
+    "pharmacogenomic_safety_flags": {
+      "type": "array",
+      "description": "Genotype-conferred adverse-event SUSCEPTIBILITIES rendered as avoidance/awareness flags (v0.9 §4). A flag forbids a trigger; it carries NO kinetic effect (no adjustment) — the schema separation makes the category error impossible.",
+      "items": { "$ref": "#/$defs/pharmacogenomic_safety_flag" }
+    },
     "residual_error": { "$ref": "#/$defs/residual_error" },
     "omega_block": { "$ref": "#/$defs/omega_block" },
     "estimate_covariance": { "$ref": "#/$defs/estimate_covariance" },
@@ -188,6 +206,120 @@
     "notes": { "type": "string" }
   },
   "$defs": {
+    "developmental_model": {
+      "type": "object",
+      "description": "An adult model's developmental (pediatric/neonatal) extrapolation by allometric size and, where curated, PMA-driven clearance maturation (v0.8 §4). Tier-D by construction, opt-in only, always cited and warned — NEVER a silent reparameterization. A model actually fitted in children is a DIFFERENT record (evidence), not this annotation.",
+      "required": ["extrapolation_basis", "evidence_tier", "applied_by_default", "primary_citation"],
+      "additionalProperties": false,
+      "properties": {
+        "size": { "$ref": "#/$defs/size_model" },
+        "maturation": { "$ref": "#/$defs/maturation_model" },
+        "extrapolation_basis": {
+          "type": "string",
+          "enum": ["allometry_only", "allometry_plus_maturation", "fitted_pediatric"],
+          "description": "allometry_only carries the over-dose caveat (un-modeled maturation OVER-states neonatal clearance); allometry_plus_maturation composes both; fitted_pediatric labels a model that earned its tier in children (evidence)."
+        },
+        "evidence_tier": { "type": "string", "enum": ["A", "B", "C", "D"], "description": "Extrapolation defaults to D; a fitted-in-children model is a different record." },
+        "applied_by_default": { "type": "boolean", "description": "MUST be false for an extrapolation — never silently reparameterizes an adult model (opt-in only)." },
+        "caveat": { "type": "string" },
+        "primary_citation": { "type": "string" },
+        "tier": { "type": "string", "enum": ["A", "B", "C", "D"] },
+        "extraction": { "$ref": "#/$defs/extraction" }
+      }
+    },
+    "size_model": {
+      "type": "object",
+      "description": "Theory-based allometric size scaling (v0.8 §3): clearance ∝ weight^cl_exponent (¾ by default), volume ∝ weight^v_exponent (1.0), relative to a reference individual.",
+      "required": ["cl_exponent", "v_exponent", "reference_weight_kg", "exponent_basis"],
+      "additionalProperties": false,
+      "properties": {
+        "cl_exponent": { "type": "number", "description": "Allometric exponent on clearances (theory: 0.75)." },
+        "v_exponent": { "type": "number", "description": "Allometric exponent on volumes (theory: 1.0)." },
+        "reference_weight_kg": { "type": "number", "description": "The reference individual the adult parameters are stated at (commonly 70 kg)." },
+        "exponent_basis": { "type": "string", "enum": ["theory_fixed", "fitted"], "description": "theory_fixed (West/Brown allometry) or fitted (needs an SE home; v0.7 Trap 5)." },
+        "size_descriptor": { "type": ["string", "null"], "description": "Optional: resolves to a v0.7 covariate-equation id (e.g. 'ffm:al_sallami_2015') for the pediatric-valid body-size descriptor." },
+        "tier": { "type": "string", "enum": ["A", "B", "C", "D"] },
+        "primary_citation": { "type": "string" }
+      }
+    },
+    "maturation_model": {
+      "type": "object",
+      "description": "PMA-driven clearance maturation (v0.8 §3) — the neonatal/infant load-bearing fact. The Anderson–Holford sigmoid MF(PMA) = PMA^Hill / (TM50^Hill + PMA^Hill). The driver MUST be a PMA-class clock, never chronological age (v0.8 §4 Trap 1).",
+      "required": ["function", "tm50_weeks", "hill", "driver", "affected_parameter"],
+      "additionalProperties": false,
+      "properties": {
+        "function": { "type": "string", "enum": ["sigmoidal_pma"] },
+        "tm50_weeks": { "type": "number", "description": "PMA (weeks) at half-maximal maturation." },
+        "hill": { "type": "number", "description": "Hill coefficient of the maturation sigmoid." },
+        "driver": { "type": "string", "enum": ["pma_weeks"], "description": "The age clock; PMA only (the cardinal pediatric trap is using chronological age)." },
+        "affected_parameter": { "type": "string", "description": "The cleared parameter the MF multiplies (e.g. 'Cl'). A single MF on a multi-pathway clearance is a labeled simplification (Trap 4)." },
+        "tier": { "type": "string", "enum": ["A", "B", "C", "D"] },
+        "primary_citation": { "type": "string" }
+      }
+    },
+    "pharmacogenomic_modifier": {
+      "type": "object",
+      "description": "A KINETIC pharmacogenomic modifier (v0.9 §4): a declared genotype/phenotype that scales a drug's disposition. Opt-in, Tier-D by construction, substrate-scoped, always cited. It scales a prediction — it MUST NOT carry trigger_agents (that would be a susceptibility, a different object).",
+      "required": ["gene", "phenotype", "affected_parameter", "substrate_scope", "adjustment", "evidence_tier", "applied_by_default", "primary_citation"],
+      "additionalProperties": false,
+      "properties": {
+        "gene": { "type": "string", "description": "e.g. BCHE, CYP2D6, CYP3A." },
+        "phenotype": {
+          "type": "object",
+          "required": ["dimension", "value"],
+          "additionalProperties": false,
+          "properties": {
+            "dimension": { "type": "string", "enum": ["bche_phenotype", "cyp2d6_phenotype", "cyp3a_phenotype"] },
+            "value": { "type": "string" }
+          }
+        },
+        "phenotype_basis": { "type": ["string", "null"], "description": "The lossy genotype→phenotype mapping basis (e.g. 'dibucaine number < 30'); the translation source the verifier confirms (Trap 1)." },
+        "affected_parameter": { "type": "string" },
+        "substrate_scope": { "type": "array", "items": { "type": "string" }, "minItems": 1, "description": "The drugs/classes the gene actually acts on (e.g. succinylcholine, mivacurium, ester_la). Mandatory; validated so a genetic effect never leaks to a non-substrate drug (Trap 4)." },
+        "adjustment": {
+          "type": "object",
+          "required": ["type"],
+          "additionalProperties": false,
+          "properties": {
+            "type": { "type": "string", "enum": ["scale_factor", "equation"] },
+            "value": { "type": ["number", "null"], "description": "Illustrative directional magnitude — the phenotype, not a precise CL (the caveat is mandatory)." },
+            "equation": { "type": ["string", "null"] },
+            "direction": { "type": ["string", "null"], "enum": ["prolong", "shorten", "increase", "decrease", null], "description": "The forward direction the modifier moves the prediction (v0.9 Trap 5; never assumed from 'PM = less drug')." }
+          }
+        },
+        "evidence_tier": { "type": "string", "enum": ["A", "B", "C", "D"], "description": "D unless backed by a linked fitted-by-genotype model." },
+        "applied_by_default": { "type": "boolean", "description": "MUST be false — opt-in only." },
+        "caveat": { "type": "string" },
+        "primary_citation": { "type": "string" },
+        "extraction": { "$ref": "#/$defs/extraction" }
+      }
+    },
+    "pharmacogenomic_safety_flag": {
+      "type": "object",
+      "description": "A pharmacogenomic SUSCEPTIBILITY rendered as an avoidance/awareness flag (v0.9 §4). It forbids a trigger; it carries NO kinetic effect. It MUST NOT carry an `adjustment` — the schema separation makes the MH-as-clearance-change category error impossible (Trap 2).",
+      "required": ["gene", "phenotype", "consequence", "action", "safety_critical", "evidence_tier", "primary_citation"],
+      "additionalProperties": false,
+      "properties": {
+        "gene": { "type": "string", "description": "e.g. RYR1, CACNA1S, BCHE." },
+        "phenotype": {
+          "type": "object",
+          "required": ["dimension", "value"],
+          "additionalProperties": false,
+          "properties": {
+            "dimension": { "type": "string", "enum": ["mh_susceptibility", "bche_phenotype"] },
+            "value": {}
+          }
+        },
+        "trigger_agents": { "type": "array", "items": { "type": "string" }, "description": "The agents/classes to AVOID (e.g. volatiles, succinylcholine)." },
+        "consequence": { "type": "string" },
+        "action": { "type": "string", "description": "The avoidance/awareness action — explicitly NOT a dose adjustment." },
+        "safety_critical": { "type": "boolean", "description": "-> hypnos:safetyCritical (v0.6) in every export." },
+        "kind": { "type": "string", "enum": ["avoidance", "awareness"], "description": "avoidance (a hard contraindication, e.g. MH) vs awareness (expect a prolonged effect, e.g. atypical BCHE)." },
+        "evidence_tier": { "type": "string", "enum": ["A", "B", "C", "D"], "description": "On the gene–trigger/gene–phenotype link; says nothing about a (non-existent) kinetic tier." },
+        "primary_citation": { "type": "string" },
+        "extraction": { "$ref": "#/$defs/extraction" }
+      }
+    },
     "covariate_model": {
       "type": "object",
       "description": "Which named auxiliary body-size/composition equations this model is DERIVED with (v0.7 spec §3.1). Promotes and structures the lone covariates.lbm_equation string into a validated binding: each derived covariate the model consumes names the exact published equation (by id into dataset/covariate_equations/), what it scales, and whether it is the authors' verbatim choice. Silent substitution of one of these equations is the field's best-documented 'same model, different answer' divergence.",
@@ -493,11 +625,31 @@
       "required": ["review_status"],
       "additionalProperties": false,
       "properties": {
-        "review_status": { "type": "string", "enum": ["unverified", "verified", "contested"] },
+        "review_status": {
+          "type": "string",
+          "enum": ["unverified", "pending_human_review", "verified", "contested"],
+          "description": "Curation state. 'unverified' => illustrative/transcribed, no source cross-check; 'pending_human_review' => an AUTOMATED process cross-checked the curated values against a real, cited source and they matched, but NO human has confirmed against the primary PDF (governance: 'Humans verify; LLMs do not promote' — an automated check can populate evidence but never reaches 'verified'); 'verified' => a human confirmed every field against the source; 'contested' => a sourced disagreement is recorded."
+        },
         "tier_rationale": { "type": "string" },
         "source_locator": { "type": "string" },
         "verified_by": { "type": ["string", "null"] },
-        "verified_date": { "type": ["string", "null"] }
+        "verified_date": { "type": ["string", "null"] },
+        "source_review": { "$ref": "#/$defs/source_review" }
+      }
+    },
+    "source_review": {
+      "type": "object",
+      "description": "Provenance for an AUTOMATED source cross-check that produced the 'pending_human_review' state. It records exactly what was compared, against which fetched source(s), and the outcome — so a human verifier can audit the machine's work and then promote (or contest) it. It NEVER asserts human verification (`human_verified` is always false here).",
+      "required": ["reviewed_by", "method", "outcome", "human_verified"],
+      "additionalProperties": false,
+      "properties": {
+        "reviewed_by": { "type": "string", "description": "The automated reviewer (e.g. 'automated source cross-check (Claude Opus)')." },
+        "reviewed_date": { "type": ["string", "null"], "description": "ISO date of the cross-check." },
+        "method": { "type": "string", "description": "How the comparison was done (e.g. 'fetched the cited open-access source + an independent reproduction; compared each curated parameter numerically')." },
+        "sources": { "type": "array", "items": { "type": "string" }, "description": "URLs and/or citation ids actually fetched and compared against." },
+        "outcome": { "type": "string", "enum": ["match", "partial_match", "discrepancy"], "description": "match => every checked value agreed within rounding; partial_match => some confirmed, some not findable; discrepancy => a recorded disagreement (see notes)." },
+        "notes": { "type": "string", "description": "What matched, what could not be found, any discrepancy detail." },
+        "human_verified": { "type": "boolean", "description": "ALWAYS false for an automated review — the governance line a machine cannot cross." }
       }
     }
   }

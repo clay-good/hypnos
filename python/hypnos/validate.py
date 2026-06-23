@@ -110,7 +110,8 @@ def validate_dataset(ds: Optional[Dataset] = None) -> List[str]:
         # envelope ranges well-ordered (min <= max)
         env = m.applicability_envelope
         for name in ("age_years", "weight_kg", "height_cm", "bmi_kg_m2",
-                     "crcl_ml_min", "albumin_g_dl", "ejection_fraction_pct"):
+                     "crcl_ml_min", "albumin_g_dl", "ejection_fraction_pct",
+                     "pma_weeks", "postnatal_age_days", "gestational_age_weeks"):
             rng = getattr(env, name)
             if rng.min is not None and rng.max is not None and rng.min > rng.max:
                 problems.append(f"[envelope] {m.id}: {name} min {rng.min} > max {rng.max}")
@@ -148,6 +149,9 @@ def validate_dataset(ds: Optional[Dataset] = None) -> List[str]:
         if m.id.split(".")[0] != m.subsystem:
             problems.append(f"[id] {m.id}: id prefix does not match subsystem '{m.subsystem}'")
 
+        # review-state integrity (the pending_human_review governance line)
+        problems.extend(_check_review_state(m))
+
         # --- variability layer (v0.2 spec §9) -----------------------------
         problems.extend(_check_variability(m, known_citations))
 
@@ -159,6 +163,12 @@ def validate_dataset(ds: Optional[Dataset] = None) -> List[str]:
 
         # --- covariate-model layer (v0.7 spec §9) -------------------------
         problems.extend(_check_covariate_model(m, ds, known_citations))
+
+        # --- developmental layer (v0.8 spec §8) ---------------------------
+        problems.extend(_check_developmental(m, known_citations))
+
+        # --- pharmacogenomic layer (v0.9 spec §8) -------------------------
+        problems.extend(_check_pharmacogenomics(m, known_citations))
 
     # --- covariate-equation library (v0.7 spec §9) ------------------------
     problems.extend(_check_covariate_equations(ds, known_citations))
@@ -533,6 +543,129 @@ def _check_covariate_equations(ds, known_citations) -> List[str]:
                 f"[covariate] equation {eid}: curated in the library but not implemented in "
                 "hypnos.covariates.EQUATIONS (data/code out of sync)"
             )
+    return problems
+
+
+def _check_review_state(m) -> List[str]:
+    """Review-state integrity — the ``pending_human_review`` governance line (the new state).
+
+    An automated source cross-check may *populate evidence* (set ``pending_human_review`` +
+    a ``source_review`` provenance block) but NEVER asserts human verification:
+    ``human_verified`` is always false outside ``verified``. A ``pending_human_review``
+    record must carry the provenance (what was compared, against which fetched source(s));
+    a ``contested`` record may carry it to document a machine-found disagreement."""
+    problems: List[str] = []
+    sr = m.source_review
+    if m.review_status == "pending_human_review":
+        if sr is None:
+            problems.append(
+                f"[review] {m.id}: review_status 'pending_human_review' requires a "
+                "source_review provenance block (what was cross-checked, against which source)")
+        elif sr.get("human_verified") is not False:
+            problems.append(
+                f"[review] {m.id}: a pending_human_review source_review must have "
+                "human_verified=false (an automated check never reaches human verification)")
+        elif not sr.get("sources"):
+            problems.append(
+                f"[review] {m.id}: pending_human_review source_review must cite the source(s) "
+                "actually compared against (sources[] is empty)")
+    elif m.review_status == "contested":
+        if sr is not None and sr.get("human_verified") is not False:
+            problems.append(
+                f"[review] {m.id}: a contested source_review must have human_verified=false")
+    elif sr is not None and m.review_status != "verified":
+        problems.append(
+            f"[review] {m.id}: a source_review block is present but review_status is "
+            f"'{m.review_status}' (expected 'pending_human_review', 'contested', or 'verified')")
+    return problems
+
+
+def _check_developmental(m, known_citations) -> List[str]:
+    """Developmental-layer checks (v0.8 spec §8):
+
+    * the block and its size/maturation components cite resolvably;
+    * ``evidence_tier`` is D (an extrapolation defaults to D; a fitted-in-children model
+      is a different record, labeled ``fitted_pediatric``);
+    * ``applied_by_default`` is never true (an extrapolation is opt-in only);
+    * a ``maturation`` block's ``driver`` is a PMA-class clock (Trap 1);
+    * ``extrapolation_basis`` matches the curated contents (allometry_plus_maturation
+      requires a maturation block; allometry_only forbids one).
+    """
+    problems: List[str] = []
+    dev = m.developmental_model
+    if dev is None:
+        return problems
+    if dev.primary_citation and dev.primary_citation not in known_citations:
+        problems.append(f"[cite] {m.id}: developmental_model cites unknown '{dev.primary_citation}'")
+    if dev.size and dev.size.primary_citation and dev.size.primary_citation not in known_citations:
+        problems.append(f"[cite] {m.id}: developmental size cites unknown '{dev.size.primary_citation}'")
+    if dev.maturation and dev.maturation.primary_citation \
+            and dev.maturation.primary_citation not in known_citations:
+        problems.append(
+            f"[cite] {m.id}: developmental maturation cites unknown '{dev.maturation.primary_citation}'")
+    if dev.extrapolation_basis != "fitted_pediatric" and dev.evidence_tier != "D":
+        problems.append(
+            f"[developmental] {m.id}: evidence_tier '{dev.evidence_tier}' for an extrapolation "
+            "must be D (a fitted-in-children model is a different record; v0.8 §5)")
+    if dev.applied_by_default:
+        problems.append(
+            f"[developmental] {m.id}: applied_by_default must be false — an allometric/maturation "
+            "extrapolation is opt-in only, never a silent reparameterization (v0.8 §9)")
+    if dev.maturation is not None and dev.maturation.driver != "pma_weeks":
+        problems.append(
+            f"[developmental] {m.id}: maturation driver '{dev.maturation.driver}' must be a PMA-class "
+            "clock (pma_weeks), never chronological age (v0.8 §4 Trap 1)")
+    if dev.extrapolation_basis == "allometry_plus_maturation" and dev.maturation is None:
+        problems.append(
+            f"[developmental] {m.id}: extrapolation_basis 'allometry_plus_maturation' but no "
+            "maturation block is curated")
+    if dev.extrapolation_basis == "allometry_only" and dev.maturation is not None:
+        problems.append(
+            f"[developmental] {m.id}: extrapolation_basis 'allometry_only' but a maturation block "
+            "is present (should be 'allometry_plus_maturation')")
+    return problems
+
+
+def _check_pharmacogenomics(m, known_citations) -> List[str]:
+    """Pharmacogenomic-layer checks (v0.9 spec §8), enforcing the flag/modifier separation:
+
+    * a kinetic modifier is Tier-D, opt-in (``applied_by_default`` false), carries a
+      non-empty ``substrate_scope`` that includes this model's drug (the substrate
+      guardrail — a genetic effect never leaks to a non-substrate drug, Trap 4);
+    * a safety flag carries ``safety_critical`` and resolvable citation;
+    * every modifier/flag ``primary_citation`` resolves.
+
+    The category-error guard (Trap 2 — a susceptibility is not a kinetic scale-factor) is
+    enforced *structurally* by the schema: the two ``$defs`` are disjoint (a modifier
+    cannot carry ``trigger_agents``, a flag cannot carry an ``adjustment``), so a flag has
+    nothing to round-trip kinetically.
+    """
+    problems: List[str] = []
+    for mod in m.pharmacogenomic_modifiers:
+        if mod.evidence_tier != "D":
+            problems.append(
+                f"[pgx] {m.id}: kinetic modifier ({mod.gene}) evidence_tier '{mod.evidence_tier}' "
+                "must be D unless backed by a linked fitted-by-genotype model (v0.9 §5)")
+        if mod.applied_by_default:
+            problems.append(
+                f"[pgx] {m.id}: kinetic modifier ({mod.gene}) applied_by_default must be false "
+                "(opt-in only; v0.9 §9)")
+        if not mod.substrate_scope:
+            problems.append(
+                f"[pgx] {m.id}: kinetic modifier ({mod.gene}) needs a non-empty substrate_scope "
+                "(Trap 4 — a mis-scoped genetic effect is silently wrong)")
+        elif m.drug_name not in mod.substrate_scope:
+            problems.append(
+                f"[pgx] {m.id}: kinetic modifier ({mod.gene}) attaches to drug '{m.drug_name}' "
+                f"which is not in its substrate_scope {mod.substrate_scope} (substrate guardrail, Trap 4)")
+        if mod.primary_citation and mod.primary_citation not in known_citations:
+            problems.append(f"[cite] {m.id}: pgx modifier cites unknown '{mod.primary_citation}'")
+    for flag in m.pharmacogenomic_safety_flags:
+        if not flag.safety_critical:
+            problems.append(
+                f"[pgx] {m.id}: safety flag ({flag.gene}) must carry safety_critical=true (v0.9 §4)")
+        if flag.primary_citation and flag.primary_citation not in known_citations:
+            problems.append(f"[cite] {m.id}: pgx safety flag cites unknown '{flag.primary_citation}'")
     return problems
 
 

@@ -107,11 +107,49 @@
   },
   "known_failure_modes": [],
   "predictive_performance": [],
+  "pharmacogenomic_safety_flags": [
+    {
+      "gene": "RYR1",
+      "phenotype": {
+        "dimension": "mh_susceptibility",
+        "value": true
+      },
+      "trigger_agents": [
+        "volatile_anesthetics",
+        "succinylcholine"
+      ],
+      "consequence": "malignant hyperthermia — a life-threatening hypermetabolic crisis",
+      "action": "AVOID all volatile agents and succinylcholine in an MH-susceptible patient (use a trigger-free / total-intravenous technique)",
+      "safety_critical": true,
+      "kind": "avoidance",
+      "evidence_tier": "A",
+      "primary_citation": "gonsalves-2019-mh-cpic",
+      "extraction": {
+        "review_status": "unverified",
+        "tier_rationale": "CPIC guideline-grade gene-trigger link (RYR1/CACNA1S -> MH on volatile or succinylcholine exposure). A SUSCEPTIBILITY, not a kinetic change: rendered as a hard avoidance flag with no dose effect (v0.9 §2 Trap 2).",
+        "source_locator": "Gonsalves 2019 (CPIC), Table 1"
+      }
+    }
+  ],
   "tier": "B",
   "extraction": {
-    "review_status": "unverified",
+    "review_status": "pending_human_review",
     "tier_rationale": "MAC40 anchor + Mapleson age-correction + textbook partition coefficients.",
-    "source_locator": "Nickalls & Mapleson 2003"
+    "source_locator": "Nickalls & Mapleson 2003",
+    "source_review": {
+      "reviewed_by": "automated source cross-check (Claude Opus 4.8 via Hypnos research agents)",
+      "reviewed_date": "2026-06-23",
+      "method": "fetched open-access reproductions, primary-paper PubMed abstracts, FDA labels, and/or the tci R package source, then numerically compared each curated typical-value parameter against the fetched values (see sources)",
+      "sources": [
+        "https://en.wikipedia.org/wiki/Minimum_alveolar_concentration",
+        "https://gasgasgas.uk/episode/comparing-volatile-anaesthetic-agents/",
+        "https://pmc.ncbi.nlm.nih.gov/articles/PMC7034808/",
+        "FDA DailyMed SUPRANE (desflurane) label"
+      ],
+      "outcome": "discrepancy",
+      "notes": "DISCREPANCY for human resolution (value NOT changed): curated desflurane MAC40 = 6.0 vol%, but every fetched source clusters at 6.4-6.6 for an age-40 value (Wikipedia 6.6; GasGasGas 6.6; PMC meta-regression 6.44; FDA Suprane 6% at age 45). Curated 6.0 appears to be the young-adult round value, not the strict age-40 MAC40 the kernel expects. Blood:gas 0.42 and oil:gas 19 confirmed. HUMAN ITEM: resolve MAC40 against Nickalls/Mapleson 2003 (paywalled, not directly read).",
+      "human_verified": false
+    }
   },
   "primary_citation": "nickalls-2003-isomac",
   "notes": "Fastest kinetics of the potent agents (blood:gas 0.42). MAC fraction = end-tidal% / MAC(age)."

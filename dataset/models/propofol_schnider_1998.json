@@ -1,7 +1,11 @@
 {
   "id": "hypnotics_iv.propofol.schnider_1998",
   "subsystem": "hypnotics_iv",
-  "drug": { "name": "propofol", "unii": "YI7VU623SF", "atc": "N01AX10" },
+  "drug": {
+    "name": "propofol",
+    "unii": "YI7VU623SF",
+    "atc": "N01AX10"
+  },
   "purpose": "pk",
   "label": "Propofol PK — Schnider (1998)",
   "structure": {
@@ -10,73 +14,153 @@
     "elimination": "linear",
     "effect_compartment": true
   },
-  "kernel": { "implemented": true, "function": "propofol_schnider_1998" },
+  "kernel": {
+    "implemented": true,
+    "function": "propofol_schnider_1998"
+  },
   "parameters": [
     {
-      "symbol": "V1", "label": "central volume",
-      "value": { "central": 4.27, "low": null, "high": null, "units": "L" },
+      "symbol": "V1",
+      "label": "central volume",
+      "value": {
+        "central": 4.27,
+        "low": null,
+        "high": null,
+        "units": "L"
+      },
       "covariate_model": "V1 = 4.27",
       "tier": "B",
-      "extraction": { "review_status": "unverified", "tier_rationale": "Fixed central volume from a single derivation cohort (n=24, healthy adult volunteers); widely used and externally validated.", "source_locator": "Schnider 1998, Table 2" },
+      "extraction": {
+        "review_status": "unverified",
+        "tier_rationale": "Fixed central volume from a single derivation cohort (n=24, healthy adult volunteers); widely used and externally validated.",
+        "source_locator": "Schnider 1998, Table 2"
+      },
       "primary_citation": "schnider-1998-propofol-pk"
     },
     {
-      "symbol": "V2", "label": "rapid peripheral volume",
-      "value": { "central": 18.9, "low": null, "high": null, "units": "L" },
+      "symbol": "V2",
+      "label": "rapid peripheral volume",
+      "value": {
+        "central": 18.9,
+        "low": null,
+        "high": null,
+        "units": "L"
+      },
       "covariate_model": "V2 = 18.9 - 0.391 * (AGE - 53)",
       "tier": "B",
-      "extraction": { "review_status": "unverified", "source_locator": "Schnider 1998, Table 2" },
+      "extraction": {
+        "review_status": "unverified",
+        "source_locator": "Schnider 1998, Table 2"
+      },
       "primary_citation": "schnider-1998-propofol-pk"
     },
     {
-      "symbol": "V3", "label": "slow peripheral volume",
-      "value": { "central": 238.0, "low": null, "high": null, "units": "L" },
+      "symbol": "V3",
+      "label": "slow peripheral volume",
+      "value": {
+        "central": 238.0,
+        "low": null,
+        "high": null,
+        "units": "L"
+      },
       "covariate_model": "V3 = 238",
       "tier": "B",
-      "extraction": { "review_status": "unverified", "source_locator": "Schnider 1998, Table 2" },
+      "extraction": {
+        "review_status": "unverified",
+        "source_locator": "Schnider 1998, Table 2"
+      },
       "primary_citation": "schnider-1998-propofol-pk"
     },
     {
-      "symbol": "Cl1", "label": "metabolic clearance",
-      "value": { "central": 1.89, "low": null, "high": null, "units": "L/min" },
+      "symbol": "Cl1",
+      "label": "metabolic clearance",
+      "value": {
+        "central": 1.89,
+        "low": null,
+        "high": null,
+        "units": "L/min"
+      },
       "covariate_model": "Cl1 = 1.89 + 0.0456*(WGT-77) - 0.0681*(LBM-59) + 0.0264*(HGT-177)",
       "tier": "B",
-      "extraction": { "review_status": "unverified", "tier_rationale": "Clearance carries the LBM (James 1976) covariate term whose sign drives the high-BMI failure mode.", "source_locator": "Schnider 1998, Table 2" },
+      "extraction": {
+        "review_status": "unverified",
+        "tier_rationale": "Clearance carries the LBM (James 1976) covariate term whose sign drives the high-BMI failure mode.",
+        "source_locator": "Schnider 1998, Table 2"
+      },
       "primary_citation": "schnider-1998-propofol-pk"
     },
     {
-      "symbol": "Cl2", "label": "rapid intercompartmental clearance",
-      "value": { "central": 1.29, "low": null, "high": null, "units": "L/min" },
+      "symbol": "Cl2",
+      "label": "rapid intercompartmental clearance",
+      "value": {
+        "central": 1.29,
+        "low": null,
+        "high": null,
+        "units": "L/min"
+      },
       "covariate_model": "Cl2 = 1.29 - 0.024*(AGE-53)",
       "tier": "B",
-      "extraction": { "review_status": "unverified", "source_locator": "Schnider 1998, Table 2" },
+      "extraction": {
+        "review_status": "unverified",
+        "source_locator": "Schnider 1998, Table 2"
+      },
       "primary_citation": "schnider-1998-propofol-pk"
     },
     {
-      "symbol": "Cl3", "label": "slow intercompartmental clearance",
-      "value": { "central": 0.836, "low": null, "high": null, "units": "L/min" },
+      "symbol": "Cl3",
+      "label": "slow intercompartmental clearance",
+      "value": {
+        "central": 0.836,
+        "low": null,
+        "high": null,
+        "units": "L/min"
+      },
       "covariate_model": "Cl3 = 0.836",
       "tier": "B",
-      "extraction": { "review_status": "unverified", "source_locator": "Schnider 1998, Table 2" },
+      "extraction": {
+        "review_status": "unverified",
+        "source_locator": "Schnider 1998, Table 2"
+      },
       "primary_citation": "schnider-1998-propofol-pk"
     },
     {
-      "symbol": "ke0", "label": "effect-site equilibration rate constant",
-      "value": { "central": 0.456, "low": null, "high": null, "units": "1/min" },
+      "symbol": "ke0",
+      "label": "effect-site equilibration rate constant",
+      "value": {
+        "central": 0.456,
+        "low": null,
+        "high": null,
+        "units": "1/min"
+      },
       "covariate_model": "ke0 = 0.456",
       "tier": "B",
-      "extraction": { "review_status": "unverified", "tier_rationale": "Schnider effect-site ke0 from the companion PD analysis.", "source_locator": "Schnider 1999 (PD companion)" },
+      "extraction": {
+        "review_status": "unverified",
+        "tier_rationale": "Schnider effect-site ke0 from the companion PD analysis.",
+        "source_locator": "Schnider 1999 (PD companion)"
+      },
       "primary_citation": "schnider-1999-propofol-pd"
     }
   ],
-  "covariates": { "required": ["age", "weight", "height", "sex"], "optional": [], "lbm_equation": "james_1976" },
+  "covariates": {
+    "required": [
+      "age",
+      "weight",
+      "height",
+      "sex"
+    ],
+    "optional": [],
+    "lbm_equation": "james_1976"
+  },
   "covariate_sensitivity_status": "declared",
   "covariate_model": {
     "derived_inputs": [
       {
         "quantity": "lbm",
         "equation": "james_1976",
-        "used_for": ["Cl1"],
+        "used_for": [
+          "Cl1"
+        ],
         "verbatim": true,
         "tier": "B",
         "extraction": {
@@ -89,11 +173,26 @@
     ]
   },
   "applicability_envelope": {
-    "age_years": { "min": 25, "max": 81 },
-    "weight_kg": { "min": 44, "max": 123 },
-    "height_cm": { "min": 155, "max": 196 },
-    "bmi_kg_m2": { "min": 20, "max": 42 },
-    "populations": ["healthy_adult", "elective_surgery"],
+    "age_years": {
+      "min": 25,
+      "max": 81
+    },
+    "weight_kg": {
+      "min": 44,
+      "max": 123
+    },
+    "height_cm": {
+      "min": 155,
+      "max": 196
+    },
+    "bmi_kg_m2": {
+      "min": 20,
+      "max": 42
+    },
+    "populations": [
+      "healthy_adult",
+      "elective_surgery"
+    ],
     "derivation_n": 24
   },
   "known_failure_modes": [
@@ -106,15 +205,69 @@
     }
   ],
   "predictive_performance": [
-    { "metric": "MDPE", "value": -7.0, "units": "%", "population": "elective surgical adults (representative literature range)", "citation": "absalom-2009-schnider-obese" },
-    { "metric": "MDAPE", "value": 18.0, "units": "%", "population": "elective surgical adults (representative literature range)", "citation": "absalom-2009-schnider-obese" },
-    { "metric": "MDAPE", "value": 26.0, "units": "%", "population": "external validation, 50 elective surgical adults (head-to-head: Marsh 25%, Schnider 26%, Eleveld 22%)", "citation": "huppe-2020-propofol-comparison" }
+    {
+      "metric": "MDPE",
+      "value": -7.0,
+      "units": "%",
+      "population": "elective surgical adults (representative literature range)",
+      "citation": "absalom-2009-schnider-obese"
+    },
+    {
+      "metric": "MDAPE",
+      "value": 18.0,
+      "units": "%",
+      "population": "elective surgical adults (representative literature range)",
+      "citation": "absalom-2009-schnider-obese"
+    },
+    {
+      "metric": "MDAPE",
+      "value": 26.0,
+      "units": "%",
+      "population": "external validation, 50 elective surgical adults (head-to-head: Marsh 25%, Schnider 26%, Eleveld 22%)",
+      "citation": "huppe-2020-propofol-comparison"
+    }
   ],
+  "developmental_model": {
+    "extrapolation_basis": "allometry_only",
+    "evidence_tier": "D",
+    "applied_by_default": false,
+    "size": {
+      "cl_exponent": 0.75,
+      "v_exponent": 1.0,
+      "reference_weight_kg": 70,
+      "exponent_basis": "theory_fixed",
+      "size_descriptor": "ffm:al_sallami_2015",
+      "tier": "C",
+      "primary_citation": "anderson-holford-2008"
+    },
+    "caveat": "Schnider is an adult-only model (derivation age 25-81 y); carrying it into a child by allometry ALONE is a Tier-D extrapolation with NO maturation term — so neonatal/infant clearance is OVER-stated and exposure UNDER-predicted, exactly where the margin is smallest. Prefer a fitted-in-children model, or Eleveld's broad-application model, for pediatric work.",
+    "primary_citation": "anderson-holford-2008",
+    "tier": "D",
+    "extraction": {
+      "review_status": "unverified",
+      "tier_rationale": "Allometric size extrapolation of an adult model; Tier-D by construction (v0.8 §5). Exponents theory-fixed (¾ on clearances, 1 on volumes). No maturation curated for Schnider -> allometry_only, with the over-dose caveat surfaced. Illustrative; awaits human confirmation.",
+      "source_locator": "Anderson & Holford 2008 (allometry); Schnider 1998 (the adult model)"
+    }
+  },
   "tier": "B",
   "extraction": {
-    "review_status": "unverified",
+    "review_status": "pending_human_review",
     "tier_rationale": "Single robust derivation cohort with extensive external validation; covariate (age/weight/height/LBM) structure broadly recommended. Worst contributing parameter tier is B. Awaits human PDF verification of every covariate equation, especially the James LBM term.",
-    "source_locator": "Schnider 1998, Table 2; Schnider 1999 for ke0"
+    "source_locator": "Schnider 1998, Table 2; Schnider 1999 for ke0",
+    "source_review": {
+      "reviewed_by": "automated source cross-check (Claude Opus 4.8 via Hypnos research agents)",
+      "reviewed_date": "2026-06-23",
+      "method": "fetched open-access reproductions, primary-paper PubMed abstracts, FDA labels, and/or the tci R package source, then numerically compared each curated typical-value parameter against the fetched values (see sources)",
+      "sources": [
+        "schnider-1998-propofol-pk (primary Anesthesiology; paywalled, not directly read)",
+        "https://github.com/jarretrt/tci (R/poppk_mods.R)",
+        "https://pmc.ncbi.nlm.nih.gov/articles/PMC3337375/",
+        "https://gasgasgas.uk/episode/tiva-models-for-propofol/"
+      ],
+      "outcome": "match",
+      "notes": "All 7 base coefficients (V1 4.27, V2 18.9, V3 238, Cl1 1.89, Cl2 1.29, Cl3 0.836, ke0 0.456) and all covariate slopes (V2 -0.391; Cl1 +0.0456*WGT/-0.0681*LBM/+0.0264*HGT; Cl2 -0.024) confirmed against three fetched sources. NOTE: the tci package mislabels the Cl1 weight term as LBM; the curated dataset CORRECTLY uses WGT, matching the verbatim Schnider equation reproduced in the secondary sources. HUMAN ITEM: confirm against the 1998 Anesthesiology table directly.",
+      "human_verified": false
+    }
   },
   "primary_citation": "schnider-1998-propofol-pk",
   "notes": "Micro-rate constants derived as k10=Cl1/V1, k12=Cl2/V1, k21=Cl2/V2, k13=Cl3/V1, k31=Cl3/V3. LBM via James 1976: male 1.1*W-128*(W/H)^2, female 1.07*W-148*(W/H)^2 (H in cm)."

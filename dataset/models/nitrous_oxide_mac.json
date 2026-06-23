@@ -118,9 +118,22 @@
   "predictive_performance": [],
   "tier": "B",
   "extraction": {
-    "review_status": "unverified",
+    "review_status": "pending_human_review",
     "tier_rationale": "Standard MAC + partition constants; used additively with potent agents.",
-    "source_locator": "standard reference"
+    "source_locator": "standard reference",
+    "source_review": {
+      "reviewed_by": "automated source cross-check (Claude Opus 4.8 via Hypnos research agents)",
+      "reviewed_date": "2026-06-23",
+      "method": "fetched open-access reproductions, primary-paper PubMed abstracts, FDA labels, and/or the tci R package source, then numerically compared each curated typical-value parameter against the fetched values (see sources)",
+      "sources": [
+        "https://www.ncbi.nlm.nih.gov/books/NBK537013/ (StatPearls)",
+        "https://en.wikipedia.org/wiki/Minimum_alveolar_concentration",
+        "https://gasgasgas.uk/episode/comparing-volatile-anaesthetic-agents/"
+      ],
+      "outcome": "match",
+      "notes": "Nitrous oxide MAC 104 vol% (fetched sources 104-105) and blood:gas 0.47 confirmed across multiple sources. Age-MAC exponent corroborated indirectly, not read verbatim (BJA primary paywalled).",
+      "human_verified": false
+    }
   },
   "primary_citation": "nickalls-2003-isomac",
   "notes": "Additive MAC: total MAC fraction = sum over agents of (end-tidal% / MAC(age)). N2O contributes end-tidal_N2O% / MAC_N2O(age)."

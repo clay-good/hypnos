@@ -53,8 +53,11 @@ def test_eleveld_kernel_reproduces_reference(ds):
     assert abs(vc["Cl1"] - 1.79) < 1e-6
     assert abs(vc["Cl3"] - 1.11) < 1e-6
     assert abs(vc["ke0"] - 0.146) < 1e-6
-    # the record stays unverified: an LLM transcription is not a human PDF check
-    assert ds[ELEVELD].review_status == "unverified"
+    # an automated source cross-check populated evidence (pending_human_review), but it
+    # NEVER reaches 'verified' — a human PDF check is the only path there (governance).
+    assert ds[ELEVELD].review_status != "verified"
+    assert ds[ELEVELD].is_source_reviewed
+    assert ds[ELEVELD].source_review["human_verified"] is False
 
 
 def test_pd_tier_propagation_worst_wins(ds):

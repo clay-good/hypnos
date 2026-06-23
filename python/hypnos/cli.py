@@ -67,6 +67,15 @@ def _patient_from_args(args) -> dict:
         val = getattr(args, attr, None)
         if val is not None:
             patient[key] = val
+    # Developmental covariates (v0.8) + DECLARED genotype dimensions (v0.9). Present only
+    # when supplied — never inferred — so a normal simulation is unaffected.
+    for key in ("pma_weeks", "postnatal_age_days", "gestational_age_weeks",
+                "bche_phenotype", "cyp2d6_phenotype", "cyp3a_phenotype"):
+        val = getattr(args, key, None)
+        if val is not None:
+            patient[key] = val
+    if getattr(args, "mh_susceptibility", False):
+        patient["mh_susceptibility"] = True
     return patient
 
 
@@ -84,6 +93,23 @@ def _add_patient_args(p: argparse.ArgumentParser) -> None:
                    help="serum albumin g/dL (hypoalbuminemia if <3.5)")
     p.add_argument("--ejection-fraction", dest="ejection_fraction", type=float, default=None,
                    help="ejection fraction %% (low cardiac output if <40)")
+    # Developmental covariates (v0.8). PMA is the maturation clock (post-menstrual age).
+    p.add_argument("--pma-weeks", dest="pma_weeks", type=float, default=None,
+                   help="post-menstrual age (weeks) — the maturation clock, NOT chronological age (v0.8)")
+    p.add_argument("--postnatal-days", dest="postnatal_age_days", type=float, default=None,
+                   help="postnatal age (days) (v0.8)")
+    p.add_argument("--gestational-weeks", dest="gestational_age_weeks", type=float, default=None,
+                   help="gestational age (weeks) at birth (v0.8)")
+    # Declared genotype dimensions (v0.9) — never inferred, only declared.
+    p.add_argument("--bche", dest="bche_phenotype",
+                   choices=["normal", "heterozygous_atypical", "homozygous_atypical"], default=None,
+                   help="declared BCHE phenotype (v0.9)")
+    p.add_argument("--cyp2d6", dest="cyp2d6_phenotype", choices=["PM", "IM", "EM", "UM"], default=None,
+                   help="declared CYP2D6 metabolizer status (v0.9)")
+    p.add_argument("--cyp3a", dest="cyp3a_phenotype", choices=["PM", "IM", "EM", "UM"], default=None,
+                   help="declared CYP3A metabolizer status (v0.9)")
+    p.add_argument("--mh-susceptible", dest="mh_susceptibility", action="store_true",
+                   help="declared malignant-hyperthermia susceptibility (v0.9)")
     p.add_argument("--tmax", type=float, default=60.0, help="simulation horizon (min)")
     p.add_argument("--n", type=int, default=361, help="number of time samples")
 
@@ -171,6 +197,74 @@ def cmd_validate_cohort(args) -> int:
     return 0
 
 
+def cmd_leaderboard(args) -> int:
+    """The cross-model, envelope-stratified external-validation leaderboard (v0.4 VE2/VE3).
+
+    Scores every eligible PK[→PD] stack for a drug on ONE cohort, by the same kernels and
+    seed, so the ranking compares models (not cohorts-and-methods). The cohort is a
+    long-format observations CSV (`--observations`) or a known-answer `--self-consistency`
+    fixture; the live VitalDB fetch lives in `scripts/fetch_vitaldb.py`."""
+    import csv as _csv
+
+    from .analysis import (cross_model_leaderboard, subjects_from_cohort_self_consistency,
+                           subjects_from_csv)
+    from .export.registry import KERNELS
+
+    ds = load()
+    target = args.target
+    # candidate PK models for the drug: kernel implemented, and (for an effect target) a ke0.
+    cands = []
+    for m in select(ds, drug=args.drug, purpose="pk"):
+        if not m.kernel_implemented or m.kernel_function not in KERNELS:
+            continue
+        if target in ("ce", "bis") and not m.has_effect_compartment:
+            continue
+        cands.append((m.id, args.pd_model if target in ("bis", "tof") else None))
+    if not cands:
+        print(f"no eligible PK models for drug {args.drug!r} / target {target!r}", file=sys.stderr)
+        return 2
+    if target in ("bis", "tof") and not args.pd_model:
+        print(f"target {target!r} needs a shared --pd-model (the PK→effect link)", file=sys.stderr)
+        return 2
+
+    if args.self_consistency:
+        subjects = subjects_from_cohort_self_consistency(
+            ds, cands[0][0], target=target, pd_model=args.pd_model, offset_pct=args.offset)
+        source = f"self-consistency (+{args.offset:g}% offset; cohort from {cands[0][0].split('.')[-1]})"
+    elif args.observations:
+        try:
+            with open(args.observations, newline="", encoding="utf-8") as fh:
+                subjects = subjects_from_csv(list(_csv.DictReader(fh)))
+        except OSError as e:
+            print(str(e), file=sys.stderr)
+            return 2
+        source = args.observations
+    else:
+        print("provide --observations <csv> or --self-consistency", file=sys.stderr)
+        return 2
+    if not subjects:
+        print("no subjects with scorable observations", file=sys.stderr)
+        return 2
+
+    lb = cross_model_leaderboard(ds, subjects, cands, target=target, stratify_by_envelope=True,
+                                 dataset=source, seed=args.seed)
+    if args.json:
+        print(json.dumps(lb.to_record(), indent=2))
+        return 0
+    print(f"leaderboard — drug {args.drug} · target {target} · {lb.n_subjects} subject(s) · "
+          f"seed {lb.seed}   (cohort: {source})")
+    print(f"  {'rank model':34s} tier  MDPE%   MDAPE%   in-env(n)   out-env(n)")
+    for i, e in enumerate(lb.entries):
+        p = e.overall.population
+        ie = f"{e.in_envelope.population.mdape:.1f}({e.in_envelope.n_subjects})" if e.in_envelope else "—"
+        oe = f"{e.out_envelope.population.mdape:.1f}({e.out_envelope.n_subjects})" if e.out_envelope else "—"
+        print(f"  {i + 1}. {e.model_id.split('.')[-1]:30s} {e.declared_tier}   "
+              f"{p.mdpe:+6.1f}  {p.mdape:6.1f}   {ie:10s}  {oe}")
+    print("  ranked by overall MDAPE (inaccuracy). Hypnos-COMPUTED, reproducible, apples-to-apples "
+          "(same cohort + seed). NOT a dosing tool.")
+    return 0
+
+
 def _run_sim(args):
     ds = load()
     patient = _patient_from_args(args)
@@ -180,7 +274,9 @@ def _run_sim(args):
     res = simulate(ds, args.model, patient=patient, schedule=schedule, t=t, pd_model=args.pd,
                    bands=kinds, percentile=_parse_percentile(getattr(args, "percentile", "5,95")),
                    samples=getattr(args, "samples", 2000),
-                   seed=getattr(args, "seed", 7) if kinds else None)
+                   seed=getattr(args, "seed", 7) if kinds else None,
+                   developmental=getattr(args, "developmental", False),
+                   pharmacogenomics=getattr(args, "pharmacogenomics", False))
     return res
 
 
@@ -339,14 +435,102 @@ def cmd_interact(args) -> int:
     return 0
 
 
+def cmd_developmental(args) -> int:
+    """v0.8 headline: in this child, which models have fitted standing, how far does the
+    allometry(+maturation) extrapolation spread, and how badly does the per-kg shortcut miss."""
+    from .simulate import developmental_overlay
+    ds = load()
+    patient = _patient_from_args(args)
+    t = np.linspace(0.0, args.tmax, args.n)
+    ov = developmental_overlay(ds, drug=args.drug, patient=patient,
+                               schedule=_default_schedule_for(args.drug), t=t)
+    cu, cf = ov.concentration_unit, ov.conc_factor
+    print(f"drug: {ov.drug}   patient: {patient}   (concentrations in {cu})")
+    print("\nfitted-pediatric standing (evidence; greyed where out of band):")
+    for f in ov.fitted:
+        tag = "IN-STANDING" if f["in_standing"] else "GREYED -> Tier D"
+        print(f"  - {f['model_id']:42s} tier {f['tier']}  {tag}")
+        for r in f["reasons"]:
+            print(f"        {r}")
+    if not any(f["in_standing"] for f in ov.fitted):
+        print("  (no model has fitted standing here -> everything below is EXTRAPOLATION)")
+    print("\nextrapolation overlay (Tier-D, opt-in, never a dose):")
+    for e in ov.extrapolations:
+        peak = e.result.cp_peak * cf
+        mf = f"  MF(PMA)={e.maturation_factor:.3f}" if e.maturation_factor is not None else "  (maturation un-modeled)"
+        print(f"  - {e.model_id.split('.')[-1]:16s} {e.basis:26s} Cp peak {peak:.2f} {cu}{mf}  tier {e.tier}")
+        if e.basis == "allometry_only":
+            print("        CAVEAT: maturation un-modeled -> neonatal clearance OVER-stated, exposure UNDER-predicted")
+    if ov.linear_per_kg is not None:
+        print(f"  - {'linear-per-kg':16s} {'(naive shortcut)':26s} Cp peak "
+              f"{ov.linear_per_kg.cp_peak * cf:.2f} {cu}  -> VISIBLY WRONG reference line")
+    print("\nreading: not one model is validated in this patient. The mechanistic extrapolations are\n"
+          "all Tier-D and labeled; the per-kg shortcut is a deliberately-wrong reference. The honest\n"
+          "output is the SPREAD and the labels, never a dose (v0.8 §6).")
+    return 0
+
+
+def cmd_pgx(args) -> int:
+    """v0.9 declared-genotype overlay (research/education; NOT a dosing tool). Avoidance first."""
+    from .pharmacogenomics import pgx_overlay
+    ds = load()
+    genotype: dict = {}
+    for key in ("bche_phenotype", "cyp2d6_phenotype", "cyp3a_phenotype"):
+        v = getattr(args, key, None)
+        if v is not None:
+            genotype[key] = v
+    if getattr(args, "mh_susceptibility", False):
+        genotype["mh_susceptibility"] = True
+    if not genotype:
+        print("no genotype declared — Hypnos never infers a genotype (v0.9 §5). Declare e.g. "
+              "--bche homozygous_atypical --mh-susceptible.", file=sys.stderr)
+        return 2
+    pg = pgx_overlay(ds, genotype=genotype)
+    print(f"declared genotype: {genotype}")
+    print("(research/education; NOT a dosing tool — a genotype shifts a forward prediction or "
+          "raises a contraindication, never a dose)\n")
+    print("SAFETY / AVOIDANCE FLAGS (not dose adjustments):")
+    for f in pg.avoidance_flags:
+        r = f.record
+        print(f"  AVOID  {f.gene} ({f.drug}) -> {r.action}")
+        print(f"         consequence: {r.consequence}  [Tier {r.evidence_tier}, safetyCritical]")
+    for f in pg.awareness_flags:
+        r = f.record
+        print(f"  AWARE  {f.gene} ({f.drug}) -> {r.action}")
+    if not pg.safety_flags:
+        print("  (none for this genotype)")
+    print("\nKINETIC MODIFIERS (opt-in, Tier D, forward-only):")
+    for f in pg.modifiers:
+        r = f.record
+        sf = f"x{r.scale_factor:g} on {r.affected_parameter}" if r.scale_factor is not None else "direction only"
+        print(f"  {f.drug} + {f.gene}({r.phenotype_value}) -> {sf}; scope {r.substrate_scope}")
+        if r.caveat:
+            print(f"      caveat: {r.caveat[:100]}")
+    if not pg.modifiers:
+        print("  (none for this genotype)")
+    if pg.substrate_guardrails:
+        print("\nNOT APPLIED (substrate guardrail — a genetic effect never leaks to a non-substrate):")
+        for g in pg.substrate_guardrails:
+            print(f"  {g['drug']}: {g['reason']}")
+    print("\nNO ACTIONABLE PGx EVIDENCE CURATED: " + ", ".join(pg.no_evidence))
+    print("  (the honest majority — most anesthetic PGx is avoidance/awareness, not titration)")
+    return 0
+
+
 def cmd_status(args) -> int:
     ds = load()
     s = verification_summary(ds)
     bs = s["by_review_status"]
     print(f"verification coverage: {bs.get('verified', 0)}/{s['n_models']} verified "
           f"({100 * s['verified_fraction']:.0f}%)   "
+          f"pending_human_review {bs.get('pending_human_review', 0)}   "
           f"unverified {bs.get('unverified', 0)}   contested {bs.get('contested', 0)}")
-    print("\nstart here (highest-leverage unverified models — implemented kernel + best tier first):")
+    if bs.get("pending_human_review"):
+        print("  (pending_human_review = curated values cross-checked against a real source by an "
+              "automated\n   process; NOT human-verified — a human confirms against the primary PDF "
+              "to promote)")
+    print("\nstart here (cheapest human wins first: pending_human_review, then unverified by "
+          "kernel + tier):")
     for item in s["next_to_verify"]:
         kern = "kernel" if item["kernel"] else "no-kernel"
         print(f"  - {item['model_id']:48s} tier {item['tier']}  {kern:9s}  cite {item['citation']}")
@@ -809,6 +993,23 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("info").set_defaults(func=cmd_info)
     sub.add_parser("status", help="verification-coverage report + what to verify next").set_defaults(func=cmd_status)
 
+    devp = sub.add_parser("developmental", help="v0.8: the developmental extrapolation overlay — "
+                          "fitted-pediatric standing vs allometry(+maturation) extrapolation vs the "
+                          "visibly-wrong linear-per-kg shortcut, for a neonate/infant")
+    devp.add_argument("--drug", required=True)
+    _add_patient_args(devp)
+    devp.set_defaults(func=cmd_developmental)
+
+    pgxp = sub.add_parser("pgx", help="v0.9: the declared-genotype pharmacogenomic overlay — "
+                          "avoidance/awareness flags first, then opt-in Tier-D kinetic modifiers, "
+                          "then the substrate guardrails and the honest no-evidence majority")
+    pgxp.add_argument("--bche", dest="bche_phenotype",
+                      choices=["normal", "heterozygous_atypical", "homozygous_atypical"], default=None)
+    pgxp.add_argument("--cyp2d6", dest="cyp2d6_phenotype", choices=["PM", "IM", "EM", "UM"], default=None)
+    pgxp.add_argument("--cyp3a", dest="cyp3a_phenotype", choices=["PM", "IM", "EM", "UM"], default=None)
+    pgxp.add_argument("--mh-susceptible", dest="mh_susceptibility", action="store_true")
+    pgxp.set_defaults(func=cmd_pgx)
+
     mlp = sub.add_parser("models", help="list models (optionally filtered by drug)")
     mlp.add_argument("--drug", default=None)
     mlp.set_defaults(func=cmd_models)
@@ -847,6 +1048,22 @@ def build_parser() -> argparse.ArgumentParser:
     vcp.add_argument("--json", action="store_true", help="emit the external_validation[] record (JSON)")
     vcp.set_defaults(func=cmd_validate_cohort)
 
+    lbp = sub.add_parser("leaderboard", help="v0.4 VE2/VE3: the cross-model, envelope-stratified "
+                         "external-validation leaderboard — every eligible PK[→PD] stack scored on "
+                         "ONE cohort by the same kernels + seed (apples-to-apples)")
+    lbp.add_argument("--drug", required=True, help="rank the eligible PK models for this drug")
+    lbp.add_argument("--target", default="bis", choices=["cp", "ce", "bis", "tof"],
+                     help="predicted quantity to score (bis/tof need --pd-model)")
+    lbp.add_argument("--pd-model", dest="pd_model", default="pd_effect.propofol.bis_sigmoid",
+                     help="shared PK→effect link composed with every PK model (for bis/tof)")
+    lbp.add_argument("--observations", default=None, help="long-format cohort CSV (as validate-cohort)")
+    lbp.add_argument("--self-consistency", dest="self_consistency", action="store_true",
+                     help="no external data: a known-answer cohort from the first candidate's predictions")
+    lbp.add_argument("--offset", type=float, default=20.0, help="self-consistency bias %% (default 20)")
+    lbp.add_argument("--seed", type=int, default=7, help="bootstrap-CI seed (reproducible)")
+    lbp.add_argument("--json", action="store_true", help="emit the full leaderboard record (JSON)")
+    lbp.set_defaults(func=cmd_leaderboard)
+
     vp = sub.add_parser("verify", help="field-by-field verification checklist for a model")
     vp.add_argument("model")
     vp.add_argument("--markdown", action="store_true", help="emit a copy-pasteable markdown checklist")
@@ -864,6 +1081,11 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--percentile", default="5,95", help="band percentile pair, e.g. '5,95'")
     sp.add_argument("--samples", type=int, default=2000, help="Monte-Carlo draws")
     sp.add_argument("--seed", type=int, default=7, help="RNG seed (bands are byte-reproducible)")
+    sp.add_argument("--developmental", action="store_true",
+                    help="v0.8: opt-in developmental extrapolation (allometry + PMA maturation; "
+                         "forces Tier D + warnings; never a dose)")
+    sp.add_argument("--pharmacogenomics", action="store_true",
+                    help="v0.9: opt-in declared-genotype kinetic modifier (substrate-scoped, Tier D)")
     _add_patient_args(sp)
     sp.set_defaults(func=cmd_simulate)
 

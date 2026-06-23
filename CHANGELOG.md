@@ -8,6 +8,128 @@ version is pinned in `dataset/VERSION` and stamped into every export as
 
 ## [Unreleased]
 
+### Curation — the `pending_human_review` state + an automated source cross-check (2026-06-23)
+- **A new review state that respects the governance rule while paying down verification debt.**
+  Every record was `unverified`, which conflated *illustrative placeholders* with *transcribed-but-
+  unconfirmed real values*. A new **`pending_human_review`** state distinguishes them: an automated
+  process fetched a real, cited source and numerically compared the curated values — but **no human has
+  confirmed against the primary PDF**. The governance line "Humans verify; LLMs do not promote" is
+  preserved by construction: an automated check can reach `pending_human_review` but **never** `verified`
+  (`source_review.human_verified` is always `false`; `hypnos validate` enforces it).
+- **`extraction.source_review`** — structured, auditable provenance for the cross-check: who/what reviewed
+  it, the date, the method, the **exact source URLs actually fetched and compared**, the outcome
+  (`match` / `partial_match` / `discrepancy`), and notes. A human verifier can audit the machine's work,
+  then promote or contest it. Surfaced in `hypnos status` (a new count) and the `hypnos verify` checklist
+  (the blocking message names the automated check and what remains), and exported as `hypnos:reviewStatus`.
+- **The cross-check, run for real.** Parallel research agents fetched open-access reproductions, primary-
+  paper PubMed abstracts (verbatim reference values for Eleveld-remi and Hannivoort), the `tci` R package
+  source, opentiva/PyTCI/simtiva/OpenTCI implementations, and FDA labels, then compared each curated
+  parameter. **13 models cross-checked → 15 now `pending_human_review`** (Eleveld propofol+remi, Minto,
+  Kim, Hannivoort, Schnider, Marsh, Kataria, Paedfusor, Eleveld-BIS, isoflurane/nitrous-oxide/sevoflurane
+  MAC, and the newly source-**filled** fentanyl Shafer-1990 set V1 6.09/V2 28.1/V3 228 L · Cl 0.504/2.87/
+  1.37 L/min). Two side-findings worth keeping: the agents caught a **bug in the `tci` package** (its
+  Schnider Cl1 mislabels weight as LBM — *our* data is correct), and a **citation/attribution discrepancy**:
+  the propofol→BIS sigmoid is cited to Schnider 1999, but that paper does not model BIS and does not contain
+  the curated Ce50 4.7 / γ 1.43 (those match a Bouillon/Vuyk-style sigmoid). That record is now **`contested`**
+  with the disagreement documented — surfaced, never silently "fixed."
+- **Honest residue:** desflurane MAC40 (curated 6.0 vs sources clustering 6.4–6.6 at age 40) is flagged as a
+  `discrepancy` for human resolution, value unchanged; 8 records with no findable independent source (the
+  systemic local anesthetics, the rocuronium PK/TOF pair, the interaction surface, the v0.9 succinylcholine
+  anchor) stay honestly `unverified`. 12 new tests (the state, the provenance invariants, the validator
+  rejections, the contested record). Verification coverage: **0 verified · 15 pending_human_review · 1
+  contested · 8 unverified** — the queue a human verifier now works top-down.
+
+### v0.4 VE2/VE3 — the cross-model, envelope-stratified external-validation leaderboard, run on real VitalDB (2026-06-23)
+- **Tiers that are *earned*, not asserted.** v0.4 VE0/VE1 built the Varvel engine and the VitalDB
+  adapter but had only ever run on self-consistency fixtures. VE2/VE3 close the loop: a reproducible,
+  **envelope-stratified, cross-model leaderboard** that scores every eligible PK[→PD] stack on **one**
+  cohort by the **same** kernels and seed, so the ranking compares *models* — not the cohorts-and-methods
+  that the published-number leaderboards conflate. ([Spec §7.1.](docs/specs/v0.4/external_validation.md))
+- **`hypnos.cross_model_leaderboard` + `partition_by_envelope` + `hypnos leaderboard`** — the
+  adapter-agnostic engine ranks candidates by overall MDAPE, and (VE3) re-scores each model on its
+  **in-** and **out-of-envelope** sub-cohorts (`Envelope.check`, the same test that greys a model), turning
+  v0.1's *asserted* failure modes into *measured* ones. Deterministic; a kernel-pending or unscorable
+  candidate is skipped, never fabricated.
+- **The VitalDB harness is now end-to-end** (`scripts/fetch_vitaldb.py`): fetch a cohort from the open
+  VitalDB API → **cache the derived per-subject cohort** (gitignored `data/`, raw waveforms never kept) →
+  run the cross-model leaderboard → write a **committable, aggregate-only report** (`docs/validation/
+  vitaldb_bis_leaderboard.{json,md}`) with a pinned manifest. `--use-cache` re-scores offline, byte-identical.
+- **First real run (30 VitalDB cases, measured BIS, seed 7):** all three propofol PK→BIS stacks land at
+  **MDPE ≈ −33%** — measured BIS is systematically *lower* (patients *deeper*) than a propofol-only model
+  predicts, exactly the remifentanil-synergy bias the adapter caveat names; the PK-model choice barely moves
+  the needle (Marsh 32.3% / Schnider 33.7% / Eleveld 34.4% MDAPE, all within ~2%). An honest, interpretable,
+  reproducible result — and a textbook demonstration that the *missing synergy term* dominates the *choice of
+  propofol PK model* for depth prediction. Every number carries its manifest and its domain-review caveats.
+- 5 new tests (per-model envelope partition, self-consistency ranking, determinism, kernel-pending skip,
+  record shape). No schema change. **Pending (data, not code):** the Open-TCI plasma-concentration adapter
+  (VE for the `cp` target) and a propofol-mono sub-cohort filter to separate the synergy bias from PK error.
+
+### v0.9 — the pharmacogenomic-envelope subsystem (2026-06-23)
+- **The genetic special-population axis — and the one distinction it exists to enforce: a susceptibility is
+  not a dose change.** v0.9 adds genotype as a *declared* envelope axis with two rigorously-separated record
+  kinds. A **`pharmacogenomic_modifier`** (kinetic) scales a forward prediction — opt-in, Tier-D by
+  construction, substrate-scoped, always cited. A **`pharmacogenomic_safety_flag`** (susceptibility) forbids a
+  trigger (malignant hyperthermia) or warns of a prolonged effect (atypical BCHE) and carries **no kinetic
+  effect** — `affects_kinetics` is `False` by construction, the machine-checkable form of the category-error
+  guard. The schema `$defs` are disjoint (a modifier cannot carry `trigger_agents`, a flag cannot carry an
+  `adjustment`), so MH can never be smuggled in as a clearance change. ([Full design spec.](docs/specs/v0.9/pharmacogenomics.md))
+- **`hypnos.pgx_overlay(ds, genotype=...)` + `hypnos pgx` — avoidance first.** For a *declared* genotype the
+  overlay leads with the loudest, highest-stakes facts (MH → AVOID volatiles + succinylcholine, rendered as a
+  contraindication with no number), then the prolonged-block awareness flags, then the opt-in Tier-D kinetic
+  modifiers, then the **substrate guardrails** (the explicitly NOT-affected drugs) and the honest **no-evidence
+  majority**. The ordering is the message: most actionable anesthetic pharmacogenetics is avoidance and
+  prolonged-effect awareness, not titration.
+- **The never-infer rule (new, an ethics line).** A modifier or flag fires **only** on a genotype/phenotype the
+  caller explicitly declares — never from ancestry, frequency, or likelihood. Absent a declaration there is no
+  genetic effect, shown as "genotype not declared," never "wild-type assumed." Hypnos curates *what a declared
+  genotype implies for a model*, never a person's genotype.
+- **The substrate guardrail, enforced in code and by the validator.** BCHE acts on succinylcholine, mivacurium,
+  and the *ester* local anesthetics only — **not** remifentanil (nonspecific esterases), **not** the amide LAs
+  (hepatic), **not** rocuronium (not a cholinesterase substrate). A genetic effect never leaks across a class;
+  `hypnos validate` rejects a modifier whose `substrate_scope` excludes its own model's drug.
+- **Opt-in forward simulation** (`simulate(..., pharmacogenomics=True)`) applies a declared, substrate-scoped
+  kinetic modifier (forcing Tier-D); `evaluate_safety` surfaces a declared safety flag as a contraindication
+  warning with no numeric effect. **No genotype-guided dose, ever** (spec §9): a genotype shifts a *forward*
+  prediction or raises an avoidance flag; it never yields a dose.
+- **Curated** (all `unverified`, cited): the RYR1/CACNA1S→MH avoidance flag (CPIC, Gonsalves 2019) on the
+  volatile agents and succinylcholine; the atypical-BCHE prolonged-block awareness flag and the opt-in Tier-D
+  hydrolysis-clearance modifier (Lockridge 2015) on a new succinylcholine record (the BCHE-substrate anchor,
+  kernel-pending). Three new citations; the `succinylcholine` drug. Exports carry the blocks as `hypnos:`
+  RDF (safety flags **never** as a parameter change); every safety-flag-bearing model is `hypnos:safetyCritical`.
+- 18 new tests (the flag/modifier separation, never-infer, the substrate guardrail, avoidance-first overlay,
+  the no-evidence majority, validator rejections, the non-kinetic RDF). Dataset/schema → `0.9.0`.
+
+### v0.8 — the developmental-pharmacology subsystem (2026-06-23)
+- **Making the pediatric/neonatal envelope *speak* mechanistically.** v0.1 could only grey a model below its
+  derivation age; v0.8 adds the two mechanisms developmental PK actually turns on: theory-based **allometric
+  size** (clearance ∝ weight^¾, volume ∝ weight¹) and the **PMA clearance-maturation** sigmoid (Anderson–Holford,
+  `MF(PMA) = PMA^Hill / (TM50^Hill + PMA^Hill)`). A model *fitted in children* (Kataria, Paedfusor, Eleveld's
+  broad-application model) is **evidence** — it keeps its tier; an adult model carried into a neonate is an
+  explicit, bounded, **Tier-D extrapolation** — never a silent linear-per-kg rescaling. ([Full design spec.](docs/specs/v0.8/developmental.md))
+- **`hypnos.developmental` kernels** — `allometric_scale` (¾ on clearances, 1.0 on volumes, relative to a
+  reference individual; rate constants untouched), `maturation_factor` (the verbatim Anderson–Holford sigmoid,
+  driven by **PMA, never chronological age**), and `apply_developmental` (compose size then maturation onto an
+  adult model's volumes/clearances). `linear_per_kg_scale` exposes the naive shortcut **only** as a labeled,
+  visibly-wrong reference line.
+- **`hypnos.developmental_overlay` + `hypnos developmental` — the headline.** For a neonate/infant the
+  eligible-model set shrinks to those with *actual* pediatric standing (greyed + reasoned where out of band);
+  every greyed adult model with a curated block fans out as a Tier-D `allometry_plus_maturation` or
+  `allometry_only` band (the latter carrying the over-dose caveat: un-modeled maturation OVER-states neonatal
+  clearance); the linear-per-kg line is overlaid as the visibly-wrong reference. The honest output is the
+  **spread** and the labels — **never a pediatric dose** (spec §9, the most acute inverse-control temptation).
+- **Opt-in forward simulation** (`simulate(..., developmental=True)`) carries an adult model into a child by its
+  curated block, forcing Tier-D and warning; it refuses (never invents) when no block is curated. New envelope
+  dimensions `pma_weeks` / `postnatal_age_days` / `gestational_age_weeks` grey a below-derivation-age patient.
+- **The five developmental traps** become validator checks (maturation driven by PMA not chronological age;
+  exponents fixed-vs-fitted and on the right parameter; reference weight stated; maturation pathway labeled;
+  pediatric-valid size descriptor) and a verification-checklist group. SBML exports carry
+  `hypnos:developmentalModel` / `hypnos:maturationFunction` RDF with a comment forbidding chronological-age
+  substitution of the PMA driver.
+- **Curated** (all `unverified`, Tier-D, cited to Anderson–Holford 2008): Marsh (`allometry_plus_maturation`,
+  illustrative TM50 = 47.7 wk / Hill = 3.4 pending source confirmation) and Schnider (`allometry_only`); Eleveld
+  is labeled fitted-pediatric evidence (it already covers neonate→elderly, so it earns standing, not an
+  annotation). 14 new tests. Dataset/schema → `0.8.0`.
+
 ### v0.7 C2 — the covariate-value band + the fifth variance component (2026-06-10)
 - **The other half of the covariate uncertainty: how well do we know the covariate?** C1 answered
   *which equation* (a structural choice); C2 answers *how well do we even know the input* — a weight is

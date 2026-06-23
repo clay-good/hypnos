@@ -107,11 +107,48 @@
   },
   "known_failure_modes": [],
   "predictive_performance": [],
+  "pharmacogenomic_safety_flags": [
+    {
+      "gene": "RYR1",
+      "phenotype": {
+        "dimension": "mh_susceptibility",
+        "value": true
+      },
+      "trigger_agents": [
+        "volatile_anesthetics",
+        "succinylcholine"
+      ],
+      "consequence": "malignant hyperthermia — a life-threatening hypermetabolic crisis",
+      "action": "AVOID all volatile agents and succinylcholine in an MH-susceptible patient (use a trigger-free / total-intravenous technique)",
+      "safety_critical": true,
+      "kind": "avoidance",
+      "evidence_tier": "A",
+      "primary_citation": "gonsalves-2019-mh-cpic",
+      "extraction": {
+        "review_status": "unverified",
+        "tier_rationale": "CPIC guideline-grade gene-trigger link (RYR1/CACNA1S -> MH on volatile or succinylcholine exposure). A SUSCEPTIBILITY, not a kinetic change: rendered as a hard avoidance flag with no dose effect (v0.9 §2 Trap 2).",
+        "source_locator": "Gonsalves 2019 (CPIC), Table 1"
+      }
+    }
+  ],
   "tier": "B",
   "extraction": {
-    "review_status": "unverified",
+    "review_status": "pending_human_review",
     "tier_rationale": "MAC40 anchor + Mapleson age-correction + textbook partition coefficients.",
-    "source_locator": "Nickalls & Mapleson 2003"
+    "source_locator": "Nickalls & Mapleson 2003",
+    "source_review": {
+      "reviewed_by": "automated source cross-check (Claude Opus 4.8 via Hypnos research agents)",
+      "reviewed_date": "2026-06-23",
+      "method": "fetched open-access reproductions, primary-paper PubMed abstracts, FDA labels, and/or the tci R package source, then numerically compared each curated typical-value parameter against the fetched values (see sources)",
+      "sources": [
+        "https://www.ncbi.nlm.nih.gov/books/NBK537013/ (StatPearls)",
+        "https://en.wikipedia.org/wiki/Minimum_alveolar_concentration",
+        "https://gasgasgas.uk/episode/comparing-volatile-anaesthetic-agents/"
+      ],
+      "outcome": "match",
+      "notes": "Isoflurane MAC40 1.15 (fetched sources 1.16-1.17 at age 40) and blood:gas 1.4 confirmed across multiple sources. The Nickalls/Mapleson age-MAC exponent -0.00269 was corroborated indirectly (~6%/decade; FDA label 70yo ~ 2/3 of 20yo) but not read VERBATIM (BJA primary paywalled).",
+      "human_verified": false
+    }
   },
   "primary_citation": "nickalls-2003-isomac",
   "notes": "Most soluble of the three potent agents (blood:gas 1.4) -> slowest kinetics. MAC fraction = end-tidal% / MAC(age)."

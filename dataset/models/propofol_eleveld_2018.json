@@ -1,7 +1,11 @@
 {
   "id": "hypnotics_iv.propofol.eleveld_2018",
   "subsystem": "hypnotics_iv",
-  "drug": { "name": "propofol", "unii": "YI7VU623SF", "atc": "N01AX10" },
+  "drug": {
+    "name": "propofol",
+    "unii": "YI7VU623SF",
+    "atc": "N01AX10"
+  },
   "purpose": "pk",
   "label": "Propofol PK — Eleveld (2018, general-purpose)",
   "structure": {
@@ -10,115 +14,240 @@
     "elimination": "linear",
     "effect_compartment": true
   },
-  "kernel": { "implemented": true, "function": "propofol_eleveld_2018" },
+  "kernel": {
+    "implemented": true,
+    "function": "propofol_eleveld_2018"
+  },
   "parameters": [
     {
-      "symbol": "V1", "label": "central volume (reference individual)",
-      "value": { "central": 6.28, "low": null, "high": null, "units": "L" },
+      "symbol": "V1",
+      "label": "central volume (reference individual)",
+      "value": {
+        "central": 6.28,
+        "low": null,
+        "high": null,
+        "units": "L"
+      },
       "covariate_model": "V1 = 6.28 * fcentral(WGT)/fcentral(70); fcentral(x) = x/(x+33.6) (arterial sampling)",
       "tier": "A",
-      "extraction": { "review_status": "unverified", "tier_rationale": "Reference-individual value (35 y, 70 kg, 170 cm, male, no concomitant anaesthetics). Kernel implemented and validated to reproduce the reference parameters; covariate transcription pending human PDF confirmation.", "source_locator": "Eleveld 2018, Table 2 / Appendix" },
+      "extraction": {
+        "review_status": "unverified",
+        "tier_rationale": "Reference-individual value (35 y, 70 kg, 170 cm, male, no concomitant anaesthetics). Kernel implemented and validated to reproduce the reference parameters; covariate transcription pending human PDF confirmation.",
+        "source_locator": "Eleveld 2018, Table 2 / Appendix"
+      },
       "primary_citation": "eleveld-2018-propofol",
       "variability": {
-        "bsv": { "omega2": 0.610, "cv_percent": 91.7 },
+        "bsv": {
+          "omega2": 0.61,
+          "cv_percent": 91.7
+        },
         "tier": "B",
-        "extraction": { "review_status": "unverified", "tier_rationale": "BSV transcription unverified; confirm scale = log-variance (omega^2), not SD or CV%, against the source random-effects table. Cross-checked against the tci R package (pkmod_eleveld_ppf, diag of Omega).", "source_locator": "Eleveld 2018, between-subject variability (Omega diagonal)" },
+        "extraction": {
+          "review_status": "unverified",
+          "tier_rationale": "BSV transcription unverified; confirm scale = log-variance (omega^2), not SD or CV%, against the source random-effects table. Cross-checked against the tci R package (pkmod_eleveld_ppf, diag of Omega).",
+          "source_locator": "Eleveld 2018, between-subject variability (Omega diagonal)"
+        },
         "primary_citation": "eleveld-2018-propofol"
       }
     },
     {
-      "symbol": "V2", "label": "rapid peripheral volume (reference)",
-      "value": { "central": 25.5, "low": null, "high": null, "units": "L" },
+      "symbol": "V2",
+      "label": "rapid peripheral volume (reference)",
+      "value": {
+        "central": 25.5,
+        "low": null,
+        "high": null,
+        "units": "L"
+      },
       "covariate_model": "V2 = 25.5 * (WGT/70) * exp(-0.0156*(AGE-35))",
       "tier": "A",
-      "extraction": { "review_status": "unverified", "source_locator": "Eleveld 2018, Table 2" },
+      "extraction": {
+        "review_status": "unverified",
+        "source_locator": "Eleveld 2018, Table 2"
+      },
       "primary_citation": "eleveld-2018-propofol",
       "variability": {
-        "bsv": { "omega2": 0.565, "cv_percent": 87.1 },
+        "bsv": {
+          "omega2": 0.565,
+          "cv_percent": 87.1
+        },
         "tier": "B",
-        "extraction": { "review_status": "unverified", "source_locator": "Eleveld 2018, between-subject variability (Omega diagonal); cross-checked vs tci pkmod_eleveld_ppf" },
+        "extraction": {
+          "review_status": "unverified",
+          "source_locator": "Eleveld 2018, between-subject variability (Omega diagonal); cross-checked vs tci pkmod_eleveld_ppf"
+        },
         "primary_citation": "eleveld-2018-propofol"
       }
     },
     {
-      "symbol": "V3", "label": "slow peripheral volume (reference)",
-      "value": { "central": 273.0, "low": null, "high": null, "units": "L" },
+      "symbol": "V3",
+      "label": "slow peripheral volume (reference)",
+      "value": {
+        "central": 273.0,
+        "low": null,
+        "high": null,
+        "units": "L"
+      },
       "covariate_model": "V3 = 273 * (FFM/FFMref) * fopiate(-0.0138); FFM via Al-Sallami 2015",
       "tier": "A",
-      "extraction": { "review_status": "unverified", "source_locator": "Eleveld 2018, Table 2" },
+      "extraction": {
+        "review_status": "unverified",
+        "source_locator": "Eleveld 2018, Table 2"
+      },
       "primary_citation": "eleveld-2018-propofol",
       "variability": {
-        "bsv": { "omega2": 0.597, "cv_percent": 90.4 },
+        "bsv": {
+          "omega2": 0.597,
+          "cv_percent": 90.4
+        },
         "tier": "B",
-        "extraction": { "review_status": "unverified", "source_locator": "Eleveld 2018, between-subject variability (Omega diagonal); cross-checked vs tci pkmod_eleveld_ppf" },
+        "extraction": {
+          "review_status": "unverified",
+          "source_locator": "Eleveld 2018, between-subject variability (Omega diagonal); cross-checked vs tci pkmod_eleveld_ppf"
+        },
         "primary_citation": "eleveld-2018-propofol"
       }
     },
     {
-      "symbol": "Cl1", "label": "metabolic clearance (reference)",
-      "value": { "central": 1.79, "low": null, "high": null, "units": "L/min" },
+      "symbol": "Cl1",
+      "label": "metabolic clearance (reference)",
+      "value": {
+        "central": 1.79,
+        "low": null,
+        "high": null,
+        "units": "L/min"
+      },
       "covariate_model": "CL = (MALE ? 1.79 : 2.10) * (WGT/70)^0.75 * (CLmat/CLmat_ref) * fopiate(-0.00286); CLmat = sigmoid(PMA_weeks; E50=42.3, lambda=9.06)",
       "tier": "A",
-      "extraction": { "review_status": "unverified", "source_locator": "Eleveld 2018, Table 2" },
+      "extraction": {
+        "review_status": "unverified",
+        "source_locator": "Eleveld 2018, Table 2"
+      },
       "primary_citation": "eleveld-2018-propofol",
       "variability": {
-        "bsv": { "omega2": 0.265, "cv_percent": 55.1 },
+        "bsv": {
+          "omega2": 0.265,
+          "cv_percent": 55.1
+        },
         "tier": "B",
-        "extraction": { "review_status": "unverified", "source_locator": "Eleveld 2018, between-subject variability (Omega diagonal); cross-checked vs tci pkmod_eleveld_ppf" },
+        "extraction": {
+          "review_status": "unverified",
+          "source_locator": "Eleveld 2018, between-subject variability (Omega diagonal); cross-checked vs tci pkmod_eleveld_ppf"
+        },
         "primary_citation": "eleveld-2018-propofol"
       }
     },
     {
-      "symbol": "Cl2", "label": "rapid intercompartmental clearance (reference theta)",
-      "value": { "central": 1.75, "low": null, "high": null, "units": "L/min" },
+      "symbol": "Cl2",
+      "label": "rapid intercompartmental clearance (reference theta)",
+      "value": {
+        "central": 1.75,
+        "low": null,
+        "high": null,
+        "units": "L/min"
+      },
       "covariate_model": "Q2 = 1.75 * (V2/25.5)^0.75 * (1 + 1.30*(1-Q3mat)) (arterial); computed reference value ~1.83",
       "tier": "A",
-      "extraction": { "review_status": "unverified", "source_locator": "Eleveld 2018, Table 2" },
+      "extraction": {
+        "review_status": "unverified",
+        "source_locator": "Eleveld 2018, Table 2"
+      },
       "primary_citation": "eleveld-2018-propofol",
       "variability": {
-        "bsv": { "omega2": 0.346, "cv_percent": 64.3 },
+        "bsv": {
+          "omega2": 0.346,
+          "cv_percent": 64.3
+        },
         "tier": "B",
-        "extraction": { "review_status": "unverified", "source_locator": "Eleveld 2018, between-subject variability (Omega diagonal); cross-checked vs tci pkmod_eleveld_ppf" },
+        "extraction": {
+          "review_status": "unverified",
+          "source_locator": "Eleveld 2018, between-subject variability (Omega diagonal); cross-checked vs tci pkmod_eleveld_ppf"
+        },
         "primary_citation": "eleveld-2018-propofol"
       }
     },
     {
-      "symbol": "Cl3", "label": "slow intercompartmental clearance (reference)",
-      "value": { "central": 1.11, "low": null, "high": null, "units": "L/min" },
+      "symbol": "Cl3",
+      "label": "slow intercompartmental clearance (reference)",
+      "value": {
+        "central": 1.11,
+        "low": null,
+        "high": null,
+        "units": "L/min"
+      },
       "covariate_model": "Q3 = 1.11 * (V3/273)^0.75 * (Q3mat/Q3mat_ref); Q3mat = sigmoid(AGE_weeks+40; E50=68.3, lambda=1)",
       "tier": "A",
-      "extraction": { "review_status": "unverified", "source_locator": "Eleveld 2018, Table 2" },
+      "extraction": {
+        "review_status": "unverified",
+        "source_locator": "Eleveld 2018, Table 2"
+      },
       "primary_citation": "eleveld-2018-propofol",
       "variability": {
-        "bsv": { "omega2": 0.209, "cv_percent": 48.2 },
+        "bsv": {
+          "omega2": 0.209,
+          "cv_percent": 48.2
+        },
         "tier": "B",
-        "extraction": { "review_status": "unverified", "source_locator": "Eleveld 2018, between-subject variability (Omega diagonal); cross-checked vs tci pkmod_eleveld_ppf" },
+        "extraction": {
+          "review_status": "unverified",
+          "source_locator": "Eleveld 2018, between-subject variability (Omega diagonal); cross-checked vs tci pkmod_eleveld_ppf"
+        },
         "primary_citation": "eleveld-2018-propofol"
       }
     },
     {
-      "symbol": "ke0", "label": "effect-site equilibration rate constant (reference)",
-      "value": { "central": 0.146, "low": null, "high": null, "units": "1/min" },
+      "symbol": "ke0",
+      "label": "effect-site equilibration rate constant (reference)",
+      "value": {
+        "central": 0.146,
+        "low": null,
+        "high": null,
+        "units": "1/min"
+      },
       "covariate_model": "ke0 = 0.146 * (WGT/70)^(-0.25) (arterial sampling)",
       "tier": "A",
-      "extraction": { "review_status": "unverified", "source_locator": "Eleveld 2018 (PD)" },
+      "extraction": {
+        "review_status": "unverified",
+        "source_locator": "Eleveld 2018 (PD)"
+      },
       "primary_citation": "eleveld-2018-propofol",
       "variability": {
-        "bsv": { "omega2": 0.702, "cv_percent": 100.9 },
+        "bsv": {
+          "omega2": 0.702,
+          "cv_percent": 100.9
+        },
         "tier": "B",
-        "extraction": { "review_status": "unverified", "source_locator": "Eleveld 2018, between-subject variability (Omega diagonal); cross-checked vs tci pkmod_eleveld_ppf" },
+        "extraction": {
+          "review_status": "unverified",
+          "source_locator": "Eleveld 2018, between-subject variability (Omega diagonal); cross-checked vs tci pkmod_eleveld_ppf"
+        },
         "primary_citation": "eleveld-2018-propofol"
       }
     }
   ],
-  "covariates": { "required": ["age", "weight", "height", "sex"], "optional": ["opiate_coadministration", "arterial", "postmenstrual_age"], "lbm_equation": "al_sallami_2015" },
+  "covariates": {
+    "required": [
+      "age",
+      "weight",
+      "height",
+      "sex"
+    ],
+    "optional": [
+      "opiate_coadministration",
+      "arterial",
+      "postmenstrual_age"
+    ],
+    "lbm_equation": "al_sallami_2015"
+  },
   "covariate_sensitivity_status": "declared",
   "covariate_model": {
     "derived_inputs": [
       {
         "quantity": "ffm",
         "equation": "al_sallami_2015",
-        "used_for": ["V3"],
+        "used_for": [
+          "V3"
+        ],
         "verbatim": true,
         "tier": "A",
         "extraction": {
@@ -131,31 +260,84 @@
     ]
   },
   "applicability_envelope": {
-    "age_years": { "min": 0, "max": 88 },
-    "weight_kg": { "min": 5, "max": 160 },
-    "bmi_kg_m2": { "min": 12, "max": 52 },
-    "populations": ["neonate", "child", "adult", "elderly", "obese"],
+    "age_years": {
+      "min": 0,
+      "max": 88
+    },
+    "weight_kg": {
+      "min": 5,
+      "max": 160
+    },
+    "bmi_kg_m2": {
+      "min": 12,
+      "max": 52
+    },
+    "populations": [
+      "neonate",
+      "child",
+      "adult",
+      "elderly",
+      "obese"
+    ],
     "derivation_n": 1033
   },
   "known_failure_modes": [],
   "predictive_performance": [
-    { "metric": "MDPE", "value": -27.0, "units": "%", "population": "older adults (plasma propofol; greater bias than younger groups)", "citation": "eleveld-2018-propofol" },
-    { "metric": "MDAPE", "value": 30.0, "units": "%", "population": "pooled (reported ceiling: MDAPE < 30% across neonate/child/adult/obese/older groups)", "citation": "eleveld-2018-propofol" },
-    { "metric": "MDAPE", "value": 22.0, "units": "%", "population": "external validation, 50 elective surgical adults (head-to-head, best of three: Eleveld 22%, Marsh 25%, Schnider 26%)", "citation": "huppe-2020-propofol-comparison" }
+    {
+      "metric": "MDPE",
+      "value": -27.0,
+      "units": "%",
+      "population": "older adults (plasma propofol; greater bias than younger groups)",
+      "citation": "eleveld-2018-propofol"
+    },
+    {
+      "metric": "MDAPE",
+      "value": 30.0,
+      "units": "%",
+      "population": "pooled (reported ceiling: MDAPE < 30% across neonate/child/adult/obese/older groups)",
+      "citation": "eleveld-2018-propofol"
+    },
+    {
+      "metric": "MDAPE",
+      "value": 22.0,
+      "units": "%",
+      "population": "external validation, 50 elective surgical adults (head-to-head, best of three: Eleveld 22%, Marsh 25%, Schnider 26%)",
+      "citation": "huppe-2020-propofol-comparison"
+    }
   ],
   "residual_error": {
     "model": "log",
-    "log": { "sd": 0.191 },
+    "log": {
+      "sd": 0.191
+    },
     "tier": "B",
-    "extraction": { "review_status": "unverified", "tier_rationale": "PK residual error is ADDITIVE ON THE NATURAL-LOG concentration scale (the model fits a logged response), sigma=0.191 on the log scale -> approx 19% proportional error on the natural scale. Confirm scale (variance vs SD; log vs natural) against the source. Cross-checked vs tci pkmod_eleveld_ppf (sigma_add=0.191, log_response=TRUE).", "source_locator": "Eleveld 2018, residual error (theta7 = 0.191, logged response)" },
+    "extraction": {
+      "review_status": "unverified",
+      "tier_rationale": "PK residual error is ADDITIVE ON THE NATURAL-LOG concentration scale (the model fits a logged response), sigma=0.191 on the log scale -> approx 19% proportional error on the natural scale. Confirm scale (variance vs SD; log vs natural) against the source. Cross-checked vs tci pkmod_eleveld_ppf (sigma_add=0.191, log_response=TRUE).",
+      "source_locator": "Eleveld 2018, residual error (theta7 = 0.191, logged response)"
+    },
     "primary_citation": "eleveld-2018-propofol"
   },
   "variability_status": "diagonal",
   "tier": "A",
   "extraction": {
-    "review_status": "unverified",
+    "review_status": "pending_human_review",
     "tier_rationale": "Externally validated across multiple independent populations spanning neonates to the obese elderly; the broadest-envelope general-purpose propofol model. The executable kernel is now implemented (arterial-sampling PK arm), transcribed from the published equations and cross-checked against the tci R package, and validated to reproduce the reference-individual parameters exactly. review_status remains UNVERIFIED: an LLM transcription is not a human PDF verification, and the maturation/allometry terms are exactly where transcription errors hide. A human must still confirm every covariate equation before this is promoted.",
-    "source_locator": "Eleveld 2018, Table 2 / Appendix"
+    "source_locator": "Eleveld 2018, Table 2 / Appendix",
+    "source_review": {
+      "reviewed_by": "automated source cross-check (Claude Opus 4.8 via Hypnos research agents)",
+      "reviewed_date": "2026-06-23",
+      "method": "fetched open-access reproductions, primary-paper PubMed abstracts, FDA labels, and/or the tci R package source, then numerically compared each curated typical-value parameter against the fetched values (see sources)",
+      "sources": [
+        "eleveld-2018-propofol (primary BJA; table not directly readable this session, 403)",
+        "https://github.com/jarretrt/tci (R/poppk_mods.R)",
+        "https://github.com/JMathiszig-Lee/PyTCI (models/propofol.py)",
+        "https://github.com/opentiva/opentiva (opentiva/propofol.py)"
+      ],
+      "outcome": "match",
+      "notes": "All 7 typical-value parameters (V1 6.28, V2 25.5, V3 273, CL 1.79 male/2.10 female, Q2 1.75, Q3 1.11, ke0 0.146 arterial), the central-volume constant 33.6, and the CL-maturation sigmoid (E50 42.3 wk, lambda 9.06) confirmed IDENTICAL across three independent open-source reproductions, two of which label each theta inline. FFM via Al-Sallami 2015 present (not re-derived). HUMAN ITEMS: confirm against the primary BJA table directly, and check whether the 2018 Corrigendum (PMID 30032904) altered any numerics (could not be read this session).",
+      "human_verified": false
+    }
   },
   "primary_citation": "eleveld-2018-propofol",
   "notes": "Kernel = propofol_eleveld_2018 (arterial sampling, no opiate co-administration by default). Optional covariates: opiate_coadministration, arterial, postmenstrual_age. Validated reference individual (35 y, 70 kg, 170 cm, male): V1=6.28, V2=25.5, V3=273, CL=1.79, Q3=1.11, ke0=0.146 (computed Q2~1.83). FFM via Al-Sallami 2015. The Eleveld two-slope BIS PD (gamma split at Ce50) is a separate, future pd_effect record."

@@ -947,6 +947,24 @@ class Model:
                 out[p.symbol] = float(p.variability.omega2)
         return out
 
+    def estimation_ses(self) -> Dict[str, float]:
+        """Map of structural-parameter symbol -> NATURAL-scale SE on the typical value (v0.3 E1).
+
+        The estimation-uncertainty analog of :meth:`bsv_omegas`. A log-scale SE is converted to
+        an approximate natural-scale SE at the point estimate (``se_nat ≈ |θ|·se_log``) so the
+        confidence-band sampler can perturb the volumes/clearances directly. Parameters with no
+        curated estimation SE are absent (never-synthesize)."""
+        out: Dict[str, float] = {}
+        for p in self.parameters:
+            e = p.estimation
+            if e is None or e.se is None:
+                continue
+            if e.scale == "log" and p.central is not None:
+                out[p.symbol] = abs(float(p.central)) * float(e.se)
+            else:
+                out[p.symbol] = float(e.se)
+        return out
+
     @property
     def variability_tier(self) -> Optional[str]:
         """Worst tier among the curated variability components (None if uncurated).

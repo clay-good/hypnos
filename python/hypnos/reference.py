@@ -270,6 +270,32 @@ def sample_individual(typical: MicroParams, omegas: Dict[str, float], rng) -> Mi
     )
 
 
+def sample_parameter_vector(typical: MicroParams, ses: Dict[str, float], rng) -> MicroParams:
+    """Draw one *typical-value* parameter vector perturbed by its ESTIMATION uncertainty (v0.3 E1).
+
+    This is the confidence-band analog of :func:`sample_individual`. Where ``sample_individual``
+    scatters a *virtual individual* around the typical patient by the between-subject Ω
+    (irreducible population spread), this scatters the *typical curve itself* by the SE on each
+    estimated θ — how well the fitting data pinned the population mean down (reducible with more
+    data). The two are conceptually distinct and never conflated (v0.3 §1).
+
+        θ_b = θ_hat + N(0, SE_θ)     (natural scale; floored at a small positive)
+
+    ``ses`` maps a volumes/clearances symbol (V1/V2/V3/Cl1/Cl2/Cl3/ke0) to its natural-scale SE.
+    Parameters absent from ``ses`` are held at the point estimate (no fabricated uncertainty —
+    the never-synthesize rule, v0.3 §5). Draws come from the seeded ``rng`` so a confidence band
+    is byte-reproducible."""
+    vc = typical.as_volumes_clearances()
+    for sym in _VC_SYMBOLS:
+        se = ses.get(sym)
+        if se and se > 0 and vc.get(sym, 0.0) > 0:
+            vc[sym] = max(vc[sym] + rng.normal(0.0, se), 1e-9)
+    return MicroParams.from_volumes_clearances(
+        V1=vc["V1"], Cl1=vc["Cl1"], V2=vc["V2"], Cl2=vc["Cl2"],
+        V3=vc["V3"], Cl3=vc["Cl3"], ke0=vc["ke0"],
+    )
+
+
 def residual_std(
     conc: np.ndarray,
     model: str,

@@ -48,6 +48,19 @@
           "source_locator": "Eleveld 2018, between-subject variability (Omega diagonal)"
         },
         "primary_citation": "eleveld-2018-propofol"
+      },
+      "estimation_uncertainty": {
+        "se": 0.161115,
+        "scale": "natural",
+        "rse_percent": 2.5655,
+        "ci95": null,
+        "method": "profile_likelihood",
+        "tier": "A",
+        "extraction": {
+          "review_status": "pending_human_review",
+          "source_locator": "Eleveld 2018 Table 2 (99% CI [5.97, 6.8]; SE approx from half-width)"
+        },
+        "primary_citation": "eleveld-2018-propofol"
       }
     },
     {
@@ -75,6 +88,19 @@
         "extraction": {
           "review_status": "unverified",
           "source_locator": "Eleveld 2018, between-subject variability (Omega diagonal); cross-checked vs tci pkmod_eleveld_ppf"
+        },
+        "primary_citation": "eleveld-2018-propofol"
+      },
+      "estimation_uncertainty": {
+        "se": 0.795869,
+        "scale": "natural",
+        "rse_percent": 3.1211,
+        "ci95": null,
+        "method": "profile_likelihood",
+        "tier": "A",
+        "extraction": {
+          "review_status": "pending_human_review",
+          "source_locator": "Eleveld 2018 Table 2 (99% CI [23.5, 27.6]; SE approx from half-width)"
         },
         "primary_citation": "eleveld-2018-propofol"
       }
@@ -106,6 +132,19 @@
           "source_locator": "Eleveld 2018, between-subject variability (Omega diagonal); cross-checked vs tci pkmod_eleveld_ppf"
         },
         "primary_citation": "eleveld-2018-propofol"
+      },
+      "estimation_uncertainty": {
+        "se": 12.22921,
+        "scale": "natural",
+        "rse_percent": 4.4796,
+        "ci95": null,
+        "method": "profile_likelihood",
+        "tier": "A",
+        "extraction": {
+          "review_status": "pending_human_review",
+          "source_locator": "Eleveld 2018 Table 2 (99% CI [243, 306]; SE approx from half-width)"
+        },
+        "primary_citation": "eleveld-2018-propofol"
       }
     },
     {
@@ -133,6 +172,19 @@
         "extraction": {
           "review_status": "unverified",
           "source_locator": "Eleveld 2018, between-subject variability (Omega diagonal); cross-checked vs tci pkmod_eleveld_ppf"
+        },
+        "primary_citation": "eleveld-2018-propofol"
+      },
+      "estimation_uncertainty": {
+        "se": 0.031058,
+        "scale": "natural",
+        "rse_percent": 1.7351,
+        "ci95": null,
+        "method": "profile_likelihood",
+        "tier": "A",
+        "extraction": {
+          "review_status": "pending_human_review",
+          "source_locator": "Eleveld 2018 Table 2 (99% CI [1.71, 1.87]; SE approx from half-width)"
         },
         "primary_citation": "eleveld-2018-propofol"
       }
@@ -164,6 +216,19 @@
           "source_locator": "Eleveld 2018, between-subject variability (Omega diagonal); cross-checked vs tci pkmod_eleveld_ppf"
         },
         "primary_citation": "eleveld-2018-propofol"
+      },
+      "estimation_uncertainty": {
+        "se": 0.046587,
+        "scale": "natural",
+        "rse_percent": 2.6621,
+        "ci95": null,
+        "method": "profile_likelihood",
+        "tier": "A",
+        "extraction": {
+          "review_status": "pending_human_review",
+          "source_locator": "Eleveld 2018 Table 2 (99% CI [1.61, 1.85]; SE approx from half-width)"
+        },
+        "primary_citation": "eleveld-2018-propofol"
       }
     },
     {
@@ -191,6 +256,19 @@
         "extraction": {
           "review_status": "unverified",
           "source_locator": "Eleveld 2018, between-subject variability (Omega diagonal); cross-checked vs tci pkmod_eleveld_ppf"
+        },
+        "primary_citation": "eleveld-2018-propofol"
+      },
+      "estimation_uncertainty": {
+        "se": 0.034941,
+        "scale": "natural",
+        "rse_percent": 3.1478,
+        "ci95": null,
+        "method": "profile_likelihood",
+        "tier": "A",
+        "extraction": {
+          "review_status": "pending_human_review",
+          "source_locator": "Eleveld 2018 Table 2 (99% CI [1.02, 1.2]; SE approx from half-width)"
         },
         "primary_citation": "eleveld-2018-propofol"
       }
@@ -332,13 +410,15 @@
         "eleveld-2018-propofol (primary BJA; table not directly readable this session, 403)",
         "https://github.com/jarretrt/tci (R/poppk_mods.R)",
         "https://github.com/JMathiszig-Lee/PyTCI (models/propofol.py)",
-        "https://github.com/opentiva/opentiva (opentiva/propofol.py)"
+        "https://github.com/opentiva/opentiva (opentiva/propofol.py)",
+        "https://research.rug.nl/files/57897999/Pharmacokinetic_pharmacodynamic_model.pdf (Eleveld 2018 BJA Table 2, 99% confidence limits)"
       ],
       "outcome": "match",
-      "notes": "All 7 typical-value parameters (V1 6.28, V2 25.5, V3 273, CL 1.79 male/2.10 female, Q2 1.75, Q3 1.11, ke0 0.146 arterial), the central-volume constant 33.6, and the CL-maturation sigmoid (E50 42.3 wk, lambda 9.06) confirmed IDENTICAL across three independent open-source reproductions, two of which label each theta inline. FFM via Al-Sallami 2015 present (not re-derived). HUMAN ITEMS: confirm against the primary BJA table directly, and check whether the 2018 Corrigendum (PMID 30032904) altered any numerics (could not be read this session).",
+      "notes": "All 7 typical-value parameters (V1 6.28, V2 25.5, V3 273, CL 1.79 male/2.10 female, Q2 1.75, Q3 1.11, ke0 0.146 arterial), the central-volume constant 33.6, and the CL-maturation sigmoid (E50 42.3 wk, lambda 9.06) confirmed IDENTICAL across three independent open-source reproductions, two of which label each theta inline. FFM via Al-Sallami 2015 present (not re-derived). HUMAN ITEMS: confirm against the primary BJA table directly, and check whether the 2018 Corrigendum (PMID 30032904) altered any numerics (could not be read this session).  ESTIMATION UNCERTAINTY also source-filled: per-theta SEs approximated from the Eleveld 2018 Table 2 99% profile-likelihood CIs (agent read the open-access PDF directly); uncertainty_status=marginal.",
       "human_verified": false
     }
   },
   "primary_citation": "eleveld-2018-propofol",
-  "notes": "Kernel = propofol_eleveld_2018 (arterial sampling, no opiate co-administration by default). Optional covariates: opiate_coadministration, arterial, postmenstrual_age. Validated reference individual (35 y, 70 kg, 170 cm, male): V1=6.28, V2=25.5, V3=273, CL=1.79, Q3=1.11, ke0=0.146 (computed Q2~1.83). FFM via Al-Sallami 2015. The Eleveld two-slope BIS PD (gamma split at Ce50) is a separate, future pd_effect record."
+  "notes": "Kernel = propofol_eleveld_2018 (arterial sampling, no opiate co-administration by default). Optional covariates: opiate_coadministration, arterial, postmenstrual_age. Validated reference individual (35 y, 70 kg, 170 cm, male): V1=6.28, V2=25.5, V3=273, CL=1.79, Q3=1.11, ke0=0.146 (computed Q2~1.83). FFM via Al-Sallami 2015. The Eleveld two-slope BIS PD (gamma split at Ce50) is a separate, future pd_effect record.",
+  "uncertainty_status": "marginal"
 }

@@ -33,6 +33,7 @@ from .reference import (
     greco_response_surface,
     residual_std,
     sample_individual,
+    sample_parameter_vector,
     sigmoid_emax,
     sigmoid_emax_twoslope,
     simulate as _simulate_ref,
@@ -68,6 +69,11 @@ def _normalize_bands(bands) -> set:
     if isinstance(bands, str):
         return {bands}
     return set(bands)
+
+
+# Band kinds Hypnos can draw: v0.2 prediction (BSV), v0.3 confidence (estimation
+# uncertainty on θ), v0.7 covariate (covariate-value / equation-choice). Distinct objects.
+_KNOWN_BAND_KINDS = ("prediction", "confidence", "covariate")
 
 Schedule = Sequence[Tuple[str, float, str]]
 
@@ -153,6 +159,15 @@ class SimulationResult:
     band_tier: Optional[str] = None
     band_percentile: Optional[Tuple[int, int]] = None
     band_includes_residual: bool = False
+    # --- v0.3 confidence band (None unless requested AND the model carries published
+    # estimation uncertainty on θ — the never-synthesize rule). A NARROW band around the
+    # typical curve (how well the data pins the mean down), distinct from the wide BSV band.
+    cp_confidence_quantiles: Optional[Dict[int, np.ndarray]] = None
+    ce_confidence_quantiles: Optional[Dict[int, np.ndarray]] = None
+    confidence_band_tier: Optional[str] = None
+    # per-time estimation variance, for the compare() four-way decomposition (v0.3 E2)
+    cp_est_var: Optional[np.ndarray] = None
+    ce_est_var: Optional[np.ndarray] = None
     # per-time variance components, for the compare() variance decomposition (§7.2)
     cp_bsv_var: Optional[np.ndarray] = None
     ce_bsv_var: Optional[np.ndarray] = None
@@ -491,6 +506,65 @@ def _attach_bands(
 
 
 # --------------------------------------------------------------------------- #
+# Confidence band — seeded draws over the ESTIMATION uncertainty on θ (v0.3 E1)
+# --------------------------------------------------------------------------- #
+def _attach_confidence_band(
+    result: SimulationResult,
+    model: Model,
+    params: MicroParams,
+    dosing: Dosing,
+    t: np.ndarray,
+    *,
+    percentile: Tuple[int, int],
+    samples: int,
+    seed: int,
+) -> None:
+    """Populate the confidence-band fields in place (v0.3 E1).
+
+    The confidence band asks *how well does the fitting data pin down the typical curve?* —
+    a reducible uncertainty, sampled from the curated per-θ estimation SE. It is a different
+    object from the v0.2 prediction band (irreducible between-subject spread) and is typically
+    far narrower. Honors the never-synthesize rule: a model with no published estimation
+    uncertainty draws no confidence band and records why (v0.3 §5)."""
+    lo, hi = int(percentile[0]), int(percentile[1])
+    if not model.has_published_estimation:
+        result.warnings.append(
+            "CONFIDENCE BAND: no published estimation uncertainty (SE on θ) for this model — no "
+            "confidence band drawn (never-synthesize rule; distinct from the prediction band)")
+        return
+    ses = model.estimation_ses()
+    if not ses:
+        result.warnings.append(
+            "CONFIDENCE BAND: uncertainty_status declares estimation uncertainty but no parameter "
+            "carries a usable SE — no band drawn")
+        return
+
+    rng = np.random.default_rng(seed)
+    n = len(t)
+    cp_draws = np.empty((samples, n))
+    ce_draws = np.empty((samples, n))
+    for i in range(samples):
+        mp = sample_parameter_vector(params, ses, rng)
+        traj = _simulate_ref(mp, dosing, t)
+        cp_draws[i] = traj.cp
+        ce_draws[i] = traj.ce
+    result.cp_est_var = cp_draws.var(axis=0)
+    result.ce_est_var = ce_draws.var(axis=0)
+    qs = [lo, 50, hi]
+    cp_q = np.percentile(cp_draws, qs, axis=0)
+    ce_q = np.percentile(ce_draws, qs, axis=0)
+    result.cp_confidence_quantiles = {q: cp_q[k] for k, q in enumerate(qs)}
+    result.ce_confidence_quantiles = {q: ce_q[k] for k, q in enumerate(qs)}
+    result.confidence_band_tier = worst_tier(
+        [model.estimation_band_tier or model.tier, result.tier])
+    result.band_percentile = result.band_percentile or (lo, hi)
+    result.warnings.append(
+        "CONFIDENCE BAND: seeded draws over the per-θ estimation SE — this is how well the data "
+        "pin down the TYPICAL curve (reducible with more data), NOT the between-subject spread "
+        f"(band-tier {result.confidence_band_tier}); the parameters without a curated SE are held fixed")
+
+
+# --------------------------------------------------------------------------- #
 # Covariate band — seeded draws over the covariate VALUE distribution (v0.7 C2 §7.2)
 # --------------------------------------------------------------------------- #
 def _equation_choice_variance(
@@ -826,6 +900,9 @@ def simulate(
             _attach_bands(result, model, params, dosing, t, percentile=percentile,
                           samples=samples, seed=seed, residual=residual,
                           pd_model=pdm, patient=point)
+        if "confidence" in kinds:
+            _attach_confidence_band(result, model, params, dosing, t, percentile=percentile,
+                                    samples=samples, seed=seed)
         if "covariate" in kinds:
             _attach_covariate_band(result, model, kernel, dosing, t, patient=patient,
                                    point=point, percentile=percentile, samples=samples,
@@ -925,37 +1002,45 @@ def _band_divergence(results: List[SimulationResult], key: str) -> Dict[str, Any
     has_cov = eqn_var is not None or val_var is not None
     cov_var = (eqn_var or 0.0) + (val_var or 0.0)
 
-    total = var_structural + bsv_var + resid_var + cov_var
+    # v0.3 E2 — the estimation component, present only when a confidence band was drawn
+    # (kinds include "confidence"); otherwise None and the decomposition is unchanged.
+    est_var = _cov_mean("est_var")
+    has_est = est_var is not None
+
+    total = var_structural + bsv_var + resid_var + cov_var + (est_var or 0.0)
     if total > 0:
         struct_share = float(var_structural / total)
         bsv_share = float(bsv_var / total)
         resid_share = float(resid_var / total)
         cov_share = float(cov_var / total)
+        est_share = float((est_var or 0.0) / total)
         vs = {
             "structural": round(struct_share, 4),
             "bsv": round(bsv_share, 4),
             "residual": round(resid_share, 4),
             "t_star_min": float(eligible[0].t[t_star]),
         }
+        if has_est:
+            vs["estimation"] = round(est_share, 4)
         if has_cov:
             vs["covariate"] = round(cov_share, 4)
         out["variance_share"] = vs
         # The v0.3 §7 reducible/irreducible decomposition — split the same variance
-        # along the axis that decides what to DO about it. Structural (between-model)
-        # is reducible by curating/validating more models; the v0.7 covariate component
-        # is reducible too (agree on the equation / measure the covariate better); BSV
-        # and residual are irreducible (the population is the limit; the assay is noisy).
-        # The ESTIMATION (more-data) reducible component is not yet curated for any model
-        # (it needs per-θ SEs — v0.3 E0), so it contributes 0 here; `estimation_curated`
-        # says so honestly, never silently.
-        any_estimation = any(getattr(r, "has_estimation", False) for r in eligible)
+        # along the axis that decides what to DO about it. Structural (between-model) is
+        # reducible by curating/validating more models; ESTIMATION is reducible with more
+        # data per model; the v0.7 covariate component is reducible too (agree on the
+        # equation / measure the covariate better); BSV and residual are irreducible (the
+        # population is the limit; the assay is noisy).
+        any_estimation = has_est or any(getattr(r, "has_estimation", False) for r in eligible)
         out["reducibility"] = {
-            "reducible": round(struct_share + (cov_share if has_cov else 0.0), 4),
+            "reducible": round(struct_share + est_share + (cov_share if has_cov else 0.0), 4),
             "irreducible": round(bsv_share + resid_share, 4),
             "estimation_curated": bool(any_estimation),
             "note": ("reducible = between-model (more models/curation)"
+                     + (" + estimation (more data per model)" if has_est else "")
                      + (" + covariate (agree on the equation / measure better)" if has_cov else "")
-                     + "; estimation (more data per model) not yet curated, so it contributes 0"),
+                     + ("" if has_est else
+                        "; estimation component contributes 0 unless a confidence band is requested")),
         }
         if has_cov:
             # the two halves of §1, kept distinct: WHICH equation vs how well we know the value

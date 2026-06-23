@@ -117,6 +117,16 @@ def build(model, ds=None, patient: Optional[Dict[str, Any]] = None) -> str:
     lines.append(f"  {vc['Cl3']:.6g}   ; 5 Q3  (L/min)")
     lines.append(f"  {vc['V3']:.6g}    ; 6 V3  (L)")
     lines.append(f"  {vc['ke0']:.6g}   ; 7 KE0 (1/min)")
+    # v0.3 E3: the ESTIMATION uncertainty (per-θ RSE/SE) rides as a comment block, distinct
+    # from $OMEGA (between-subject) below — a tightly-estimated θ is NOT a low-variability one.
+    ests = [(p.symbol, p.estimation) for p in model.parameters
+            if p.estimation is not None and p.estimation.se is not None]
+    if ests:
+        lines.append(f"; estimation uncertainty (per-θ; method {ests[0][1].method}; "
+                     "reducible with more data — distinct from $OMEGA between-subject variability):")
+        for sym, e in ests:
+            rse = f"RSE {e.rse_percent:.3g}%" if e.rse_percent is not None else "RSE n/a"
+            lines.append(f";   {sym}: SE {e.se:g} (scale {e.scale}), {rse}")
     if omegas:
         lines.append(f"; $OMEGA — between-subject variance (eta-scale); band-tier {model.band_tier}")
         block = contiguous_block(model)

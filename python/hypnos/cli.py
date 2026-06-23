@@ -49,6 +49,8 @@ def _band_kinds(args) -> list:
     kinds = []
     if getattr(args, "bands", False):
         kinds.append("prediction")
+    if getattr(args, "confidence_band", False):
+        kinds.append("confidence")
     if getattr(args, "covariate_band", False) or getattr(args, "weight_sd", None) is not None:
         kinds.append("covariate")
     return kinds
@@ -293,6 +295,13 @@ def cmd_simulate(args) -> int:
         i = int(np.argmax(q[50]))
         print(f"  band-tier {res.band_tier}  Ce peak {q[50][i] * cf:.3f} "
               f"[{q[lo][i] * cf:.3f}, {q[hi][i] * cf:.3f}] {u}  ({lo}-{hi}%, seeded)")
+    if res.ce_confidence_quantiles is not None:
+        lo, hi = res.band_percentile
+        q = res.ce_confidence_quantiles if res.ce_peak > 0 else res.cp_confidence_quantiles
+        i = int(np.argmax(q[50]))
+        print(f"  confidence band (estimation uncertainty)  {('Ce' if res.ce_peak>0 else 'Cp')} peak "
+              f"{q[50][i] * cf:.3f} [{q[lo][i] * cf:.3f}, {q[hi][i] * cf:.3f}] {u}  "
+              f"(band-tier {res.confidence_band_tier}, {lo}-{hi}%, how well the data pin the typical curve)")
     if res.ce_covariate_band is not None:
         lo, hi = res.band_percentile
         q = res.ce_covariate_band if res.ce_peak > 0 else res.cp_covariate_band
@@ -1074,6 +1083,9 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--pd", default=None, help="optional PD model id (e.g. pd_effect.propofol.bis_sigmoid)")
     sp.add_argument("--bands", action="store_true",
                     help="draw a seeded prediction band (Cp/Ce, and the effect band when --pd is set)")
+    sp.add_argument("--confidence-band", dest="confidence_band", action="store_true",
+                    help="v0.3 E1: draw the estimation confidence band (how well the data pin the "
+                         "typical curve — reducible; narrower than the prediction band)")
     sp.add_argument("--covariate-band", dest="covariate_band", action="store_true",
                     help="v0.7 C2: draw the covariate band (covariate-value uncertainty via --weight-sd)")
     sp.add_argument("--weight-sd", dest="weight_sd", type=float, default=None,

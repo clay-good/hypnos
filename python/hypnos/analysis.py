@@ -686,6 +686,46 @@ def subjects_from_vitaldb(
     return out
 
 
+def subjects_from_opentci(
+    cases: Sequence[Dict[str, Any]],
+) -> List[SubjectRecord]:
+    """Map Open-TCI pooled propofol records -> :class:`SubjectRecord`\\ s for PK (cp) validation (v0.4 VE2).
+
+    The Open-TCI initiative assembles the arterial-concentration datasets behind models like
+    Eleveld 2018 — several openly available, and the canonical material for **concentration**
+    validation. The scientifically independent observation here is the **measured arterial
+    plasma concentration** (``kind="cp"``) — the gold standard a PK model predicts directly
+    (unlike VitalDB's BIS, which needs a PD link). This adapter is the cp-mode sibling of
+    :func:`subjects_from_vitaldb`; the metric math downstream is identical.
+
+    Each ``case`` is a plain dict (a fetch script builds these; this transform is pure and
+    offline-testable)::
+
+        {"id": str, "age": float, "sex": "M"/"F", "height": float, "weight": float,
+         "doses": [("bolus", t_min, "2 mg/kg"), ("infusion", t_min, "10 mg/kg/h"), ...],
+         "cp":    [(t_min, conc_ug_ml), ...]}   # MEASURED arterial plasma propofol
+
+    It **never invents data**: a case with no usable concentration series or no dose history is
+    dropped. The dose schedule passes through in the native ``(kind, t_min, spec)`` form the
+    forward solver already consumes."""
+    out: List[SubjectRecord] = []
+    for case in cases:
+        cp = [(float(t), float(v), "cp") for t, v in case.get("cp", [])
+              if t is not None and v is not None and float(v) > 0]
+        doses = [(str(k), float(t), str(spec)) for (k, t, spec) in case.get("doses", [])]
+        if not cp or not doses:
+            continue
+        cov: Dict[str, Any] = {}
+        for k in ("age", "height", "weight"):
+            if case.get(k) is not None:
+                cov[k] = float(case[k])
+        if case.get("sex"):
+            cov["sex"] = str(case["sex"]).upper()[:1]
+        out.append(SubjectRecord(covariates=cov, schedule=doses, observations=cp,
+                                 subject_id=str(case.get("id", f"otci{len(out) + 1}"))))
+    return out
+
+
 def subjects_from_cohort_self_consistency(
     ds: Dataset, model_id: str, *, target: str = "cp", pd_model: Optional[str] = None,
     offset_pct: float = 20.0, n_subjects: int = 3,

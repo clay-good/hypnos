@@ -455,3 +455,71 @@ def test_leaderboard_record_shape():
     rec = lb.to_record()
     assert rec["target"] == "bis" and rec["leaderboard"][0]["rank"] == 1
     assert rec["leaderboard"][0]["overall"]["metrics"][0]["name"] == "MDPE"
+
+
+# --------------------------------------------------------------------------- #
+# Open-TCI cp adapter (v0.4 VE2) + tier falsification (v0.4 §5)
+# --------------------------------------------------------------------------- #
+from hypnos.analysis import subjects_from_opentci  # noqa: E402
+from hypnos.validate import _check_tier_falsification  # noqa: E402
+
+
+def test_opentci_adapter_maps_to_cp_subjects():
+    cases = [{
+        "id": "ext1", "age": 40, "sex": "M", "height": 175, "weight": 75,
+        "doses": [("bolus", 0.0, "2 mg/kg"), ("infusion", 0.0, "10 mg/kg/h")],
+        "cp": [(5.0, 3.1), (10.0, 2.6), (None, 9.9), (20.0, -1.0)],   # bad rows dropped
+    }, {"id": "empty", "age": 50, "weight": 70, "cp": [], "doses": []}]  # dropped (no cp/dose)
+    subs = subjects_from_opentci(cases)
+    assert len(subs) == 1                                     # the empty case is dropped
+    s = subs[0]
+    assert s.covariates["weight"] == 75.0 and s.covariates["sex"] == "M"
+    assert [o[2] for o in s.observations] == ["cp", "cp"]     # only the 2 valid cp rows
+    assert s.schedule[0] == ("bolus", 0.0, "2 mg/kg")
+
+
+def test_opentci_cp_round_trips_through_the_engine():
+    # build a known-answer cp cohort from Eleveld's own prediction (+0%) -> MDPE ~ 0.
+    ds = hypnos.load()
+    import numpy as np
+    grid = np.linspace(0.0, 30.0, 200)
+    sim = hypnos.simulate(ds, ELEVELD, patient=dict(age=40, weight=75, height=175, sex="M"),
+                          schedule=[("bolus", 0.0, "2 mg/kg")], t=grid)
+    obs_t = [5.0, 10.0, 20.0, 30.0]
+    cp = [(t, float(np.interp(t, grid, sim.cp))) for t in obs_t]
+    cases = [{"id": "k1", "age": 40, "sex": "M", "height": 175, "weight": 75,
+              "doses": [("bolus", 0.0, "2 mg/kg")], "cp": cp}]
+    subs = subjects_from_opentci(cases)
+    cv = validate_against_cohort(ds, ELEVELD, subs, target="cp", dataset="opentci_propofol", seed=0)
+    assert cv.target == "cp" and cv.mode == "pk_concentration"
+    # observations ARE the model's own cp -> ~0 error (to interpolation-grid tolerance)
+    assert cv.population.mdpe == pytest.approx(0.0, abs=0.05)
+    assert cv.population.mdape == pytest.approx(0.0, abs=0.05)
+
+
+def _val_model(tier, mdape, in_env=True):
+    return Model({"id": "x.y.z", "drug": {"name": "propofol"}, "purpose": "pk", "tier": tier,
+                  "primary_citation": "eleveld-2018-propofol",
+                  "structure": {"compartments": 1, "parameterization": "volumes_clearances"},
+                  "parameters": [], "extraction": {"review_status": "unverified"},
+                  "validation_status": "external_pk",
+                  "external_validation": [{
+                      "dataset": "opentci_propofol", "mode": "pk_concentration", "target": "cp",
+                      "cohort": {"in_envelope": in_env},
+                      "metrics": [{"name": "MDAPE", "value": mdape, "units": "%"}],
+                      "provenance": {"computed_by": "hypnos"}, "reproducible": True}]})
+
+
+def test_tier_falsification_flags_in_envelope_overshoot():
+    # a Tier-A model with in-envelope MDAPE 45% > the ~30% Tier-A band -> advisory flag
+    probs = _check_tier_falsification(_val_model("A", 45.0))
+    assert any("tier-mismatch" in p and "Tier A" in p for p in probs)
+
+
+def test_tier_falsification_silent_when_within_band():
+    assert _check_tier_falsification(_val_model("A", 22.0)) == []        # comfortably inside
+
+
+def test_tier_falsification_ignores_out_of_envelope():
+    # out-of-envelope poor accuracy is EXPECTED (the failure mode), not a tier mismatch
+    assert _check_tier_falsification(_val_model("A", 60.0, in_env=False)) == []

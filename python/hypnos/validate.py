@@ -158,6 +158,9 @@ def validate_dataset(ds: Optional[Dataset] = None) -> List[str]:
         # --- external-validation layer (v0.4 spec §4) ---------------------
         problems.extend(_check_external_validation(m))
 
+        # --- tier falsification (v0.4 spec §5) — advisory, humans still gate ---
+        problems.extend(_check_tier_falsification(m))
+
         # --- estimation-uncertainty layer (v0.3 spec §9) ------------------
         problems.extend(_check_estimation(m, known_citations))
 
@@ -675,6 +678,33 @@ _MODE_TARGETS = {
     "pd_bis": {"bis"},
     "pd_tof": {"tof"},
 }
+
+
+# In-envelope MDAPE band ceilings per declared tier (v0.1 §5, the inaccuracy thresholds).
+# A computed in-envelope MDAPE above the ceiling FALSIFIES the tier claim (advisory only).
+_TIER_MDAPE_CEILING = {"A": 30.0, "B": 40.0, "C": 50.0}
+
+
+def _check_tier_falsification(m) -> List[str]:
+    """Make the tier a falsifiable claim (v0.4 §5): if a model's Hypnos-computed **in-envelope**
+    MDAPE exceeds its declared tier's band, raise an ADVISORY tier-mismatch flag — not an
+    auto-demotion. A computed metric *informs* but never *sets* a tier (humans still gate
+    promotion). Dormant until a model carries an in-envelope external_validation MDAPE."""
+    problems: List[str] = []
+    ceiling = _TIER_MDAPE_CEILING.get(m.tier)
+    if ceiling is None:
+        return problems
+    for e in m.external_validation:
+        if (e.get("cohort") or {}).get("in_envelope") is not True:
+            continue  # only an IN-envelope metric falsifies the tier (out-of-envelope is expected to be worse)
+        for met in e.get("metrics", []):
+            if met.get("name") == "MDAPE" and met.get("value") is not None and met["value"] > ceiling:
+                problems.append(
+                    f"[tier] {m.id}: declared Tier {m.tier} but Hypnos-computed IN-ENVELOPE MDAPE "
+                    f"{met['value']:g}% exceeds the Tier-{m.tier} band (~{ceiling:g}%) "
+                    f"[dataset {e.get('dataset')}] — ADVISORY tier-mismatch flag for human review "
+                    "(a computed metric informs but never sets a tier; v0.4 §5)")
+    return problems
 
 
 def _check_external_validation(m) -> List[str]:

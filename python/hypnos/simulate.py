@@ -776,6 +776,39 @@ def _apply_pgx_modifiers(model: Model, params: "MicroParams", point: Dict[str, A
     return mp, warns
 
 
+def _apply_disease_modifiers(model: Model, params: "MicroParams", point: Dict[str, Any]):
+    """Apply DECLARED, opt-in disease-state modifiers (v0.5 §B2). Returns (MicroParams, warnings).
+
+    A modifier fires only when the patient declares the matching organ-function state; it scales
+    the affected parameter by the cited (illustrative) factor and forces Tier-D. Never applied by
+    default, never without a citation — an advisory correction, not a silent reparameterization."""
+    warns: List[str] = []
+    vc = params.as_volumes_clearances()
+    changed = False
+    for mod in model.disease_state_modifiers:
+        if not mod.triggered_by(point):
+            continue
+        sf = mod.scale_factor
+        if sf is None:
+            continue
+        affected = mod.affected_parameter
+        targets = ("Cl1", "Cl2", "Cl3") if affected in ("Cl", "CL", "clearance") else (affected,)
+        for sym in targets:
+            if sym in vc and vc[sym]:
+                vc[sym] = vc[sym] * sf
+                changed = True
+        warns.append(
+            f"DISEASE MODIFIER [{mod.dimension}{('=' + str(mod.value)) if mod.value else ''}]: "
+            f"{affected} x{sf:g} (opt-in, Tier D, cited){'. ' + mod.caveat if mod.caveat else ''}"
+            + (f" [{mod.primary_citation}]" if mod.primary_citation else ""))
+    if not changed:
+        return params, warns
+    mp = MicroParams.from_volumes_clearances(
+        V1=vc["V1"], Cl1=vc["Cl1"], V2=vc.get("V2", 0.0), Cl2=vc.get("Cl2", 0.0),
+        V3=vc.get("V3", 0.0), Cl3=vc.get("Cl3", 0.0), ke0=vc.get("ke0", 0.0))
+    return mp, warns
+
+
 # --------------------------------------------------------------------------- #
 # simulate
 # --------------------------------------------------------------------------- #
@@ -794,6 +827,7 @@ def simulate(
     residual: bool = False,
     developmental: bool = False,
     pharmacogenomics: bool = False,
+    disease_state: bool = False,
 ) -> SimulationResult:
     """Forward-simulate one PK (optionally + PD) model for one virtual patient.
 
@@ -851,6 +885,9 @@ def simulate(
     if pharmacogenomics:
         params, pgx_warns = _apply_pgx_modifiers(model, params, point)
         extra_warnings.extend(pgx_warns)
+    if disease_state:
+        params, dz_warns = _apply_disease_modifiers(model, params, point)
+        extra_warnings.extend(dz_warns)
 
     t = np.asarray(t, dtype=float)
     weight = float(point.get("weight", 70.0))
@@ -863,7 +900,8 @@ def simulate(
     tier = worst_tier([model.tier, tier_floor])
     # An applied developmental/pgx-kinetic extrapolation forces Tier D by construction
     # (you cannot get an A-looking number out of an extrapolation; specs §5).
-    if developmental or (pharmacogenomics and any("PGx MODIFIER" in w for w in extra_warnings)):
+    if developmental or (pharmacogenomics and any("PGx MODIFIER" in w for w in extra_warnings)) \
+            or (disease_state and any("DISEASE MODIFIER" in w for w in extra_warnings)):
         tier = "D"
 
     result = SimulationResult(

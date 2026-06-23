@@ -194,3 +194,69 @@ def test_validate_flags_unknown_organ_tolerance_citation():
     })
     probs = validate_dataset(_FakeDataset([bad]))
     assert any("organ_tolerance" in p and "nope-not-real" in p for p in probs)
+
+
+# --------------------------------------------------------------------------- #
+# v0.5 §B5 — quantitative disease_state_modifier (opt-in, Tier-D, cited)
+# --------------------------------------------------------------------------- #
+
+DEX = "alpha2_agonists.dexmedetomidine.hannivoort_2015"
+
+
+def test_disease_modifier_curated(ds):
+    mods = ds[DEX].disease_state_modifiers
+    assert mods and mods[0].dimension == "child_pugh"
+    assert mods[0].evidence_tier == "D" and mods[0].applied_by_default is False
+    assert mods[0].scale_factor == 0.66 and mods[0].primary_citation
+
+
+def test_disease_modifier_triggers_only_on_declaration(ds):
+    mod = ds[DEX].disease_state_modifiers[0]
+    assert mod.triggered_by({"child_pugh": "C"}) is True
+    assert mod.triggered_by({"child_pugh": "A"}) is True      # "present" => any class
+    assert mod.triggered_by({}) is False                      # undeclared -> never fires
+
+
+def test_disease_modifier_opt_in_reduces_clearance(ds):
+    t = np.linspace(0, 60, 200)
+    sched = [("infusion", 0.0, "0.5 mcg/kg/h")]
+    normal = hypnos.simulate(ds, DEX, patient=dict(age=50, weight=70), schedule=sched, t=t)
+    hep = hypnos.simulate(ds, DEX, patient=dict(age=50, weight=70, child_pugh="C"),
+                          schedule=sched, t=t, disease_state=True)
+    assert hep.cp_peak > normal.cp_peak                       # reduced clearance -> higher conc
+    assert hep.tier == "D"                                    # applying a modifier forces Tier D
+    assert any("DISEASE MODIFIER" in w for w in hep.warnings)
+
+
+def test_disease_modifier_off_by_default(ds):
+    # without the opt-in flag, no modifier is applied even if the state is declared
+    t = np.linspace(0, 60, 100)
+    sched = [("infusion", 0.0, "0.5 mcg/kg/h")]
+    res = hypnos.simulate(ds, DEX, patient=dict(age=50, weight=70, child_pugh="C"), schedule=sched, t=t)
+    assert not any("DISEASE MODIFIER" in w for w in res.warnings)
+
+
+def _dz_model(citation, applied=False):
+    from hypnos.models import Model
+    return Model({"id": "x.y.z", "drug": {"name": "propofol"}, "purpose": "pk", "tier": "B",
+                  "primary_citation": "eleveld-2018-propofol",
+                  "structure": {"compartments": 1, "parameterization": "volumes_clearances"},
+                  "parameters": [], "extraction": {"review_status": "unverified"},
+                  "disease_state_modifiers": [{
+                      "condition": {"dimension": "child_pugh", "value": "C"},
+                      "affected_parameter": "Cl", "adjustment": {"type": "scale_factor", "value": 0.6},
+                      "evidence_tier": "D", "applied_by_default": applied,
+                      "primary_citation": citation}]})
+
+
+def test_validate_rejects_uncited_disease_modifier():
+    from hypnos.validate import _check_disease_modifiers
+    # the never-invent rule: a disease adjustment with no citation is rejected (§B5)
+    assert any("needs a" in p for p in _check_disease_modifiers(_dz_model(""), set()))
+
+
+def test_validate_rejects_default_applied_disease_modifier():
+    from hypnos.validate import _check_disease_modifiers
+    probs = _check_disease_modifiers(_dz_model("eleveld-2018-propofol", applied=True),
+                                     {"eleveld-2018-propofol"})
+    assert any("applied_by_default" in p for p in probs)

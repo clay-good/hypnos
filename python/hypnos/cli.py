@@ -278,7 +278,8 @@ def _run_sim(args):
                    samples=getattr(args, "samples", 2000),
                    seed=getattr(args, "seed", 7) if kinds else None,
                    developmental=getattr(args, "developmental", False),
-                   pharmacogenomics=getattr(args, "pharmacogenomics", False))
+                   pharmacogenomics=getattr(args, "pharmacogenomics", False),
+                   disease_state=getattr(args, "disease_state", False))
     return res
 
 
@@ -1136,6 +1137,9 @@ def build_parser() -> argparse.ArgumentParser:
                          "forces Tier D + warnings; never a dose)")
     sp.add_argument("--pharmacogenomics", action="store_true",
                     help="v0.9: opt-in declared-genotype kinetic modifier (substrate-scoped, Tier D)")
+    sp.add_argument("--disease-state", dest="disease_state", action="store_true",
+                    help="v0.5: opt-in cited disease-state modifier for a declared organ-function "
+                         "state (e.g. --child-pugh C; Tier D)")
     _add_patient_args(sp)
     sp.set_defaults(func=cmd_simulate)
 

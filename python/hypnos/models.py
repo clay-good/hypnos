@@ -371,6 +371,52 @@ class PharmacogenomicModifier:
 
 
 @dataclass(frozen=True)
+class DiseaseStateModifier:
+    """A cited, opt-in, Tier-D disease-state adjustment on one parameter (v0.5 §B2).
+
+    A documented direction + rough magnitude by disease state ("Child-Pugh C → ~34% lower
+    clearance"), NOT a validated by-disease model. ``triggered_by`` decides whether a
+    patient's declared organ-function state activates it; applying one forces Tier-D."""
+
+    dimension: str
+    affected_parameter: str
+    adjustment: Dict[str, Any]
+    value: Optional[str] = None
+    below: Optional[float] = None
+    evidence_tier: str = "D"
+    applied_by_default: bool = False
+    caveat: Optional[str] = None
+    primary_citation: Optional[str] = None
+    extraction: Dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def scale_factor(self) -> Optional[float]:
+        return self.adjustment.get("value") if self.adjustment.get("type") == "scale_factor" else None
+
+    def triggered_by(self, patient: Dict[str, Any]) -> bool:
+        """True when the patient's declared organ-function state activates this modifier.
+
+        ``child_pugh``: any declared class triggers a ``value='present'`` modifier; a specific
+        class triggers an equal-or-worse declaration. A continuous dimension with ``below``
+        triggers when the patient's value falls under the threshold. Never fires on an
+        undeclared dimension (so a normal simulation is unaffected)."""
+        declared = patient.get(self.dimension)
+        if declared is None or (isinstance(declared, str) and not declared.strip()):
+            return False
+        if self.below is not None:
+            try:
+                return float(declared) < float(self.below)
+            except (TypeError, ValueError):
+                return False
+        if self.dimension == "child_pugh":
+            if self.value in (None, "present", "any"):
+                return True
+            order = {"A": 1, "B": 2, "C": 3}
+            return order.get(str(declared).upper(), 0) >= order.get(str(self.value).upper(), 9)
+        return str(declared) == str(self.value)
+
+
+@dataclass(frozen=True)
 class PharmacogenomicSafetyFlag:
     """A pharmacogenomic SUSCEPTIBILITY rendered as an avoidance/awareness flag (v0.9 §4).
 
@@ -770,6 +816,22 @@ class Model:
         """The agonist model id(s) this agent reverses (empty if not a reversal agent)."""
         rm = self.raw.get("reversal_mechanism") or {}
         return list(rm.get("targets", []))
+
+    # --- disease-state modifiers (v0.5 §B2) -------------------------------
+    @property
+    def disease_state_modifiers(self) -> List[DiseaseStateModifier]:
+        """Cited, opt-in, Tier-D disease-state adjustments (v0.5 §B2). Empty == an honest gap."""
+        out: List[DiseaseStateModifier] = []
+        for d in self.raw.get("disease_state_modifiers", []):
+            cond = d.get("condition", {})
+            out.append(DiseaseStateModifier(
+                dimension=cond.get("dimension", ""), value=cond.get("value"),
+                below=cond.get("below"), affected_parameter=d["affected_parameter"],
+                adjustment=d.get("adjustment", {}), evidence_tier=d.get("evidence_tier", "D"),
+                applied_by_default=bool(d.get("applied_by_default", False)),
+                caveat=d.get("caveat"), primary_citation=d.get("primary_citation"),
+                extraction=d.get("extraction", {})))
+        return out
 
     @property
     def is_fitted_pediatric(self) -> bool:

@@ -176,6 +176,9 @@ def validate_dataset(ds: Optional[Dataset] = None) -> List[str]:
         # --- reversal layer (v0.5 §A3) ------------------------------------
         problems.extend(_check_reversal(m, ds, known_citations))
 
+        # --- disease-state modifiers (v0.5 §B5) ---------------------------
+        problems.extend(_check_disease_modifiers(m, known_citations))
+
     # --- covariate-equation library (v0.7 spec §9) ------------------------
     problems.extend(_check_covariate_equations(ds, known_citations))
 
@@ -629,6 +632,26 @@ def _check_developmental(m, known_citations) -> List[str]:
         problems.append(
             f"[developmental] {m.id}: extrapolation_basis 'allometry_only' but a maturation block "
             "is present (should be 'allometry_plus_maturation')")
+    return problems
+
+
+def _check_disease_modifiers(m, known_citations) -> List[str]:
+    """Disease-state-modifier checks (v0.5 §B5): each is Tier-D by construction, opt-in only,
+    and CITED (the never-invent rule — no clearance adjustment on physiological intuition)."""
+    problems: List[str] = []
+    for dz in m.disease_state_modifiers:
+        if dz.evidence_tier != "D":
+            problems.append(f"[disease] {m.id}: disease_state_modifier ({dz.dimension}) "
+                            "evidence_tier must be D (a documented adjustment, not a refit; §B5)")
+        if dz.applied_by_default:
+            problems.append(f"[disease] {m.id}: disease_state_modifier ({dz.dimension}) "
+                            "applied_by_default must be false (opt-in only; §B5)")
+        if not dz.primary_citation:
+            problems.append(f"[disease] {m.id}: disease_state_modifier ({dz.dimension}) needs a "
+                            "citation (the never-invent rule — no adjustment on intuition; §B5)")
+        elif dz.primary_citation not in known_citations:
+            problems.append(f"[cite] {m.id}: disease_state_modifier cites unknown "
+                            f"'{dz.primary_citation}'")
     return problems
 
 

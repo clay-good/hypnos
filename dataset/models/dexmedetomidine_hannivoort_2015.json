@@ -193,5 +193,29 @@
     }
   },
   "primary_citation": "hannivoort-2015-dexmedetomidine",
-  "notes": "Allometric scaling to a 70 kg reference: volumes ^1, clearances ^0.75. No effect-compartment in the base PK model; effect-site (sedation) link is out of scope here."
+  "notes": "Allometric scaling to a 70 kg reference: volumes ^1, clearances ^0.75. No effect-compartment in the base PK model; effect-site (sedation) link is out of scope here.",
+  "disease_state_modifiers": [
+    {
+      "condition": {
+        "dimension": "child_pugh",
+        "value": "present",
+        "below": null
+      },
+      "affected_parameter": "Cl",
+      "adjustment": {
+        "type": "scale_factor",
+        "value": 0.66,
+        "equation": null
+      },
+      "evidence_tier": "D",
+      "applied_by_default": false,
+      "caveat": "Direction is robust (dexmedetomidine clearance is reduced in hepatic impairment, prolonging effect); the SCALE (~34% reduction) is illustrative and impairment-severity-dependent (De Wolf 2001 found clearance reduced in moderate and more so in severe hepatic impairment). Opt-in, Tier-D, forward-only — never a dose.",
+      "primary_citation": "dewolf-2001-dexmed-hepatic",
+      "extraction": {
+        "review_status": "unverified",
+        "tier_rationale": "Disease-state adjustment (Tier-D by construction): a documented direction + rough magnitude of reduced dexmedetomidine clearance in chronic liver disease, attached to the adult Hannivoort model. The exact per-Child-Pugh-class factor awaits human confirmation of the De Wolf 2001 values.",
+        "source_locator": "De Wolf 2001, Anesth Analg 93:1205"
+      }
+    }
+  ]
 }

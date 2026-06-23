@@ -161,6 +161,11 @@
       "enum": ["none", "declared", "computed"]
     },
     "reversal_mechanism": { "$ref": "#/$defs/reversal_mechanism" },
+    "disease_state_modifiers": {
+      "type": "array",
+      "description": "Cited, opt-in, Tier-D disease-state adjustment annotations (v0.5 §B2/§B5): 'in Child-Pugh C, clearance is reduced ~X%'. An advisory correction attached to an existing model — NEVER a silent reparameterization, never present without a citation, never applied by default. A model actually FITTED in the disease group is a different record (evidence).",
+      "items": { "$ref": "#/$defs/disease_state_modifier" }
+    },
     "developmental_model": { "$ref": "#/$defs/developmental_model" },
     "pharmacogenomic_modifiers": {
       "type": "array",
@@ -207,6 +212,40 @@
     "notes": { "type": "string" }
   },
   "$defs": {
+    "disease_state_modifier": {
+      "type": "object",
+      "description": "One cited, opt-in, Tier-D disease-state adjustment on one parameter (v0.5 §B2). A documented direction + rough magnitude by disease state, NOT a validated by-disease model — applying one forces Tier D + a warning. NEVER applied by default; NEVER without a citation.",
+      "required": ["condition", "affected_parameter", "adjustment", "evidence_tier", "applied_by_default", "primary_citation"],
+      "additionalProperties": false,
+      "properties": {
+        "condition": {
+          "type": "object",
+          "required": ["dimension"],
+          "additionalProperties": false,
+          "properties": {
+            "dimension": { "type": "string", "enum": ["child_pugh", "crcl_ml_min", "albumin_g_dl", "ejection_fraction_pct"] },
+            "value": { "type": ["string", "null"], "description": "Categorical match (e.g. 'C' or 'present' = any Child-Pugh) for child_pugh." },
+            "below": { "type": ["number", "null"], "description": "Threshold form: the modifier applies when the patient's value is below this (e.g. crcl_ml_min below 30)." }
+          }
+        },
+        "affected_parameter": { "type": "string" },
+        "adjustment": {
+          "type": "object",
+          "required": ["type"],
+          "additionalProperties": false,
+          "properties": {
+            "type": { "type": "string", "enum": ["scale_factor", "equation"] },
+            "value": { "type": ["number", "null"], "description": "Illustrative direction + rough magnitude (e.g. 0.66 = ~34% lower clearance), not a precise refit." },
+            "equation": { "type": ["string", "null"] }
+          }
+        },
+        "evidence_tier": { "type": "string", "enum": ["A", "B", "C", "D"], "description": "D unless backed by a linked fitted-in-disease model." },
+        "applied_by_default": { "type": "boolean", "description": "MUST be false — opt-in only." },
+        "caveat": { "type": "string" },
+        "primary_citation": { "type": "string" },
+        "extraction": { "$ref": "#/$defs/extraction" }
+      }
+    },
     "reversal_mechanism": {
       "type": "object",
       "description": "Links a reversal agent to the agonist model(s) it acts on, by mechanism (v0.5 §A2/§A3). A reversal agent has no interesting solo trajectory; antagonism is an INTERACTION. encapsulation (sugammadex, PK-level binding) | competitive_receptor (naloxone/flumazenil, PD-level potency shift) | enzyme_inhibition (neostigmine, indirect, with a hard ceiling). NEVER computes a reversal dose (§A6).",

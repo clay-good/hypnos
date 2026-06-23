@@ -35,7 +35,20 @@
         "tier_rationale": "Age + lean-body-mass covariate model; large multicentre derivation cohort with external validation.",
         "source_locator": "Minto 1997, Table 2"
       },
-      "primary_citation": "minto-1997-remifentanil"
+      "primary_citation": "minto-1997-remifentanil",
+      "variability": {
+        "bsv": {
+          "omega2": 0.0657,
+          "cv_percent": 26.06,
+          "distribution": "exponential"
+        },
+        "tier": "A",
+        "primary_citation": "minto-1997-remifentanil",
+        "extraction": {
+          "review_status": "pending_human_review",
+          "source_locator": "https://opentci.org/?ddownload=4126 (Minto's own NONMEM OUTPUT.17 $OMEGA + ke0 OUTPUT.2)"
+        }
+      }
     },
     {
       "symbol": "V2",
@@ -52,7 +65,20 @@
         "review_status": "unverified",
         "source_locator": "Minto 1997, Table 2"
       },
-      "primary_citation": "minto-1997-remifentanil"
+      "primary_citation": "minto-1997-remifentanil",
+      "variability": {
+        "bsv": {
+          "omega2": 0.0835,
+          "cv_percent": 29.51,
+          "distribution": "exponential"
+        },
+        "tier": "A",
+        "primary_citation": "minto-1997-remifentanil",
+        "extraction": {
+          "review_status": "pending_human_review",
+          "source_locator": "https://opentci.org/?ddownload=4126 (Minto's own NONMEM OUTPUT.17 $OMEGA + ke0 OUTPUT.2)"
+        }
+      }
     },
     {
       "symbol": "V3",
@@ -69,7 +95,20 @@
         "review_status": "unverified",
         "source_locator": "Minto 1997, Table 2"
       },
-      "primary_citation": "minto-1997-remifentanil"
+      "primary_citation": "minto-1997-remifentanil",
+      "variability": {
+        "bsv": {
+          "omega2": 0.435,
+          "cv_percent": 73.82,
+          "distribution": "exponential"
+        },
+        "tier": "A",
+        "primary_citation": "minto-1997-remifentanil",
+        "extraction": {
+          "review_status": "pending_human_review",
+          "source_locator": "https://opentci.org/?ddownload=4126 (Minto's own NONMEM OUTPUT.17 $OMEGA + ke0 OUTPUT.2)"
+        }
+      }
     },
     {
       "symbol": "Cl1",
@@ -86,7 +125,20 @@
         "review_status": "unverified",
         "source_locator": "Minto 1997, Table 2"
       },
-      "primary_citation": "minto-1997-remifentanil"
+      "primary_citation": "minto-1997-remifentanil",
+      "variability": {
+        "bsv": {
+          "omega2": 0.0194,
+          "cv_percent": 14.0,
+          "distribution": "exponential"
+        },
+        "tier": "A",
+        "primary_citation": "minto-1997-remifentanil",
+        "extraction": {
+          "review_status": "pending_human_review",
+          "source_locator": "https://opentci.org/?ddownload=4126 (Minto's own NONMEM OUTPUT.17 $OMEGA + ke0 OUTPUT.2)"
+        }
+      }
     },
     {
       "symbol": "Cl2",
@@ -103,7 +155,20 @@
         "review_status": "unverified",
         "source_locator": "Minto 1997, Table 2"
       },
-      "primary_citation": "minto-1997-remifentanil"
+      "primary_citation": "minto-1997-remifentanil",
+      "variability": {
+        "bsv": {
+          "omega2": 0.131,
+          "cv_percent": 37.41,
+          "distribution": "exponential"
+        },
+        "tier": "A",
+        "primary_citation": "minto-1997-remifentanil",
+        "extraction": {
+          "review_status": "pending_human_review",
+          "source_locator": "https://opentci.org/?ddownload=4126 (Minto's own NONMEM OUTPUT.17 $OMEGA + ke0 OUTPUT.2)"
+        }
+      }
     },
     {
       "symbol": "Cl3",
@@ -120,7 +185,20 @@
         "review_status": "unverified",
         "source_locator": "Minto 1997, Table 2"
       },
-      "primary_citation": "minto-1997-remifentanil"
+      "primary_citation": "minto-1997-remifentanil",
+      "variability": {
+        "bsv": {
+          "omega2": 0.172,
+          "cv_percent": 43.32,
+          "distribution": "exponential"
+        },
+        "tier": "A",
+        "primary_citation": "minto-1997-remifentanil",
+        "extraction": {
+          "review_status": "pending_human_review",
+          "source_locator": "https://opentci.org/?ddownload=4126 (Minto's own NONMEM OUTPUT.17 $OMEGA + ke0 OUTPUT.2)"
+        }
+      }
     },
     {
       "symbol": "ke0",
@@ -138,7 +216,20 @@
         "tier_rationale": "Minto effect-site ke0 (spectral-edge endpoint); age-dependent.",
         "source_locator": "Minto 1997 (PD)"
       },
-      "primary_citation": "minto-1997-remifentanil"
+      "primary_citation": "minto-1997-remifentanil",
+      "variability": {
+        "bsv": {
+          "omega2": 0.356,
+          "cv_percent": 65.39,
+          "distribution": "exponential"
+        },
+        "tier": "A",
+        "primary_citation": "minto-1997-remifentanil",
+        "extraction": {
+          "review_status": "pending_human_review",
+          "source_locator": "https://opentci.org/?ddownload=4126 (Minto's own NONMEM OUTPUT.17 $OMEGA + ke0 OUTPUT.2)"
+        }
+      }
     }
   ],
   "covariates": {
@@ -275,13 +366,15 @@
       "sources": [
         "minto-1997-remifentanil (primary Anesthesiology; paywalled, not directly read)",
         "https://www.fc.up.pt/galeno/Models/Minto%20Model%20-%20Rem.pdf",
-        "https://github.com/jarretrt/tci (R/poppk_mods.R, pkmod_minto)"
+        "https://github.com/jarretrt/tci (R/poppk_mods.R, pkmod_minto)",
+        "https://opentci.org/?ddownload=4126 (Minto's own NONMEM OUTPUT.17 $OMEGA + ke0 OUTPUT.2)"
       ],
       "outcome": "match",
-      "notes": "All 7 base coefficients (V1 5.1, V2 9.82, V3 5.42, Cl1 2.6, Cl2 2.05, Cl3 0.076, ke0 0.595) and all age/LBM slopes confirmed by two independent fetched sources. The alternative ke0 0.516 in the literature is the un-reparameterized base population fit; the curated covariate-centered form correctly uses 0.595.",
+      "notes": "All 7 base coefficients (V1 5.1, V2 9.82, V3 5.42, Cl1 2.6, Cl2 2.05, Cl3 0.076, ke0 0.595) and all age/LBM slopes confirmed by two independent fetched sources. The alternative ke0 0.516 in the literature is the un-reparameterized base population fit; the curated covariate-centered form correctly uses 0.595.  BSV (Omega diagonal) source-filled from Minto's OWN NONMEM output files in the Open-TCI archive (primary): omega2 V1 0.0657/V2 0.0835/V3 0.435/Cl1 0.0194/Cl2 0.131/Cl3 0.172/ke0 0.356 (eta-scale, exponential).",
       "human_verified": false
     }
   },
   "primary_citation": "minto-1997-remifentanil",
-  "notes": "Concentrations internally in µg/mL (= mg/L); multiply by 1000 for the conventional ng/mL. LBM via James 1976 (same term, same high-BMI caveat, as Schnider propofol)."
+  "notes": "Concentrations internally in µg/mL (= mg/L); multiply by 1000 for the conventional ng/mL. LBM via James 1976 (same term, same high-BMI caveat, as Schnider propofol).",
+  "variability_status": "diagonal"
 }

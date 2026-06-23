@@ -35,7 +35,20 @@
         "tier_rationale": "Fixed central volume from a single derivation cohort (n=24, healthy adult volunteers); widely used and externally validated.",
         "source_locator": "Schnider 1998, Table 2"
       },
-      "primary_citation": "schnider-1998-propofol-pk"
+      "primary_citation": "schnider-1998-propofol-pk",
+      "variability": {
+        "bsv": {
+          "omega2": 0.001631,
+          "cv_percent": 4.04,
+          "distribution": "exponential"
+        },
+        "tier": "B",
+        "primary_citation": "schnider-1998-propofol-pk",
+        "extraction": {
+          "review_status": "pending_human_review",
+          "source_locator": "https://github.com/jarretrt/tci (R/poppk_mods.R, Schnider cv vector)"
+        }
+      }
     },
     {
       "symbol": "V2",
@@ -69,7 +82,20 @@
         "review_status": "unverified",
         "source_locator": "Schnider 1998, Table 2"
       },
-      "primary_citation": "schnider-1998-propofol-pk"
+      "primary_citation": "schnider-1998-propofol-pk",
+      "variability": {
+        "bsv": {
+          "omega2": 0.020383,
+          "cv_percent": 14.35,
+          "distribution": "exponential"
+        },
+        "tier": "B",
+        "primary_citation": "schnider-1998-propofol-pk",
+        "extraction": {
+          "review_status": "pending_human_review",
+          "source_locator": "https://github.com/jarretrt/tci (R/poppk_mods.R, Schnider cv vector)"
+        }
+      }
     },
     {
       "symbol": "Cl1",
@@ -87,7 +113,20 @@
         "tier_rationale": "Clearance carries the LBM (James 1976) covariate term whose sign drives the high-BMI failure mode.",
         "source_locator": "Schnider 1998, Table 2"
       },
-      "primary_citation": "schnider-1998-propofol-pk"
+      "primary_citation": "schnider-1998-propofol-pk",
+      "variability": {
+        "bsv": {
+          "omega2": 0.01005,
+          "cv_percent": 10.05,
+          "distribution": "exponential"
+        },
+        "tier": "B",
+        "primary_citation": "schnider-1998-propofol-pk",
+        "extraction": {
+          "review_status": "pending_human_review",
+          "source_locator": "https://github.com/jarretrt/tci (R/poppk_mods.R, Schnider cv vector)"
+        }
+      }
     },
     {
       "symbol": "Cl2",
@@ -121,7 +160,20 @@
         "review_status": "unverified",
         "source_locator": "Schnider 1998, Table 2"
       },
-      "primary_citation": "schnider-1998-propofol-pk"
+      "primary_citation": "schnider-1998-propofol-pk",
+      "variability": {
+        "bsv": {
+          "omega2": 0.013805,
+          "cv_percent": 11.79,
+          "distribution": "exponential"
+        },
+        "tier": "B",
+        "primary_citation": "schnider-1998-propofol-pk",
+        "extraction": {
+          "review_status": "pending_human_review",
+          "source_locator": "https://github.com/jarretrt/tci (R/poppk_mods.R, Schnider cv vector)"
+        }
+      }
     },
     {
       "symbol": "ke0",
@@ -262,13 +314,15 @@
         "schnider-1998-propofol-pk (primary Anesthesiology; paywalled, not directly read)",
         "https://github.com/jarretrt/tci (R/poppk_mods.R)",
         "https://pmc.ncbi.nlm.nih.gov/articles/PMC3337375/",
-        "https://gasgasgas.uk/episode/tiva-models-for-propofol/"
+        "https://gasgasgas.uk/episode/tiva-models-for-propofol/",
+        "https://github.com/jarretrt/tci (R/poppk_mods.R, Schnider cv vector)"
       ],
       "outcome": "match",
-      "notes": "All 7 base coefficients (V1 4.27, V2 18.9, V3 238, Cl1 1.89, Cl2 1.29, Cl3 0.836, ke0 0.456) and all covariate slopes (V2 -0.391; Cl1 +0.0456*WGT/-0.0681*LBM/+0.0264*HGT; Cl2 -0.024) confirmed against three fetched sources. NOTE: the tci package mislabels the Cl1 weight term as LBM; the curated dataset CORRECTLY uses WGT, matching the verbatim Schnider equation reproduced in the secondary sources. HUMAN ITEM: confirm against the 1998 Anesthesiology table directly.",
+      "notes": "All 7 base coefficients (V1 4.27, V2 18.9, V3 238, Cl1 1.89, Cl2 1.29, Cl3 0.836, ke0 0.456) and all covariate slopes (V2 -0.391; Cl1 +0.0456*WGT/-0.0681*LBM/+0.0264*HGT; Cl2 -0.024) confirmed against three fetched sources. NOTE: the tci package mislabels the Cl1 weight term as LBM; the curated dataset CORRECTLY uses WGT, matching the verbatim Schnider equation reproduced in the secondary sources. HUMAN ITEM: confirm against the 1998 Anesthesiology table directly.  BSV (Omega diagonal) source-filled from the tci package's Schnider cv vector (V1 4.04%/V3 14.35%/CL 10.05%/Q3 11.79%; V2/Q2 carry NO BSV in the Schnider model); as-implemented in tci, primary table paywalled.",
       "human_verified": false
     }
   },
   "primary_citation": "schnider-1998-propofol-pk",
-  "notes": "Micro-rate constants derived as k10=Cl1/V1, k12=Cl2/V1, k21=Cl2/V2, k13=Cl3/V1, k31=Cl3/V3. LBM via James 1976: male 1.1*W-128*(W/H)^2, female 1.07*W-148*(W/H)^2 (H in cm)."
+  "notes": "Micro-rate constants derived as k10=Cl1/V1, k12=Cl2/V1, k21=Cl2/V2, k13=Cl3/V1, k31=Cl3/V3. LBM via James 1976: male 1.1*W-128*(W/H)^2, female 1.07*W-148*(W/H)^2 (H in cm).",
+  "variability_status": "partial"
 }

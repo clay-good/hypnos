@@ -35,7 +35,20 @@
         "tier_rationale": "Total-body-weight and fat-free-mass (Janmahasatian) covariate model developed specifically to capture obesity; reference 37 y, 74.5 kg, FFM 52.3. Kernel validated to reproduce the reference individual; transcription pending human PDF confirmation.",
         "source_locator": "Kim 2017, Table"
       },
-      "primary_citation": "kim-2017-remifentanil"
+      "primary_citation": "kim-2017-remifentanil",
+      "variability": {
+        "bsv": {
+          "omega2": 0.252544,
+          "cv_percent": 53.6,
+          "distribution": "exponential"
+        },
+        "tier": "B",
+        "primary_citation": "kim-2017-remifentanil",
+        "extraction": {
+          "review_status": "pending_human_review",
+          "source_locator": "https://github.com/jarretrt/tci (R/poppk_mods.R, pkmod_kim Omega)"
+        }
+      }
     },
     {
       "symbol": "V2",
@@ -52,7 +65,20 @@
         "review_status": "unverified",
         "source_locator": "Kim 2017, Table"
       },
-      "primary_citation": "kim-2017-remifentanil"
+      "primary_citation": "kim-2017-remifentanil",
+      "variability": {
+        "bsv": {
+          "omega2": 0.275333,
+          "cv_percent": 56.3,
+          "distribution": "exponential"
+        },
+        "tier": "B",
+        "primary_citation": "kim-2017-remifentanil",
+        "extraction": {
+          "review_status": "pending_human_review",
+          "source_locator": "https://github.com/jarretrt/tci (R/poppk_mods.R, pkmod_kim Omega)"
+        }
+      }
     },
     {
       "symbol": "V3",
@@ -69,7 +95,20 @@
         "review_status": "unverified",
         "source_locator": "Kim 2017, Table"
       },
-      "primary_citation": "kim-2017-remifentanil"
+      "primary_citation": "kim-2017-remifentanil",
+      "variability": {
+        "bsv": {
+          "omega2": 0.298696,
+          "cv_percent": 59.0,
+          "distribution": "exponential"
+        },
+        "tier": "B",
+        "primary_citation": "kim-2017-remifentanil",
+        "extraction": {
+          "review_status": "pending_human_review",
+          "source_locator": "https://github.com/jarretrt/tci (R/poppk_mods.R, pkmod_kim Omega)"
+        }
+      }
     },
     {
       "symbol": "Cl1",
@@ -86,7 +125,20 @@
         "review_status": "unverified",
         "source_locator": "Kim 2017, Table"
       },
-      "primary_citation": "kim-2017-remifentanil"
+      "primary_citation": "kim-2017-remifentanil",
+      "variability": {
+        "bsv": {
+          "omega2": 0.043963,
+          "cv_percent": 21.2,
+          "distribution": "exponential"
+        },
+        "tier": "B",
+        "primary_citation": "kim-2017-remifentanil",
+        "extraction": {
+          "review_status": "pending_human_review",
+          "source_locator": "https://github.com/jarretrt/tci (R/poppk_mods.R, pkmod_kim Omega)"
+        }
+      }
     },
     {
       "symbol": "Cl2",
@@ -103,7 +155,20 @@
         "review_status": "unverified",
         "source_locator": "Kim 2017, Table"
       },
-      "primary_citation": "kim-2017-remifentanil"
+      "primary_citation": "kim-2017-remifentanil",
+      "variability": {
+        "bsv": {
+          "omega2": 0.156785,
+          "cv_percent": 41.2,
+          "distribution": "exponential"
+        },
+        "tier": "B",
+        "primary_citation": "kim-2017-remifentanil",
+        "extraction": {
+          "review_status": "pending_human_review",
+          "source_locator": "https://github.com/jarretrt/tci (R/poppk_mods.R, pkmod_kim Omega)"
+        }
+      }
     },
     {
       "symbol": "Cl3",
@@ -120,7 +185,20 @@
         "review_status": "unverified",
         "source_locator": "Kim 2017, Table"
       },
-      "primary_citation": "kim-2017-remifentanil"
+      "primary_citation": "kim-2017-remifentanil",
+      "variability": {
+        "bsv": {
+          "omega2": 0.298696,
+          "cv_percent": 59.0,
+          "distribution": "exponential"
+        },
+        "tier": "B",
+        "primary_citation": "kim-2017-remifentanil",
+        "extraction": {
+          "review_status": "pending_human_review",
+          "source_locator": "https://github.com/jarretrt/tci (R/poppk_mods.R, pkmod_kim Omega)"
+        }
+      }
     }
   ],
   "covariates": {
@@ -201,13 +279,15 @@
       "method": "fetched open-access reproductions, primary-paper PubMed abstracts, FDA labels, and/or the tci R package source, then numerically compared each curated typical-value parameter against the fetched values (see sources)",
       "sources": [
         "kim-2017-remifentanil (primary Anesthesiology; paywalled, not directly read)",
-        "https://github.com/jarretrt/tci (R/poppk_mods.R, pkmod_kim)"
+        "https://github.com/jarretrt/tci (R/poppk_mods.R, pkmod_kim)",
+        "https://github.com/jarretrt/tci (R/poppk_mods.R, pkmod_kim Omega)"
       ],
       "outcome": "match",
-      "notes": "All 6 base values (V1 4.76, V2 8.4, V3 4.0, CL 2.77, Q2 1.94, Q3 0.197), the allometric exponents (V1 0.658, CL 0.336), reference weight 74.5 kg and reference FFM 52.3 kg, and the Janmahasatian FFM confirmed CHARACTER-FOR-CHARACTER against the tci source (which cites Kim 2017, DOI 10.1097/ALN.0000000000001635). HUMAN ITEM: confirm against the primary Anesthesiology table.",
+      "notes": "All 6 base values (V1 4.76, V2 8.4, V3 4.0, CL 2.77, Q2 1.94, Q3 0.197), the allometric exponents (V1 0.658, CL 0.336), reference weight 74.5 kg and reference FFM 52.3 kg, and the Janmahasatian FFM confirmed CHARACTER-FOR-CHARACTER against the tci source (which cites Kim 2017, DOI 10.1097/ALN.0000000000001635). HUMAN ITEM: confirm against the primary Anesthesiology table.  BSV (Omega diagonal) source-filled from the tci package's Kim Omega (CV% V1 53.6/V2 56.3/V3 59/CL 21.2/Q2 41.2/Q3 59); as-implemented in tci, primary table paywalled.",
       "human_verified": false
     }
   },
   "primary_citation": "kim-2017-remifentanil",
-  "notes": "Kernel = remifentanil_kim_2017 (PK-only, no ke0). FFM via Janmahasatian 2005 (distinct from the Al-Sallami FFM used by Eleveld). Completes the spec's named remifentanil trio (Minto, Eleveld, Kim); its high-BMI envelope stays valid for morbidly obese patients where Minto is greyed out. Validated reference (37 y, 74.5 kg, FFM 52.3): V1=4.76, V2=8.4, V3=4, CL=2.77, Q2=1.94, Q3=0.197."
+  "notes": "Kernel = remifentanil_kim_2017 (PK-only, no ke0). FFM via Janmahasatian 2005 (distinct from the Al-Sallami FFM used by Eleveld). Completes the spec's named remifentanil trio (Minto, Eleveld, Kim); its high-BMI envelope stays valid for morbidly obese patients where Minto is greyed out. Validated reference (37 y, 74.5 kg, FFM 52.3): V1=4.76, V2=8.4, V3=4, CL=2.77, Q2=1.94, Q3=0.197.",
+  "variability_status": "diagonal"
 }

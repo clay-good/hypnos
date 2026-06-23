@@ -310,11 +310,13 @@ def test_compare_bands_names_excluded(ds):
     cmp = hypnos.compare(ds, drug="propofol", patient=PATIENT, schedule=SCHED, t=t,
                          bands=True, seed=7, samples=200)
     excluded = {e["model_id"] for e in cmp.excluded_from_bands}
-    assert MARSH in excluded
+    assert MARSH in excluded                              # Marsh still publishes no BSV -> named, not dropped
     vs = cmp.divergence["ce"]["variance_share"]
     assert 0.0 <= vs["bsv"] <= 1.0
-    # only Eleveld is band-eligible => no separation index (needs >= 2)
-    assert "separation" not in cmp.divergence["ce"]
+    # Eleveld AND Schnider now carry curated BSV (sourced) -> the separation index computes
+    # across the >=2 band-eligible models (the v0.2 headter the data backfill unlocks).
+    assert "separation" in cmp.divergence["ce"]
+    assert cmp.divergence["ce"]["separation"]["percentile"] == [5, 95]
 
 
 # --------------------------------------------------------------------------- #

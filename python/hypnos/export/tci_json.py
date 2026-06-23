@@ -25,6 +25,11 @@ def build_dict(model, ds=None, patient: Optional[Dict[str, Any]] = None) -> Dict
         "purpose": model.purpose,
         "structure": model.structure,
         "covariate_equations": {p.symbol: p.covariate_model for p in model.parameters},
+        # v0.7 C3: the structured covariate_model block passes through VERBATIM (lossless) so a
+        # downstream simulator knows WHICH named LBM/FFM equation to use — directly addressing
+        # the documented pump-to-pump body-size substitution problem (§1/§8).
+        "covariate_model": model.raw.get("covariate_model"),
+        "covariate_sensitivity_status": model.covariate_sensitivity_status,
         "applicability_envelope": model.raw.get("applicability_envelope", {}),
         "known_failure_modes": model.raw.get("known_failure_modes", []),
         "instantiated_for": pat,

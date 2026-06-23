@@ -34,7 +34,11 @@ def build(model, ds=None, patient: Optional[Dict[str, Any]] = None) -> str:
     # carried lossless; safety flags never as a parameter change — v0.8 §7 / v0.9 §7).
     dev = annotate.developmental_rdf(model, indent="  ")
     pgx = annotate.pharmacogenomics_rdf(model, indent="  ")
-    extra = "\n".join(x for x in (var_rdf, la, dev, pgx) if x)
+    # v0.7 C3: the named covariate equation(s) + their validity envelopes ride as RDF so a
+    # deterministic consumer sees the right body-size transform (no silent LBM recompute).
+    from ._covariate import covariate_rdf
+    cov = covariate_rdf(model, ds, indent="  ")
+    extra = "\n".join(x for x in (var_rdf, la, dev, pgx, cov) if x)
     ann = annotate.rdf_annotation_xml(model, ds, extra_predicates=extra)
     var_note = (
         "    <!-- v0.2 population variability: the curated Omega/Sigma are carried as "

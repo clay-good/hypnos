@@ -18,6 +18,7 @@ from typing import Any, Dict, Optional
 
 from . import annotate
 from ._common import resolve_patient, safe_name
+from ._covariate import nonmem_covariate_pk
 from ._variability import contiguous_block, residual_spec
 from .registry import KERNELS
 
@@ -80,11 +81,21 @@ def build(model, ds=None, patient: Optional[Dict[str, Any]] = None) -> str:
     sigma = _residual_sigma(model) if model.has_published_variability else None
     theta_n = {"CL": 1, "V1": 2, "Q2": 3, "V2": 4, "Q3": 5, "V3": 6, "KE0": 7}
 
+    # v0.7 C3: emit the derived-covariate equations as explicit $PK computations, so the
+    # control stream computes LBM/FFM the way the model was derived — named, enveloped,
+    # and round-trip-equal to the library — never however a reader's template guesses (§8).
+    cov_lines, cov_cols = nonmem_covariate_pk(model, ds)
+    input_cols = "ID TIME AMT RATE DV CMT EVID" + ("  " + " ".join(cov_cols) if cov_cols else "")
+
     lines.append(f"$PROBLEM {model.id} (Hypnos export — NOT FOR CLINICAL USE)")
-    lines.append("$INPUT ID TIME AMT RATE DV CMT EVID")
+    lines.append(f"$INPUT {input_cols}")
     lines.append("$DATA data.csv IGNORE=@")
     lines.append("$SUBROUTINES ADVAN11 TRANS4")
     lines.append("$PK")
+    if cov_lines:
+        lines.extend(cov_lines)
+        lines.append(";   (THETA below are instantiated at the reference patient; the block above "
+                     "is the curated covariate transform a covariate-driven refit would use)")
     # Wire EXP(ETA(.)) onto each structural parameter that carries a curated omega2;
     # parameters without BSV keep their fixed ETA at 0 (honest "partial" structure).
     for k, (nm, sym) in enumerate(_ETA_ORDER, start=1):

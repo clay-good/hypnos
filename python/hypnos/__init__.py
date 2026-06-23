@@ -33,6 +33,8 @@ from .analysis import (  # noqa: E402
     time_to_peak_effect,
     validate_against_cohort,
     varvel_metrics,
+    visual_predictive_check,
+    VpcResult,
 )
 from .covariates import (  # noqa: E402
     EquationResult,
@@ -184,6 +186,8 @@ __all__ = [
     "validate_against_cohort",
     "cross_model_leaderboard",
     "partition_by_envelope",
+    "visual_predictive_check",
+    "VpcResult",
     "Leaderboard",
     "LeaderboardEntry",
     "subjects_from_csv",

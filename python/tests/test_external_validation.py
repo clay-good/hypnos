@@ -523,3 +523,19 @@ def test_tier_falsification_silent_when_within_band():
 def test_tier_falsification_ignores_out_of_envelope():
     # out-of-envelope poor accuracy is EXPECTED (the failure mode), not a tier mismatch
     assert _check_tier_falsification(_val_model("A", 60.0, in_env=False)) == []
+
+
+def test_visual_predictive_check_bins_observed_and_predicted():
+    from hypnos.analysis import subjects_from_cohort_self_consistency, visual_predictive_check
+    ds = hypnos.load()
+    subs = subjects_from_cohort_self_consistency(ds, ELEVELD, target="cp", offset_pct=0.0, n_subjects=3)
+    v = visual_predictive_check(ds, ELEVELD, subs, target="cp", n_bins=5, seed=7)
+    assert len(v.bin_centers) == 5
+    assert v.n_per_bin.sum() > 0                              # observations were binned
+    # Eleveld carries BSV -> a real predicted band (10/50/90), not a collapsed line
+    assert 10 in v.predicted and 90 in v.predicted
+    # observations were generated from the model itself (0% offset) -> observed median sits
+    # inside the predicted 10-90 band wherever both are defined
+    for b in range(5):
+        if v.n_per_bin[b] > 0:
+            assert v.predicted[10][b] <= v.observed[50][b] <= v.predicted[90][b] + 1e-6

@@ -686,6 +686,91 @@ def subjects_from_vitaldb(
     return out
 
 
+@dataclass
+class VpcResult:
+    """Visual-predictive-check bins: observed vs model-predicted percentiles over time (v0.4 §7)."""
+
+    model_id: str
+    target: str
+    bin_centers: np.ndarray
+    observed: Dict[int, np.ndarray]      # percentile -> per-bin observed value (nan if a bin is empty)
+    predicted: Dict[int, np.ndarray]     # percentile -> per-bin model-band value
+    n_per_bin: np.ndarray
+    percentiles: Tuple[int, int, int]
+    seed: int
+
+
+def visual_predictive_check(
+    ds: Dataset,
+    model_id: str,
+    subjects: Sequence[SubjectRecord],
+    *,
+    target: str = "cp",
+    pd_model: Optional[str] = None,
+    n_bins: int = 8,
+    percentiles: Tuple[int, int, int] = (10, 50, 90),
+    samples: int = 500,
+    seed: int = 0,
+) -> VpcResult:
+    """A simple visual predictive check (v0.4 §7 / VE3): does the spread of *observed* data fall
+    inside the model's *predicted* spread?
+
+    Bins the pooled observations by time, takes the observed percentiles per bin, and overlays
+    the model's seeded prediction-band percentiles (from the curated BSV) on the same bins. The
+    figure a dashboard renders from this is the classic VPC; here it is returned as data so it is
+    reproducible and testable. A model with no curated BSV falls back to its deterministic median
+    (the predicted band collapses to a line — the never-synthesize rule, stated not hidden)."""
+    from .simulate import simulate as _simulate
+
+    lo, mid, hi = percentiles
+    # pool every scorable observation across subjects
+    obs_t: List[float] = []
+    obs_v: List[float] = []
+    for s in subjects:
+        for (tt, vv, kind) in s.observations:
+            if kind == target:
+                obs_t.append(float(tt))
+                obs_v.append(float(vv))
+    obs_t_arr = np.array(obs_t) if obs_t else np.array([0.0])
+    obs_v_arr = np.array(obs_v) if obs_v else np.array([np.nan])
+    tmax = float(obs_t_arr.max()) if obs_t else 1.0
+    edges = np.linspace(0.0, max(tmax, 1e-6), n_bins + 1)
+    centers = 0.5 * (edges[:-1] + edges[1:])
+
+    observed = {p: np.full(n_bins, np.nan) for p in percentiles}
+    n_per_bin = np.zeros(n_bins, dtype=int)
+    for b in range(n_bins):
+        m = (obs_t_arr >= edges[b]) & (obs_t_arr <= edges[b + 1] if b == n_bins - 1 else obs_t_arr < edges[b + 1])
+        vals = obs_v_arr[m]
+        n_per_bin[b] = int(np.sum(np.isfinite(vals)))
+        if n_per_bin[b] > 0:
+            for p in percentiles:
+                observed[p][b] = float(np.percentile(vals[np.isfinite(vals)], p))
+
+    # the model's predicted band on the same bins, at a representative (cohort-mean) patient
+    cov: Dict[str, Any] = {}
+    for key in ("age", "weight", "height"):
+        vals = [s.covariates.get(key) for s in subjects if s.covariates.get(key) is not None]
+        if vals:
+            cov[key] = float(np.mean(vals))
+    cov.setdefault("weight", 70.0)
+    cov["sex"] = next((s.covariates.get("sex") for s in subjects if s.covariates.get("sex")), "M")
+    schedule = list(subjects[0].schedule) if subjects else [("bolus", 0.0, "2 mg/kg")]
+    res = _simulate(ds, model_id, patient=cov, schedule=schedule, t=centers,
+                    pd_model=pd_model, bands=True, percentile=(lo, hi), samples=samples, seed=seed)
+    band = {"cp": res.cp_quantiles, "ce": res.ce_quantiles,
+            "bis": res.effect_quantiles, "tof": res.effect_quantiles}.get(target)
+    curve = {"cp": res.cp, "ce": res.ce, "bis": res.effect, "tof": res.effect}.get(target)
+    predicted = {}
+    if band is not None:
+        predicted = {lo: band[lo], mid: band[50], hi: band[hi]}
+    elif curve is not None:                          # no BSV -> the band collapses to the median line
+        predicted = {p: np.asarray(curve) for p in percentiles}
+    return VpcResult(model_id=model_id, target=target, bin_centers=centers,
+                     observed=observed, predicted=predicted, n_per_bin=n_per_bin,
+                     percentiles=percentiles, seed=seed)
+
+
 def subjects_from_opentci(
     cases: Sequence[Dict[str, Any]],
 ) -> List[SubjectRecord]:

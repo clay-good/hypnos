@@ -8,6 +8,33 @@ version is pinned in `dataset/VERSION` and stamped into every export as
 
 ## [Unreleased]
 
+### Spec completion — every proposed roadmap phase across v0.3–v0.7 is now implemented (2026-06-23)
+- **v0.7 C3 — covariate-aware exports.** The derived-covariate equation now rides inside every export:
+  NONMEM `$PK` computes the named LBM/FFM equation the model's way (round-trip-equal to the library),
+  SBML/PharmML carry it as `hypnos:covariateEquation` RDF, TCI-JSON passes the structured block through
+  verbatim. **v0.7 is complete (C0–C3).**
+- **v0.4 VE2/VE3 finish — Open-TCI adapter, tier-falsification, VPC.** `subjects_from_opentci` adds the
+  gold-standard plasma-concentration (`cp`) adapter; `hypnos validate` raises the advisory tier-mismatch
+  flag when an in-envelope MDAPE exceeds a model's tier band; `visual_predictive_check` bins observed vs
+  predicted percentiles. **v0.4 is complete (VE0–VE3).**
+- **v0.3 E1/E2/E3 — confidence bands.** `simulate(bands=["confidence"])` draws a seeded estimation
+  confidence band (Eleveld's is width ~8% vs the prediction band's ~huge — reducible vs irreducible);
+  the estimation component folds into `compare`'s variance decomposition; the NONMEM export carries a
+  per-θ estimation block. **Eleveld 2018 propofol carries sourced per-θ estimation uncertainty** (an agent
+  read the open-access Table 2's 99% profile-likelihood CIs directly; `pending_human_review`). **v0.3 → E0–E3.**
+- **v0.5 Part A — the reversal subsystem (B0+B1) + S1 disease modifiers.** Three forward-only kernels
+  (`hypnos.reversal`): sugammadex **encapsulation** (rocuronium→TOF recovers ~1%→98% by 30 min), naloxone
+  **competitive** antagonism with the **renarcotization** relapse rendered forward, neostigmine **indirect**
+  inhibition with the hard deep-block **ceiling** — via `simulate_reversal` + `hypnos reverse`, never a dose.
+  The opt-in, Tier-D, cited **`disease_state_modifier`** ships (dexmedetomidine clearance reduced in hepatic
+  impairment, De Wolf 2001). The **rocuronium PK kernel** is now implemented from sourced micro-constants
+  (`pending_human_review`), unlocking the reversal pairing. **v0.5 → S0/S1/B0/B1 complete.**
+- 4 new subsystems' worth of code, 6 new citations (CrossRef-verified), 3 reversal drugs + 3 reversal
+  records, the `reversal_mechanism` / `disease_state_modifier` / `source_review` schema blocks. 27 models,
+  17 drugs, 38 citations. 499 tests pass; ruff clean; validate clean. The remaining residue is **never-invent
+  data backfill** (per-model Ω/Σ and RSE for models other than Eleveld) — the perpetual curation the
+  `pending_human_review` mechanism exists to support, not a code gap.
+
 ### Curation — the `pending_human_review` state + an automated source cross-check (2026-06-23)
 - **A new review state that respects the governance rule while paying down verification debt.**
   Every record was `unverified`, which conflated *illustrative placeholders* with *transcribed-but-

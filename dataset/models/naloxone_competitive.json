@@ -1,0 +1,122 @@
+{
+  "id": "reversal.naloxone.competitive",
+  "subsystem": "reversal",
+  "drug": {
+    "name": "naloxone",
+    "unii": "36B82AMQ7N",
+    "atc": "V03AB15"
+  },
+  "purpose": "reversal",
+  "label": "Naloxone — competitive opioid (mu) antagonism",
+  "structure": {
+    "compartments": 1,
+    "parameterization": "volumes_clearances",
+    "effect_compartment": true
+  },
+  "kernel": {
+    "implemented": false,
+    "function": null
+  },
+  "parameters": [
+    {
+      "symbol": "V1",
+      "label": "volume of distribution",
+      "value": {
+        "central": 140.0,
+        "low": null,
+        "high": null,
+        "units": "L"
+      },
+      "covariate_model": "V1 ~ 2 L/kg (~140 L)",
+      "tier": "C",
+      "extraction": {
+        "review_status": "unverified"
+      },
+      "primary_citation": "clarke-2005-naloxone"
+    },
+    {
+      "symbol": "Cl1",
+      "label": "plasma clearance (hepatic, high)",
+      "value": {
+        "central": 1.5,
+        "low": null,
+        "high": null,
+        "units": "L/min"
+      },
+      "covariate_model": "Cl1 high; t1/2 ~60-90 min (SHORT)",
+      "tier": "C",
+      "extraction": {
+        "review_status": "unverified"
+      },
+      "primary_citation": "clarke-2005-naloxone"
+    },
+    {
+      "symbol": "ke0",
+      "label": "effect-site equilibration",
+      "value": {
+        "central": 0.5,
+        "low": null,
+        "high": null,
+        "units": "1/min"
+      },
+      "covariate_model": "fast onset",
+      "tier": "C",
+      "extraction": {
+        "review_status": "unverified"
+      },
+      "primary_citation": "clarke-2005-naloxone"
+    }
+  ],
+  "covariates": {
+    "required": [],
+    "optional": [
+      "weight"
+    ],
+    "lbm_equation": null
+  },
+  "applicability_envelope": {
+    "age_years": {
+      "min": 0,
+      "max": 95
+    },
+    "populations": [
+      "adult"
+    ],
+    "derivation_n": null
+  },
+  "reversal_mechanism": {
+    "type": "competitive_receptor",
+    "targets": [
+      "opioids.fentanyl.shafer_1990"
+    ],
+    "antagonism": {
+      "ki": 1.0,
+      "ki_units": "ng/mL",
+      "ce50_shift_model": "Ce50_apparent = Ce50 * (1 + C_naloxone/Ki)"
+    },
+    "tier": "C",
+    "primary_citation": "clarke-2005-naloxone",
+    "extraction": {
+      "review_status": "unverified",
+      "tier_rationale": "Competitive mu-antagonism shifts the opioid's apparent Ce50; the Ki is illustrative (Tier-C). The CLINICAL point is the renarcotization failure mode, which is robust.",
+      "source_locator": "Clarke 2005"
+    }
+  },
+  "known_failure_modes": [
+    {
+      "condition": "reversing a longer-acting opioid (antagonist clears first)",
+      "predicate": null,
+      "behavior": "naloxone's half-life (~60-90 min) is SHORTER than most opioids it reverses (e.g. fentanyl/morphine); as naloxone washes out the receptor block wanes and respiratory depression / sedation RELAPSES (renarcotization) -- the antidote outlasted by the agonist.",
+      "action": "warn",
+      "citation": "clarke-2005-naloxone"
+    }
+  ],
+  "tier": "C",
+  "extraction": {
+    "review_status": "unverified",
+    "tier_rationale": "Competitive-antagonist exemplar; the renarcotization relapse is the load-bearing, safety-relevant forward behavior (the antagonist clears before the agonist). Disposition values textbook, Ki illustrative.",
+    "source_locator": "Clarke 2005"
+  },
+  "primary_citation": "clarke-2005-naloxone",
+  "notes": "Competitive reversal: the apparent-Ce50 multiplier (1 + C_naloxone/Ki) rises then FALLS back toward 1 as naloxone clears -> the opioid effect relapses (renarcotization), rendered as honest forward output, never a re-dosing schedule."
+}

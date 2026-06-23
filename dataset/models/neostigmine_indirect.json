@@ -1,0 +1,113 @@
+{
+  "id": "reversal.neostigmine.indirect",
+  "subsystem": "reversal",
+  "drug": {
+    "name": "neostigmine",
+    "unii": "3982TWQ96G",
+    "atc": "N07AA01"
+  },
+  "purpose": "reversal",
+  "label": "Neostigmine — indirect (anticholinesterase) NMB reversal",
+  "structure": {
+    "compartments": 1,
+    "parameterization": "volumes_clearances",
+    "effect_compartment": false
+  },
+  "kernel": {
+    "implemented": false,
+    "function": null
+  },
+  "parameters": [
+    {
+      "symbol": "V1",
+      "label": "volume of distribution",
+      "value": {
+        "central": 50.0,
+        "low": null,
+        "high": null,
+        "units": "L"
+      },
+      "covariate_model": "V1 ~ 0.7 L/kg",
+      "tier": "C",
+      "extraction": {
+        "review_status": "unverified"
+      },
+      "primary_citation": "srivastava-2009-reversal"
+    },
+    {
+      "symbol": "Cl1",
+      "label": "plasma clearance",
+      "value": {
+        "central": 0.7,
+        "low": null,
+        "high": null,
+        "units": "L/min"
+      },
+      "covariate_model": "renal + hepatic; t1/2 ~ 70 min",
+      "tier": "C",
+      "extraction": {
+        "review_status": "unverified"
+      },
+      "primary_citation": "srivastava-2009-reversal"
+    }
+  ],
+  "covariates": {
+    "required": [],
+    "optional": [
+      "weight"
+    ],
+    "lbm_equation": null
+  },
+  "applicability_envelope": {
+    "age_years": {
+      "min": 1,
+      "max": 90
+    },
+    "populations": [
+      "adult",
+      "child"
+    ],
+    "derivation_n": null
+  },
+  "reversal_mechanism": {
+    "type": "enzyme_inhibition",
+    "targets": [
+      "nmb_agents.rocuronium.wierda_1991"
+    ],
+    "indirect": {
+      "ceiling": 0.5,
+      "depth_floor": 0.9
+    },
+    "tier": "C",
+    "primary_citation": "srivastava-2009-reversal",
+    "extraction": {
+      "review_status": "unverified",
+      "tier_rationale": "Indirect anticholinesterase reversal with a hard, well-documented CEILING (cannot reverse deep block) and a depth floor -- the safety content. The numeric ceiling/floor are illustrative, the QUALITATIVE behavior robust.",
+      "source_locator": "Srivastava & Hunter 2009"
+    }
+  },
+  "known_failure_modes": [
+    {
+      "condition": "deep neuromuscular block (e.g. PTC 0-1, no TOF response)",
+      "predicate": null,
+      "behavior": "neostigmine CANNOT reverse deep block -- the anticholinesterase ceiling: maximal ACh is already present and cannot out-compete a dense block. Attempting it wastes time and risks recurarization; give sugammadex instead.",
+      "action": "warn",
+      "citation": "srivastava-2009-reversal"
+    },
+    {
+      "condition": "muscarinic effects",
+      "predicate": null,
+      "behavior": "neostigmine's muscarinic effects (bradycardia, secretions) REQUIRE co-administration of an antimuscarinic (glycopyrrolate/atropine) -- a documented context, not an optional add-on.",
+      "action": "warn",
+      "citation": "srivastava-2009-reversal"
+    }
+  ],
+  "tier": "C",
+  "extraction": {
+    "review_status": "unverified",
+    "tier_rationale": "Indirect-reversal exemplar; the deep-block ceiling and the antimuscarinic requirement are the load-bearing safety facts. Disposition textbook; ceiling/floor illustrative.",
+    "source_locator": "Srivastava & Hunter 2009"
+  },
+  "primary_citation": "srivastava-2009-reversal",
+  "notes": "Enzyme-inhibition reversal with a CEILING: indirect_inhibition returns the residual block, hard-floored so a deep block is left unreversed (give sugammadex). Never a dose."
+}

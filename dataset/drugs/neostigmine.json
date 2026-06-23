@@ -1,0 +1,12 @@
+{
+  "name": "neostigmine",
+  "synonyms": [
+    "Prostigmin"
+  ],
+  "unii": "3982TWQ96G",
+  "atc": "N07AA01",
+  "drug_class": "acetylcholinesterase inhibitor (indirect NMB reversal)",
+  "subsystem": "reversal",
+  "notes": "Raises synaptic ACh to out-compete the NMB; pronounced CEILING (useless at deep block); muscarinic effects need an antimuscarinic co-agent.",
+  "concentration_unit": "ng/mL"
+}

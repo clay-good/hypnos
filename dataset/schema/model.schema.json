@@ -26,7 +26,7 @@
         "atc": { "type": ["string", "null"] }
       }
     },
-    "purpose": { "type": "string", "enum": ["pk", "pd", "link", "interaction", "physicochemical"] },
+    "purpose": { "type": "string", "enum": ["pk", "pd", "link", "interaction", "physicochemical", "reversal"] },
     "label": { "type": "string" },
     "structure": {
       "type": "object",
@@ -160,6 +160,7 @@
       "description": "Rollup of how the model's derived-covariate equations are curated; drives the v0.7 covariate-equation divergence view + the UI badge (v0.7 spec §3.1/§5). 'none' => scales on raw covariates only; 'declared' => names its derived-input equations; 'computed' is caller-side (a covariate-value distribution was supplied) and never appears in the dataset.",
       "enum": ["none", "declared", "computed"]
     },
+    "reversal_mechanism": { "$ref": "#/$defs/reversal_mechanism" },
     "developmental_model": { "$ref": "#/$defs/developmental_model" },
     "pharmacogenomic_modifiers": {
       "type": "array",
@@ -206,6 +207,42 @@
     "notes": { "type": "string" }
   },
   "$defs": {
+    "reversal_mechanism": {
+      "type": "object",
+      "description": "Links a reversal agent to the agonist model(s) it acts on, by mechanism (v0.5 §A2/§A3). A reversal agent has no interesting solo trajectory; antagonism is an INTERACTION. encapsulation (sugammadex, PK-level binding) | competitive_receptor (naloxone/flumazenil, PD-level potency shift) | enzyme_inhibition (neostigmine, indirect, with a hard ceiling). NEVER computes a reversal dose (§A6).",
+      "required": ["type", "targets", "primary_citation"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "type": "string", "enum": ["encapsulation", "competitive_receptor", "enzyme_inhibition"] },
+        "targets": { "type": "array", "items": { "type": "string" }, "minItems": 1, "description": "The agonist model id(s) this agent reverses — validated to resolve to existing records." },
+        "stoichiometry": {
+          "type": "object", "additionalProperties": false,
+          "properties": { "ratio": { "type": "number" }, "basis": { "type": "string" } }
+        },
+        "binding": {
+          "type": "object", "additionalProperties": false,
+          "description": "encapsulation kinetics; an instantaneous-1:1 `approximation` is labeled as a simplification (§A5).",
+          "properties": { "k_on": { "type": ["number", "null"] }, "k_off": { "type": ["number", "null"] }, "kd": { "type": ["number", "null"] }, "approximation": { "type": ["string", "null"] } }
+        },
+        "antagonism": {
+          "type": "object", "additionalProperties": false,
+          "description": "competitive_receptor potency: apparent Ce50 -> Ce50*(1 + C_antag/ki).",
+          "properties": { "ki": { "type": ["number", "null"] }, "ki_units": { "type": ["string", "null"] }, "ce50_shift_model": { "type": ["string", "null"] } }
+        },
+        "indirect": {
+          "type": "object", "additionalProperties": false,
+          "description": "enzyme_inhibition (neostigmine): the ceiling and depth floor are the safety content, not free parameters.",
+          "properties": { "ceiling": { "type": ["number", "null"] }, "depth_floor": { "type": ["number", "null"] } }
+        },
+        "depth_dependence": {
+          "type": "object", "additionalProperties": false,
+          "properties": { "regimes": { "type": "array", "items": { "type": "object", "additionalProperties": true } } }
+        },
+        "tier": { "type": "string", "enum": ["A", "B", "C", "D"] },
+        "primary_citation": { "type": "string" },
+        "extraction": { "$ref": "#/$defs/extraction" }
+      }
+    },
     "developmental_model": {
       "type": "object",
       "description": "An adult model's developmental (pediatric/neonatal) extrapolation by allometric size and, where curated, PMA-driven clearance maturation (v0.8 §4). Tier-D by construction, opt-in only, always cited and warned — NEVER a silent reparameterization. A model actually fitted in children is a DIFFERENT record (evidence), not this annotation.",

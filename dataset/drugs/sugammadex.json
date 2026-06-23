@@ -1,0 +1,13 @@
+{
+  "name": "sugammadex",
+  "synonyms": [
+    "Org 25969",
+    "Bridion"
+  ],
+  "unii": "361LPM2T56",
+  "atc": "V03AB35",
+  "drug_class": "selective relaxant binding agent (modified gamma-cyclodextrin)",
+  "subsystem": "reversal",
+  "notes": "Encapsulates free rocuronium/vecuronium ~1:1; the complex is inert and renally cleared. Reverses even deep block (unlike neostigmine).",
+  "concentration_unit": "ug/mL"
+}

@@ -526,6 +526,44 @@ def cmd_pgx(args) -> int:
     return 0
 
 
+def cmd_reverse(args) -> int:
+    """v0.5 Part A: forward-simulate a GIVEN reversal dose acting on an agonist (never a dose)."""
+    from .simulate import simulate_reversal
+    ds = load()
+    patient = _patient_from_args(args)
+    t = np.linspace(0.0, args.tmax, args.n)
+    try:
+        r = simulate_reversal(ds, args.agent, patient=patient, reversal_dose=args.dose,
+                              agonist_dose=args.agonist_dose, t=t, reversal_time_min=args.at,
+                              pd_model=args.pd)
+    except (ValueError, NotImplementedError) as e:
+        print(str(e), file=sys.stderr)
+        return 2
+    print(f"reversal: {r.reversal_id}  ({r.mechanism})  on  {r.agonist_id}")
+    print(f"tier (propagated): {r.tier}")
+    if r.mechanism == "encapsulation":
+        i = int(np.argmin(np.abs(t - min(args.tmax, args.at + 20))))
+        nr = f"{r.effect_no_reversal[i]:.0f}" if r.effect_no_reversal is not None else "n/a"
+        rv = f"{r.effect[i]:.0f}" if r.effect is not None else "n/a"
+        print(f"  free agonist Ce at t={t[i]:.0f} min: no-reversal {r.free_ce_no_reversal[i]:.3f} -> "
+              f"reversed {r.free_ce[i]:.3f} ug/mL  (inert complex {r.complex_umol[i]:.1f} umol)")
+        if r.effect is not None:
+            print(f"  {r.effect_label} at t={t[i]:.0f} min: no-reversal {nr} -> reversed {rv}  "
+                  "(reversal accelerates recovery)")
+    elif r.mechanism == "competitive_receptor":
+        m = r.ce50_multiplier
+        ip = int(np.argmax(m))
+        print(f"  apparent-Ce50 multiplier: peak {m.max():.2f} at t={t[ip]:.0f} min -> end {m[-1]:.2f}")
+        print(f"  renarcotization (effect relapses as the antagonist clears): {r.renarcotization}")
+    elif r.mechanism == "enzyme_inhibition":
+        print(f"  ceiling: deep block (1.0) -> residual {r.effect[0]:.2f} (unreversed); "
+              f"shallow block -> residual {r.effect[-1]:.2f} (reversed)")
+    print("warnings:")
+    for w in r.warnings:
+        print("  - " + w)
+    return 0
+
+
 def cmd_status(args) -> int:
     ds = load()
     s = verification_summary(ds)
@@ -1114,6 +1152,18 @@ def build_parser() -> argparse.ArgumentParser:
     cp.add_argument("--seed", type=int, default=7, help="RNG seed (bands are byte-reproducible)")
     _add_patient_args(cp)
     cp.set_defaults(func=cmd_compare)
+
+    rp = sub.add_parser("reverse", help="v0.5: forward-simulate a reversal agent acting on an "
+                        "agonist (sugammadex/naloxone/neostigmine) — never computes a dose")
+    rp.add_argument("--agent", default="reversal.sugammadex.encapsulation",
+                    help="reversal model id (sugammadex/naloxone/neostigmine)")
+    rp.add_argument("--dose", default="4 mg/kg", help="the GIVEN reversal dose (e.g. '4 mg/kg', '0.4 mg')")
+    rp.add_argument("--agonist-dose", dest="agonist_dose", default="0.6 mg/kg",
+                    help="the agonist dose already given (e.g. rocuronium '0.6 mg/kg')")
+    rp.add_argument("--at", type=float, default=10.0, help="time the reversal is given (min)")
+    rp.add_argument("--pd", default=None, help="optional PD model (e.g. pd_effect.rocuronium.tof_sigmoid)")
+    _add_patient_args(rp)
+    rp.set_defaults(func=cmd_reverse)
 
     ip = sub.add_parser("interact", help="propofol-remifentanil response-surface synergy")
     ip.add_argument("--propofol", default="hypnotics_iv.propofol.schnider_1998")

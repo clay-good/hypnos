@@ -1,0 +1,13 @@
+{
+  "name": "naloxone",
+  "synonyms": [
+    "Narcan",
+    "N-allylnoroxymorphone"
+  ],
+  "unii": "36B82AMQ7N",
+  "atc": "V03AB15",
+  "drug_class": "competitive opioid (mu) receptor antagonist",
+  "subsystem": "reversal",
+  "notes": "Competitive mu-antagonist; SHORT half-life (~60-90 min) -> renarcotization when reversing a longer-acting opioid.",
+  "concentration_unit": "ng/mL"
+}

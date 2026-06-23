@@ -751,6 +751,26 @@ class Model:
     def has_developmental_model(self) -> bool:
         return self.raw.get("developmental_model") is not None
 
+    # --- reversal sublayer (v0.5 Part A) ----------------------------------
+    @property
+    def reversal_mechanism(self) -> Optional[Dict[str, Any]]:
+        """The reversal-agent coupling block (v0.5 §A2), or None.
+
+        Links this antagonist to the agonist model(s) it acts on by mechanism
+        (``encapsulation`` | ``competitive_receptor`` | ``enzyme_inhibition``). A reversal
+        agent has no interesting solo trajectory — antagonism is an interaction."""
+        return self.raw.get("reversal_mechanism")
+
+    @property
+    def is_reversal_agent(self) -> bool:
+        return self.purpose == "reversal" or self.raw.get("reversal_mechanism") is not None
+
+    @property
+    def reversal_targets(self) -> List[str]:
+        """The agonist model id(s) this agent reverses (empty if not a reversal agent)."""
+        rm = self.raw.get("reversal_mechanism") or {}
+        return list(rm.get("targets", []))
+
     @property
     def is_fitted_pediatric(self) -> bool:
         """True when the model was actually fitted in children (evidence, not annotation).

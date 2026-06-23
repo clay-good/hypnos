@@ -83,6 +83,11 @@ from .pharmacogenomics import (  # noqa: E402
     PgxOverlay,
     pgx_overlay,
 )
+from .reversal import (  # noqa: E402
+    competitive_shift,
+    encapsulation,
+    indirect_inhibition,
+)
 from .simulate import (  # noqa: E402
     Comparison,
     CovariateDivergence,
@@ -90,12 +95,14 @@ from .simulate import (  # noqa: E402
     DevelopmentalOverlay,
     EquationCurve,
     InteractionResult,
+    ReversalResult,
     SimulationResult,
     compare,
     covariate_divergence,
     developmental_overlay,
     simulate,
     simulate_interaction,
+    simulate_reversal,
 )
 from .validate import assert_valid, validate_dataset  # noqa: E402
 from .verification import (  # noqa: E402
@@ -135,6 +142,11 @@ __all__ = [
     "covariate_divergence",
     "developmental_overlay",
     "simulate_interaction",
+    "simulate_reversal",
+    "ReversalResult",
+    "encapsulation",
+    "competitive_shift",
+    "indirect_inhibition",
     "Comparison",
     "CovariateDivergence",
     "DevelopmentalExtrapolation",

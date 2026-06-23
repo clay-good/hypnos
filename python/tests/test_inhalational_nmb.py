@@ -175,10 +175,21 @@ def test_train_of_four_sigmoid_shape():
     assert tof[2] < 2.0
 
 
-def test_rocuronium_kernel_pending_refuses(ds):
+def test_rocuronium_kernel_now_simulates(ds):
+    # rocuronium's PK kernel is now implemented from sourced (opentiva) micro-constants,
+    # unlocking the v0.5 sugammadex reversal demo. It is pending_human_review, not verified.
+    res = hypnos.simulate(ds, ROC, patient=dict(age=40, weight=70, height=175, sex="M"),
+                          schedule=[("bolus", 0.0, "0.6 mg/kg")], t=np.linspace(0, 60, 50))
+    assert res.cp_peak > 0
+    assert ds[ROC].review_status == "pending_human_review"
+
+
+def test_succinylcholine_kernel_pending_refuses(ds):
+    # succinylcholine (the v0.9 BCHE anchor) is still kernel-pending -> simulate refuses
     with pytest.raises(NotImplementedError):
-        hypnos.simulate(ds, ROC, patient=dict(age=40, weight=70, height=175, sex="M"),
-                        schedule=[("bolus", 0.0, "0.6 mg/kg")], t=np.linspace(0, 60, 10))
+        hypnos.simulate(ds, "nmb_agents.succinylcholine.roy_2004",
+                        patient=dict(age=40, weight=70, height=175, sex="M"),
+                        schedule=[("bolus", 0.0, "1 mg/kg")], t=np.linspace(0, 60, 10))
 
 
 def test_phase_d_subsystems_present(ds):

@@ -1481,3 +1481,134 @@ def simulate_interaction(
         ce_a=res_a.ce, ce_b=res_b.ce, effect=effect, tier=tier,
         effect_label=surf.label, warnings=warnings,
     )
+
+
+# --------------------------------------------------------------------------- #
+# simulate_reversal — antagonism as an interaction (v0.5 Part A)
+# --------------------------------------------------------------------------- #
+@dataclass
+class ReversalResult:
+    """Forward simulation of a reversal agent acting on an agonist already in the patient (v0.5 §A4)."""
+
+    reversal_id: str
+    agonist_id: str
+    mechanism: str
+    t: np.ndarray
+    free_ce: np.ndarray                          # free (active) agonist effect-site conc
+    tier: str
+    warnings: List[str] = field(default_factory=list)
+    effect: Optional[np.ndarray] = None          # composed effect (TOF / opioid), if a PD model given
+    effect_label: Optional[str] = None
+    free_ce_no_reversal: Optional[np.ndarray] = None   # the same agonist with NO reversal (the contrast)
+    effect_no_reversal: Optional[np.ndarray] = None
+    complex_umol: Optional[np.ndarray] = None    # encapsulation: inert bound complex
+    ce50_multiplier: Optional[np.ndarray] = None  # competitive: apparent-Ce50 shift over time
+    renarcotization: bool = False                # competitive: did the effect relapse?
+
+
+def _antagonist_micro(model: Model) -> MicroParams:
+    """Build the antagonist's own MicroParams from its curated disposition parameters."""
+    pv = {p.symbol: p.central for p in model.parameters}
+    return MicroParams.from_volumes_clearances(
+        V1=pv.get("V1", 1.0), Cl1=pv.get("Cl1", 0.0),
+        V2=pv.get("V2", 0.0), Cl2=pv.get("Cl2", 0.0),
+        V3=pv.get("V3", 0.0), Cl3=pv.get("Cl3", 0.0), ke0=pv.get("ke0", 0.0))
+
+
+def simulate_reversal(
+    ds: Dataset,
+    reversal_id: str,
+    *,
+    patient: Dict[str, Any],
+    reversal_dose: str,
+    agonist_dose: str,
+    t: np.ndarray,
+    agonist_id: Optional[str] = None,
+    reversal_time_min: float = 10.0,
+    pd_model: Optional[str] = None,
+) -> ReversalResult:
+    """Simulate a *given* reversal dose acting on an agonist already in the patient (v0.5 §A4).
+
+    Dispatches on the reversal mechanism (encapsulation / competitive_receptor /
+    enzyme_inhibition). Forward-only: it renders the trajectory of the dose you specify and the
+    no-reversal contrast — it **never computes the reversal dose** ("how much sugammadex/
+    naloxone?"), which is inverse control wearing an antidote's coat (§A6)."""
+    from .reversal import competitive_shift, encapsulation, indirect_inhibition
+
+    rev = ds[reversal_id]
+    rm = rev.reversal_mechanism
+    if rm is None:
+        raise ValueError(f"{reversal_id} is not a reversal agent (no reversal_mechanism block)")
+    point = _point_patient(patient)
+    agonist_id = agonist_id or (rm.get("targets") or [None])[0]
+    if agonist_id is None or agonist_id not in ds:
+        raise ValueError(f"{reversal_id}: reversal target {agonist_id!r} does not resolve")
+    agonist = ds[agonist_id]
+    t = np.asarray(t, dtype=float)
+    weight = float(point.get("weight", 70.0))
+    rev_mg = parse_amount(reversal_dose, weight)
+    ago_mg = parse_amount(agonist_dose, weight)
+    warns = [f"REVERSAL ({rm['type']}): simulating a GIVEN dose ({reversal_dose}) of {rev.drug_name} "
+             f"on {agonist.drug_name} — forward-only; Hypnos never computes a reversal dose (§A6)"]
+    mech = rm["type"]
+
+    if mech == "encapsulation":
+        if not (agonist.kernel_implemented and agonist.kernel_function in KERNELS):
+            raise NotImplementedError(f"{agonist_id}: agonist PK kernel not implemented")
+        nmb = KERNELS[agonist.kernel_function](point)
+        no = encapsulation(nmb, ago_mg, 0.0, t, sugammadex_time_min=reversal_time_min)
+        rv = encapsulation(nmb, ago_mg, rev_mg, t, sugammadex_time_min=reversal_time_min)
+        appr = (rm.get("binding") or {}).get("approximation")
+        if appr:
+            warns.append(f"ENCAPSULATION: 1:1 molar binding via the '{appr}' SIMPLIFICATION "
+                         "(binding kinetics not curated) — Tier-C, labeled (§A5)")
+        res = ReversalResult(
+            reversal_id=reversal_id, agonist_id=agonist_id, mechanism=mech, t=t,
+            free_ce=rv.free_ce, free_ce_no_reversal=no.free_ce, complex_umol=rv.complex_umol,
+            tier=worst_tier([rev.tier, agonist.tier]), warnings=warns)
+        if pd_model is not None:
+            pdm = ds[pd_model]
+            res.effect = _apply_pd(pdm, rv.free_ce, point)
+            res.effect_no_reversal = _apply_pd(pdm, no.free_ce, point)
+            res.effect_label = pdm.label
+            res.tier = worst_tier([res.tier, pdm.tier])
+        return res
+
+    if mech == "competitive_receptor":
+        # the antagonist's own effect-site concentration over time, then the apparent-Ce50 shift
+        amic = _antagonist_micro(rev)
+        atraj = _simulate_ref(amic, build_dosing([("bolus", reversal_time_min, reversal_dose)], weight), t)
+        antag = rm.get("antagonism") or {}
+        ki = float(antag.get("ki", 1.0))
+        # internal concentrations are µg/mL (== mg/L); convert Ki to the same units so the
+        # competitive ratio C/Ki is dimensionally correct (a ng/mL Ki is 1/1000 of a µg/mL).
+        if str(antag.get("ki_units", "")).lower() == "ng/ml":
+            ki = ki / 1000.0
+        mult = competitive_shift(atraj.ce, ki)
+        # renarcotization: the multiplier rises then FALLS back toward 1 as the antagonist clears
+        i_peak = int(np.argmax(mult))
+        relapsed = bool(i_peak < len(mult) - 1 and mult[-1] < 0.5 * (mult[i_peak] - 1.0) + 1.0)
+        if relapsed:
+            warns.append("RENARCOTIZATION: the apparent-Ce50 shift peaks then RELAPSES toward 1 as "
+                         f"{rev.drug_name} clears — the antagonist is outlasted by the agonist; the "
+                         "reversed effect returns (rendered forward, never a re-dosing schedule; §A5)")
+        return ReversalResult(
+            reversal_id=reversal_id, agonist_id=agonist_id, mechanism=mech, t=t,
+            free_ce=atraj.ce, ce50_multiplier=mult, renarcotization=relapsed,
+            tier=worst_tier([rev.tier, agonist.tier]), warnings=warns)
+
+    if mech == "enzyme_inhibition":
+        ind = rm.get("indirect") or {}
+        # demonstrate the ceiling on a representative block-depth sweep (1=full block .. 0=recovered)
+        block = np.linspace(1.0, 0.0, len(t))
+        residual = indirect_inhibition(block, ceiling=float(ind.get("ceiling", 0.5)),
+                                       depth_floor=float(ind.get("depth_floor", 0.9)))
+        warns.append("CEILING: neostigmine cannot reverse a block deeper than the depth floor "
+                     f"({ind.get('depth_floor')}); below it the residual block is unchanged (give "
+                     "sugammadex). Muscarinic effects require an antimuscarinic co-agent (§A5).")
+        return ReversalResult(
+            reversal_id=reversal_id, agonist_id=agonist_id, mechanism=mech, t=t,
+            free_ce=block, effect=residual, effect_label="residual block fraction",
+            tier=worst_tier([rev.tier, agonist.tier]), warnings=warns)
+
+    raise ValueError(f"unknown reversal mechanism {mech!r}")

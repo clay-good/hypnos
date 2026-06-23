@@ -334,7 +334,27 @@ def remifentanil_kim_2017(patient: dict) -> MicroParams:
     )
 
 
+# --------------------------------------------------------------------------- #
+# Rocuronium — Wierda (1991), micro-rate-constant parameterization.
+# Values sourced from the opentiva reproduction of the Wierda model (V1 = 0.044·WGT;
+# k10/k12/k13/k21/k31 fixed), with the ke0 from Masui 2018 (age-centered). The record
+# is pending_human_review (sourced, not human-verified); the kernel computes exactly
+# those sourced constants so the canonical sugammadex→rocuronium→TOF reversal can run.
+# --------------------------------------------------------------------------- #
+def rocuronium_wierda_1991(patient: dict) -> MicroParams:
+    wgt = _req(patient, "weight")
+    age = float(patient.get("age", 50.0))
+    V1 = 0.044 * wgt
+    ke0 = 0.1 + (age - 50.0) * -0.000725
+    return MicroParams(
+        V1=V1, k10=0.1, k12=0.21, k13=0.028, k21=0.13, k31=0.01, ke0=ke0,
+        n_compartments=3,
+        derived={"V2": V1 * 0.21 / 0.13, "V3": V1 * 0.028 / 0.01},
+    )
+
+
 KERNELS: Dict[str, KernelFn] = {
+    "rocuronium_wierda_1991": rocuronium_wierda_1991,
     "propofol_marsh_1991": propofol_marsh_1991,
     "propofol_schnider_1998": propofol_schnider_1998,
     "propofol_paedfusor_2005": propofol_paedfusor_2005,

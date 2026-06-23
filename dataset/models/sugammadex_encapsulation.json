@@ -1,0 +1,120 @@
+{
+  "id": "reversal.sugammadex.encapsulation",
+  "subsystem": "reversal",
+  "drug": {
+    "name": "sugammadex",
+    "unii": "361LPM2T56",
+    "atc": "V03AB35"
+  },
+  "purpose": "reversal",
+  "label": "Sugammadex — rocuronium encapsulation reversal",
+  "structure": {
+    "compartments": 1,
+    "parameterization": "volumes_clearances",
+    "effect_compartment": false
+  },
+  "kernel": {
+    "implemented": false,
+    "function": null
+  },
+  "parameters": [
+    {
+      "symbol": "V1",
+      "label": "volume of distribution (~extracellular fluid)",
+      "value": {
+        "central": 18.0,
+        "low": null,
+        "high": null,
+        "units": "L"
+      },
+      "covariate_model": "V1 ~ 18 L (ECF); sugammadex-rocuronium complex renally cleared",
+      "tier": "C",
+      "extraction": {
+        "review_status": "unverified"
+      },
+      "primary_citation": "naguib-2007-sugammadex"
+    },
+    {
+      "symbol": "Cl1",
+      "label": "plasma clearance (renal)",
+      "value": {
+        "central": 0.088,
+        "low": null,
+        "high": null,
+        "units": "L/min"
+      },
+      "covariate_model": "Cl1 ~ 88 mL/min (renal); reduced in renal impairment",
+      "tier": "C",
+      "extraction": {
+        "review_status": "unverified"
+      },
+      "primary_citation": "naguib-2007-sugammadex"
+    }
+  ],
+  "covariates": {
+    "required": [],
+    "optional": [
+      "weight"
+    ],
+    "lbm_equation": null
+  },
+  "applicability_envelope": {
+    "age_years": {
+      "min": 2,
+      "max": 90
+    },
+    "populations": [
+      "adult",
+      "child"
+    ],
+    "derivation_n": null
+  },
+  "reversal_mechanism": {
+    "type": "encapsulation",
+    "targets": [
+      "nmb_agents.rocuronium.wierda_1991"
+    ],
+    "stoichiometry": {
+      "ratio": 1.0,
+      "basis": "molar"
+    },
+    "binding": {
+      "k_on": null,
+      "k_off": null,
+      "kd": null,
+      "approximation": "instantaneous_1to1"
+    },
+    "depth_dependence": {
+      "regimes": [
+        {
+          "block_depth": "moderate (TOF reappearance)",
+          "context": "sugammadex 2 mg/kg"
+        },
+        {
+          "block_depth": "deep (PTC 1-2)",
+          "context": "sugammadex 4 mg/kg"
+        },
+        {
+          "block_depth": "immediate (3 min after 1.2 mg/kg rocuronium)",
+          "context": "sugammadex 16 mg/kg"
+        }
+      ]
+    },
+    "tier": "C",
+    "primary_citation": "naguib-2007-sugammadex",
+    "extraction": {
+      "review_status": "unverified",
+      "tier_rationale": "Encapsulation is a binding reaction, not receptor action; the 1:1 molar stoichiometry is well-established but the binding kinetics (k_on/k_off) are modeled as the commonly-used instantaneous-1:1 SIMPLIFICATION (labeled), so Tier-C until kinetics are curated.",
+      "source_locator": "Naguib 2007; Srivastava & Hunter 2009"
+    }
+  },
+  "known_failure_modes": [],
+  "tier": "C",
+  "extraction": {
+    "review_status": "unverified",
+    "tier_rationale": "The canonical reversal pairing (sugammadex + rocuronium). Disposition values are textbook (ECF Vd, renal clearance) pending verification; the headline is the forward encapsulation TOF-recovery simulation (instantaneous-1:1 simplification, labeled).",
+    "source_locator": "Naguib 2007"
+  },
+  "primary_citation": "naguib-2007-sugammadex",
+  "notes": "Encapsulation reversal: simulate_reversal drives the rocuronium PK->TOF stack with the encapsulation ODE; free rocuronium is bound 1:1 and TOF recovers. NO reversal dose is computed (forward-only). Reverses deep block, unlike neostigmine."
+}

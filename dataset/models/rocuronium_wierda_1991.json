@@ -15,8 +15,8 @@
     "effect_compartment": true
   },
   "kernel": {
-    "implemented": false,
-    "function": null
+    "implemented": true,
+    "function": "rocuronium_wierda_1991"
   },
   "parameters": [
     {

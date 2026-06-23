@@ -173,6 +173,9 @@ def validate_dataset(ds: Optional[Dataset] = None) -> List[str]:
         # --- pharmacogenomic layer (v0.9 spec §8) -------------------------
         problems.extend(_check_pharmacogenomics(m, known_citations))
 
+        # --- reversal layer (v0.5 §A3) ------------------------------------
+        problems.extend(_check_reversal(m, ds, known_citations))
+
     # --- covariate-equation library (v0.7 spec §9) ------------------------
     problems.extend(_check_covariate_equations(ds, known_citations))
 
@@ -626,6 +629,40 @@ def _check_developmental(m, known_citations) -> List[str]:
         problems.append(
             f"[developmental] {m.id}: extrapolation_basis 'allometry_only' but a maturation block "
             "is present (should be 'allometry_plus_maturation')")
+    return problems
+
+
+def _check_reversal(m, ds, known_citations) -> List[str]:
+    """Reversal-layer checks (v0.5 §A3): the antagonist's ``targets`` must resolve to existing
+    agonist models (the same resolve-or-error guardrail v0.1 added for citations), the citation
+    resolves, the mechanism carries its mechanism-appropriate block, and a ``competitive_receptor``
+    agent carries the renarcotization caveat where it reverses a longer-acting agonist (§A5)."""
+    problems: List[str] = []
+    rm = m.reversal_mechanism
+    if rm is None:
+        return problems
+    typ = rm.get("type")
+    for tgt in rm.get("targets", []):
+        if tgt not in ds:
+            problems.append(
+                f"[reversal] {m.id}: reversal target '{tgt}' does not resolve to an existing model")
+    cid = rm.get("primary_citation")
+    if cid and cid not in known_citations:
+        problems.append(f"[cite] {m.id}: reversal_mechanism cites unknown '{cid}'")
+    # mechanism-appropriate block present
+    if typ == "encapsulation" and not rm.get("binding") and not rm.get("stoichiometry"):
+        problems.append(f"[reversal] {m.id}: encapsulation needs a binding/stoichiometry block")
+    if typ == "competitive_receptor" and not rm.get("antagonism"):
+        problems.append(f"[reversal] {m.id}: competitive_receptor needs an antagonism block")
+    if typ == "enzyme_inhibition" and not rm.get("indirect"):
+        problems.append(f"[reversal] {m.id}: enzyme_inhibition needs an indirect (ceiling) block")
+    # the renarcotization safety requirement (§A5): a competitive antagonist must carry the caveat
+    if typ == "competitive_receptor":
+        if not any("renarcotiz" in (fm.behavior or "").lower() or "relapse" in (fm.behavior or "").lower()
+                   for fm in m.known_failure_modes):
+            problems.append(
+                f"[reversal] {m.id}: a competitive_receptor reversal agent must carry the "
+                "renarcotization/relapse failure mode (the antagonist outlasted by the agonist; §A5)")
     return problems
 
 

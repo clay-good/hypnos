@@ -19,6 +19,10 @@ from typing import Any, Dict, Optional
 from . import annotate
 from ._common import resolve_patient, safe_name
 from ._covariate import nonmem_covariate_pk
+from ._estimation import (
+    covariance_step_note, estimate_correlations, independence_caveat, theta_covariance,
+    theta_estimates,
+)
 from ._variability import contiguous_block, residual_spec
 from .registry import KERNELS
 
@@ -119,14 +123,29 @@ def build(model, ds=None, patient: Optional[Dict[str, Any]] = None) -> str:
     lines.append(f"  {vc['ke0']:.6g}   ; 7 KE0 (1/min)")
     # v0.3 E3: the ESTIMATION uncertainty (per-θ RSE/SE) rides as a comment block, distinct
     # from $OMEGA (between-subject) below — a tightly-estimated θ is NOT a low-variability one.
-    ests = [(p.symbol, p.estimation) for p in model.parameters
-            if p.estimation is not None and p.estimation.se is not None]
+    # The estimate covariance is $COV *output*, not control-stream input, so it rides as a
+    # .cov-style companion comment block on the CURATED typical values (v0.3 §8).
+    ests = theta_estimates(model)
     if ests:
-        lines.append(f"; estimation uncertainty (per-θ; method {ests[0][1].method}; "
+        lines.append(f"; estimation uncertainty (per-θ; method {ests[0].method}; "
                      "reducible with more data — distinct from $OMEGA between-subject variability):")
-        for sym, e in ests:
+        lines.append(f"; hypnos:uncertaintyStatus = {model.uncertainty_status}")
+        lines.append(f"; hypnos:estimationBandTier = {model.estimation_band_tier}")
+        for e in ests:
             rse = f"RSE {e.rse_percent:.3g}%" if e.rse_percent is not None else "RSE n/a"
-            lines.append(f";   {sym}: SE {e.se:g} (scale {e.scale}), {rse}")
+            lines.append(f";   {e.symbol}: SE {e.se:g} (scale {e.scale}) on curated "
+                         f"estimate {e.central:g}, {rse}")
+        syms, cov = theta_covariance(model)
+        lines.append("; estimate covariance of θ (.cov-style lower triangle, natural scale; "
+                     f"rows/cols: {' '.join(syms)}):")
+        for i, sym in enumerate(syms):
+            row = "  ".join(f"{cov[i][j]:.6g}" for j in range(i + 1))
+            lines.append(f";   {sym:<4} {row}")
+        for a, b, r in estimate_correlations(model):
+            lines.append(f";   estimate correlation {a}~{b}: {r:.6g}")
+        for note in (covariance_step_note(model), independence_caveat(model)):
+            if note:
+                lines.append(f"; NOTE: {note}")
     if omegas:
         lines.append(f"; $OMEGA — between-subject variance (eta-scale); band-tier {model.band_tier}")
         block = contiguous_block(model)

@@ -50,6 +50,22 @@ def build_dict(model, ds=None, patient: Optional[Dict[str, Any]] = None) -> Dict
     else:
         doc["variability"] = {"variability_status": "none",
                               "note": "no published between-subject variability (no band)"}
+    # v0.3 estimation-uncertainty layer — verbatim passthrough, in its OWN block beside
+    # `variability` (an estimation RSE is not a between-subject CV; v0.3 Trap 1). The SEs
+    # are on the curated typical values, so those ride along with them.
+    if model.has_published_estimation:
+        doc["estimation"] = {
+            "uncertainty_status": model.uncertainty_status,
+            "estimation_band_tier": model.estimation_band_tier,
+            "theta": {p["symbol"]: {"estimate": p["value"].get("central"),
+                                    "estimation_uncertainty": p["estimation_uncertainty"]}
+                      for p in model.raw.get("parameters", [])
+                      if (p.get("estimation_uncertainty") or {}).get("se") is not None},
+            "estimate_covariance": model.raw.get("estimate_covariance"),
+        }
+    else:
+        doc["estimation"] = {"uncertainty_status": "none",
+                             "note": "no published estimation uncertainty (no confidence band)"}
     # v0.6 LA: the site-absorption block and the toxicity-threshold RANGES pass
     # through verbatim (TCI-JSON is lossless; v0.6 §9). Threshold ranges export AS
     # ranges — there is no projection that collapses them to a single value. The

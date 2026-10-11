@@ -254,3 +254,219 @@ def test_four_way_decomposition_with_confidence_band():
     r = d["reducibility"]
     assert r["reducible"] == pytest.approx(vs["structural"] + vs["estimation"], abs=1e-3)
     assert "estimation (more data per model)" in r["note"]
+
+
+# --------------------------------------------------------------------------- #
+# E3 — every export carries the estimation object (v0.3 §8), round-trip exact (§9)
+# --------------------------------------------------------------------------- #
+import copy  # noqa: E402
+import json  # noqa: E402
+import re  # noqa: E402
+import xml.dom.minidom as minidom  # noqa: E402
+
+from hypnos.export import export_model  # noqa: E402
+from hypnos.export._estimation import (  # noqa: E402
+    independence_caveat, theta_covariance, theta_estimates,
+)
+
+ESTIMATION_FORMATS = ["nonmem", "pharmml", "sbml", "tci_json", "rxode2", "pumas"]
+
+
+def _curated(ds):
+    """symbol -> (central, se) straight from the record — the round-trip reference."""
+    return {p.symbol: (p.central, p.estimation.se) for p in ds[ELEVELD].parameters
+            if p.estimation and p.estimation.se is not None}
+
+
+def _correlated_eleveld(ds, succeeded=True):
+    """Eleveld with a constructed estimate correlation (no model publishes one yet)."""
+    raw = copy.deepcopy(ds[ELEVELD].raw)
+    raw["uncertainty_status"] = "correlated"
+    raw["estimate_covariance"] = {
+        "correlations": [{"between": ["Cl1", "V1"], "correlation": -0.42}],
+        "complete": False, "method": "asymptotic_covariance",
+        "covariance_step_succeeded": succeeded, "tier": "C",
+        "extraction": {"review_status": "unverified"}}
+    return Model(raw=raw)
+
+
+def test_theta_estimates_canonical_order_and_recomputed_rse():
+    ds = hypnos.load()
+    ests = theta_estimates(ds[ELEVELD])
+    assert [e.symbol for e in ests] == ["Cl1", "V1", "Cl2", "V2", "Cl3", "V3"]   # ke0 has no SE
+    for e in ests:
+        assert e.rse_percent == pytest.approx(100.0 * e.se / e.central)
+    assert theta_estimates(ds[MARSH]) == []          # never-synthesize
+
+
+def test_theta_estimates_log_scale_converts_to_natural():
+    m = _model(est={"se": 0.06, "scale": "log", "method": "bootstrap", "tier": "B",
+                    "extraction": {"review_status": "unverified"}}, status="marginal")
+    (e,) = theta_estimates(m)
+    assert e.se == 0.06 and e.se_natural == pytest.approx(1.79 * 0.06)
+    assert e.rse_percent == pytest.approx(6.0)
+
+
+def test_theta_covariance_marginal_is_diagonal_with_recorded_caveat():
+    ds = hypnos.load()
+    syms, cov = theta_covariance(ds[ELEVELD])
+    cur = _curated(ds)
+    for i, s in enumerate(syms):
+        assert cov[i][i] == pytest.approx(cur[s][1] ** 2)
+        assert all(cov[i][j] == 0.0 for j in range(len(syms)) if j != i)
+    assert "independence assumption" in independence_caveat(ds[ELEVELD])
+    assert theta_covariance(ds[MARSH]) is None
+
+
+def test_theta_covariance_carries_published_correlation_only():
+    ds = hypnos.load()
+    m = _correlated_eleveld(ds)
+    syms, cov = theta_covariance(m)
+    cur = _curated(ds)
+    i, j = syms.index("Cl1"), syms.index("V1")
+    assert cov[i][j] == cov[j][i] == pytest.approx(-0.42 * cur["Cl1"][1] * cur["V1"][1])
+    off = [cov[a][b] for a in range(len(syms)) for b in range(a) if {a, b} != {i, j}]
+    assert all(v == 0.0 for v in off)                # unpublished pairs are never invented
+    assert independence_caveat(m) is None
+
+
+@pytest.mark.parametrize("fmt", ESTIMATION_FORMATS)
+def test_export_carries_estimation_status_and_tier(fmt):
+    ds = hypnos.load()
+    _, text = export_model(fmt, ds[ELEVELD], ds)
+    if fmt == "tci_json":
+        est = json.loads(text)["estimation"]
+        assert (est["uncertainty_status"], est["estimation_band_tier"]) == ("marginal", "A")
+    else:
+        assert re.search(r"uncertaintyStatus\W+marginal", text)
+        assert re.search(r"estimationBandTier\W+A\b", text)
+
+
+@pytest.mark.parametrize("fmt", ESTIMATION_FORMATS)
+def test_export_never_synthesizes_estimation(fmt):
+    ds = hypnos.load()
+    _, text = export_model(fmt, ds[MARSH], ds)
+    if fmt == "tci_json":
+        assert json.loads(text)["estimation"]["uncertainty_status"] == "none"
+    else:
+        for marker in ("uncertaintyStatus", "theta_cov", "StandardOutput",
+                       "parameterStandardError"):
+            assert marker not in text
+
+
+def test_tci_json_estimation_round_trips_verbatim():
+    ds = hypnos.load()
+    theta = json.loads(export_model("tci_json", ds[ELEVELD], ds)[1])["estimation"]["theta"]
+    raw = {p["symbol"]: p for p in ds[ELEVELD].raw["parameters"]}
+    assert set(theta) == set(_curated(ds))
+    for sym, block in theta.items():
+        assert block["estimation_uncertainty"] == raw[sym]["estimation_uncertainty"]
+        assert block["estimate"] == raw[sym]["value"]["central"]
+
+
+def test_pharmml_standard_output_round_trips():
+    ds = hypnos.load()
+    dom = minidom.parseString(export_model("pharmml", ds[ELEVELD], ds)[1])
+    cur = _curated(ds)
+    mle = {e.getAttribute("symbol"): float(e.getAttribute("value"))
+           for e in dom.getElementsByTagName("Estimate")}
+    se = {e.getAttribute("symbol"): float(e.getAttribute("value"))
+          for e in dom.getElementsByTagName("SE")}
+    rse = {e.getAttribute("symbol"): float(e.getAttribute("percent"))
+           for e in dom.getElementsByTagName("RSE")}
+    assert set(se) == set(cur)
+    for sym, (central, s) in cur.items():
+        assert mle[sym] == pytest.approx(central) and se[sym] == pytest.approx(s)
+        assert rse[sym] == pytest.approx(100.0 * s / central, rel=1e-5)
+    # the estimation object is a sibling of — never nested in — the between-subject model
+    so = dom.getElementsByTagName("StandardOutput")[0]
+    assert so.parentNode is dom.getElementsByTagName("VariabilityModel")[0].parentNode
+    rows = dom.getElementsByTagName("Row")
+    assert float(rows[-1].firstChild.data.split()[-1]) == pytest.approx(cur["V3"][1] ** 2)
+
+
+def test_sbml_estimation_rdf_round_trips_beside_variability():
+    ds = hypnos.load()
+    text = export_model("sbml", ds[ELEVELD], ds)[1]
+    dom = minidom.parseString(text)
+    bag = dom.getElementsByTagName("hypnos:parameterStandardError")[0]
+    got = {li.getAttribute("hypnos:parameter"): (float(li.getAttribute("hypnos:estimate")),
+                                                 float(li.getAttribute("hypnos:se")))
+           for li in bag.getElementsByTagName("rdf:li")}
+    cur = _curated(ds)
+    assert set(got) == set(cur)
+    for sym in cur:
+        assert got[sym] == pytest.approx(cur[sym])
+    # an RSE never lands in the Ω bag, and a CV never in the SE bag (Trap 1)
+    omega = dom.getElementsByTagName("hypnos:betweenSubjectVariability")[0]
+    assert not any(li.hasAttribute("hypnos:se") for li in omega.getElementsByTagName("rdf:li"))
+    assert not any(li.hasAttribute("hypnos:omega2") for li in bag.getElementsByTagName("rdf:li"))
+    assert "sees the point estimate only" in text
+
+
+def test_nonmem_cov_companion_round_trips():
+    ds = hypnos.load()
+    text = export_model("nonmem", ds[ELEVELD], ds)[1]
+    cur = _curated(ds)
+    got = {m.group(1): (float(m.group(3)), float(m.group(2))) for m in re.finditer(
+        r"^;\s+(\w+): SE (\S+) \(scale natural\) on curated estimate (\S+),", text, re.M)}
+    assert set(got) == set(cur)
+    for sym in cur:
+        assert got[sym] == pytest.approx(cur[sym], rel=1e-5)
+    assert ".cov-style lower triangle" in text
+    # the block is comments only — it must not change the runnable control stream
+    est_lines = [ln for ln in text.splitlines() if "estimat" in ln.lower() and "$EST" not in ln]
+    assert est_lines and all(ln.startswith(";") for ln in est_lines)
+
+
+def test_rxode2_theta_cov_round_trips_and_is_not_omega():
+    ds = hypnos.load()
+    text = export_model("rxode2", ds[ELEVELD], ds)[1]
+    cur = _curated(ds)
+    block = text[text.index("_theta_cov <- lotri({"):]
+    got = {m.group(1): float(m.group(2))
+           for m in re.finditer(r"^\s+theta\.(\w+) ~ (\S+)$", block, re.M)}
+    assert set(got) == set(cur)
+    for sym, (_, s) in cur.items():
+        assert got[sym] == pytest.approx(s ** 2, rel=1e-9)
+    assert "NOT Omega" in text
+    # the BSV matrix keeps its own name and its own (η) rows
+    omega = text[text.index("_omega <- lotri({"):text.index("# ── estimation uncertainty")]
+    assert "eta.V1 ~ 0.61" in omega and "theta." not in omega
+
+
+def test_pumas_theta_cov_round_trips():
+    ds = hypnos.load()
+    text = export_model("pumas", ds[ELEVELD], ds)[1]
+    cur = _curated(ds)
+    block = text[text.index("_theta_cov = ("):]
+    names = re.search(r"names = \[(.*?)\]", block).group(1).replace(":", "").split(", ")
+    rows = [[float(x) for x in ln.strip().rstrip(";").split()]
+            for ln in block[block.index("cov = [") + 7:block.index("    ],")].strip().splitlines()]
+    assert names == [e.symbol for e in theta_estimates(ds[ELEVELD])]
+    for i, sym in enumerate(names):
+        assert rows[i][i] == pytest.approx(cur[sym][1] ** 2, rel=1e-9)
+    assert "NOT the @random" in text
+
+
+@pytest.mark.parametrize("fmt", ["nonmem", "pharmml", "sbml", "rxode2", "pumas"])
+def test_export_carries_published_estimate_correlation(fmt):
+    ds = hypnos.load()
+    text = export_model(fmt, _correlated_eleveld(ds), ds)[1]
+    cur = _curated(ds)
+    covar = -0.42 * cur["Cl1"][1] * cur["V1"][1]
+    if fmt != "sbml":                                 # SBML carries r itself, not a matrix
+        assert f"{covar:.6g}"[:9] in text             # the off-diagonal r·seᵢ·seⱼ
+    assert "covariance step succeeded" in text
+    assert "independence assumption" not in text
+    if fmt in ("pharmml", "sbml"):
+        minidom.parseString(text)
+        assert re.search(r'between="Cl1 V1"\W+(hypnos:)?(correlation|coefficient)="-0.42"', text)
+    if fmt == "rxode2":                               # one lower-triangular lotri block
+        assert "theta.Cl1 + theta.V1 + theta.Cl2" in text
+
+
+def test_export_states_a_failed_covariance_step():
+    ds = hypnos.load()
+    text = export_model("nonmem", _correlated_eleveld(ds, succeeded=False), ds)[1]
+    assert "covariance step FAILED" in text and "MISSING, not zero" in text

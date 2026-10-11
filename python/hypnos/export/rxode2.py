@@ -12,6 +12,9 @@ from typing import Any, Dict, Optional
 
 from . import annotate
 from ._common import resolve_patient, safe_name
+from ._estimation import (
+    covariance_step_note, independence_caveat, theta_covariance, theta_estimates,
+)
 from ._variability import omega_diagonal, residual_spec
 from .registry import KERNELS
 
@@ -81,6 +84,47 @@ def _population_block(model, name: str, p) -> list:
     return lines
 
 
+def _lotri_cov(name: str, prefix: str, syms, cov) -> list:
+    """A ``lotri`` covariance block: one diagonal line per parameter, or — when any
+    off-diagonal is published — a single lower-triangular block over all of them."""
+    lines = [f"{name} <- lotri({{"]
+    if any(cov[i][j] for i in range(len(syms)) for j in range(i)):
+        tri = ", ".join(f"{cov[i][j]:.10g}" for i in range(len(syms)) for j in range(i + 1))
+        lines.append("  " + " + ".join(f"{prefix}{s}" for s in syms) + f" ~ c({tri})")
+    else:
+        lines += [f"  {prefix}{s} ~ {cov[i][i]:.10g}" for i, s in enumerate(syms)]
+    lines.append("})")
+    return lines
+
+
+def _estimation_block(model, name: str) -> list:
+    """The curated ESTIMATE covariance of θ, usable to seed SIR / parametric resampling of
+    the typical values in a simulation script (v0.3 §8). Emitted only when the model
+    publishes estimation uncertainty; deliberately NOT named ``omega``."""
+    ests = theta_estimates(model)
+    if not ests:
+        return []
+    syms, cov = theta_covariance(model)
+    lines = [
+        "",
+        "# ── estimation uncertainty (v0.3): the estimate covariance of theta ──",
+        "#    ESTIMATION covariance (how well the data pin the typical value; reducible) —",
+        "#    NOT Omega (between-subject spread). Do not pass this as `omega=`.",
+        f"#    hypnos:uncertaintyStatus = {model.uncertainty_status}",
+        f"#    hypnos:estimationBandTier = {model.estimation_band_tier}",
+        f"#    method {ests[0].method}; natural scale, on the CURATED typical values below",
+        "#    (not the patient-instantiated parameters above; RSE% is the scale-free form).",
+        f"{name}_theta_ref <- c(" + ", ".join(f"{e.symbol} = {e.central:.10g}" for e in ests) + ")",
+        f"{name}_theta_rse <- c(" + ", ".join(
+            f"{e.symbol} = {e.rse_percent:.6g}" for e in ests if e.rse_percent is not None) + ")",
+    ]
+    lines += _lotri_cov(f"{name}_theta_cov", "theta.", syms, cov)
+    for note in (covariance_step_note(model), independence_caveat(model)):
+        if note:
+            lines.append(f"# NOTE: {note}")
+    return lines
+
+
 def build(model, ds=None, patient: Optional[Dict[str, Any]] = None) -> str:
     pat = resolve_patient(model, patient)
     head = _comment_block(annotate.banner(model, model.tier))
@@ -122,6 +166,7 @@ def build(model, ds=None, patient: Optional[Dict[str, Any]] = None) -> str:
     ]
     if model.has_published_variability:
         lines += _population_block(model, safe_name(model), p)
+    lines += _estimation_block(model, safe_name(model))
     return "\n".join(lines) + "\n"
 
 

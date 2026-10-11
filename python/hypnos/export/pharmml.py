@@ -15,6 +15,10 @@ from xml.sax.saxutils import escape
 
 from . import annotate
 from ._common import resolve_patient, safe_name
+from ._estimation import (
+    covariance_step_note, estimate_correlations, independence_caveat, theta_covariance,
+    theta_estimates,
+)
 from ._variability import omega_correlations, omega_diagonal, residual_spec
 from .registry import KERNELS
 
@@ -55,6 +59,60 @@ def _variability_xml(model) -> str:
             f'description="{escape(spec.label)}"{terms}/>'
         )
     parts.append('    </VariabilityModel>')
+    return "\n" + "\n".join(parts)
+
+
+def _estimation_xml(model) -> str:
+    """The estimation object in the PharmML Standard Output's shape (v0.3 §8).
+
+    ``Estimation/PopulationEstimates/MLE`` carries the CURATED typical values the SEs are
+    on (not the patient-instantiated ``PopulationParameters`` above);
+    ``PrecisionPopulationEstimates`` carries ``StandardError`` / ``RelativeStandardError``
+    and the estimate ``CovarianceMatrix`` + any published ``CorrelationMatrix`` entries.
+    Empty when the model publishes no estimation uncertainty (never-synthesize)."""
+    ests = theta_estimates(model)
+    if not ests:
+        return ""
+    method = escape(ests[0].method)
+    parts = [
+        f'    <StandardOutput uncertaintyStatus="{escape(model.uncertainty_status)}" '
+        f'estimationBandTier="{model.estimation_band_tier}">',
+        '      <!-- ESTIMATION uncertainty (SE on the typical value; reducible with more data) '
+        '— NOT the between-subject VariabilityModel above -->',
+        '      <Estimation>',
+        '        <PopulationEstimates>',
+        '          <MLE>',
+    ]
+    parts += [f'            <Estimate symbol="{escape(e.symbol)}" value="{e.central:.10g}"/>'
+              for e in ests]
+    parts += ['          </MLE>', '        </PopulationEstimates>',
+              f'        <PrecisionPopulationEstimates method="{method}">',
+              '          <StandardError>']
+    for e in ests:
+        ci = f' ci95Low="{e.ci95[0]:.10g}" ci95High="{e.ci95[1]:.10g}"' if e.ci95 else ""
+        parts.append(f'            <SE symbol="{escape(e.symbol)}" value="{e.se:.10g}" '
+                     f'scale="{escape(e.scale)}" tier="{e.tier}"{ci}/>')
+    parts += ['          </StandardError>', '          <RelativeStandardError>']
+    parts += [f'            <RSE symbol="{escape(e.symbol)}" percent="{e.rse_percent:.6g}"/>'
+              for e in ests if e.rse_percent is not None]
+    parts.append('          </RelativeStandardError>')
+    syms, cov = theta_covariance(model)
+    parts.append(f'          <CovarianceMatrix scale="natural" rowNames="{escape(" ".join(syms))}">')
+    for i, row in enumerate(cov):
+        cells = " ".join(f"{row[j]:.10g}" for j in range(i + 1))
+        parts.append(f'            <Row symbol="{escape(syms[i])}">{cells}</Row>')
+    parts.append('          </CovarianceMatrix>')
+    corrs = estimate_correlations(model)
+    if corrs:
+        parts.append('          <CorrelationMatrix>')
+        parts += [f'            <Correlation between="{escape(a)} {escape(b)}" '
+                  f'coefficient="{r:.6g}"/>' for a, b, r in corrs]
+        parts.append('          </CorrelationMatrix>')
+    parts.append('        </PrecisionPopulationEstimates>')
+    for note in (covariance_step_note(model), independence_caveat(model)):
+        if note:
+            parts.append(f'        <Note>{escape(note)}</Note>')
+    parts += ['      </Estimation>', '    </StandardOutput>']
     return "\n" + "\n".join(parts)
 
 
@@ -135,6 +193,7 @@ def build(model, ds=None, patient: Optional[Dict[str, Any]] = None) -> str:
         '    <PopulationParameters>\n' + param_lines + '\n    </PopulationParameters>\n'
         '    <CovariateModel>\n' + cov_lines + '\n    </CovariateModel>'
         + _variability_xml(model)
+        + _estimation_xml(model)
         + kernel_note + '\n'
         + prov_xml + '\n'
         '  </pharmml:ModelDefinition>\n'

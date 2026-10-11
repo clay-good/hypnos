@@ -8,6 +8,23 @@ version is pinned in `dataset/VERSION` and stamped into every export as
 
 ## [Unreleased]
 
+### v0.3 E3 finish — the estimation object reaches every export (2026-10-10)
+- **All six model formats now carry the curated estimation uncertainty** (v0.3 §8), where before only
+  NONMEM had a per-θ comment block: PharmML gains a Standard-Output-shaped `Estimation` object (`MLE`,
+  `StandardError`, `RelativeStandardError`, `CovarianceMatrix`, `CorrelationMatrix`); nlmixr2/rxode2 a
+  `<id>_theta_cov` `lotri` block (+ `_theta_ref` / `_theta_rse`); Pumas a `<id>_theta_cov` object; SBML
+  `hypnos:parameterStandardError` / `hypnos:estimateCorrelation` RDF; TCI-JSON a verbatim `estimation`
+  block; NONMEM's block grows into a `.cov`-style companion (covariance lower triangle, correlations,
+  covariance-step outcome). Each carries `hypnos:uncertaintyStatus` + `hypnos:estimationBandTier`.
+- **Kept apart from Ω by construction.** The estimate covariance never shares a name or element with the
+  between-subject layer (`theta_cov` vs `omega`, `StandardOutput` vs `VariabilityModel`) — an RSE is not a CV.
+- **Honest about which θ.** SEs are on the source's curated typical value, not the patient-instantiated
+  export parameters, so every carrier emits that estimate beside its SE and the scale-free RSE.
+- **Never-synthesize holds.** Models without published estimation uncertainty export nothing; a `marginal`
+  model's covariance is diagonal with the independence assumption written into the artifact.
+- New shared helper `hypnos.export._estimation`; 28 new tests assert exported SE/RSE/covariance equal the
+  curated values exactly in every format (v0.3 §9 round-trip).
+
 ### Spec completion — every proposed roadmap phase across v0.3–v0.7 is now implemented (2026-06-23)
 - **v0.7 C3 — covariate-aware exports.** The derived-covariate equation now rides inside every export:
   NONMEM `$PK` computes the named LBM/FFM equation the model's way (round-trip-equal to the library),

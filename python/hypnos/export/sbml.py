@@ -38,7 +38,10 @@ def build(model, ds=None, patient: Optional[Dict[str, Any]] = None) -> str:
     # deterministic consumer sees the right body-size transform (no silent LBM recompute).
     from ._covariate import covariate_rdf
     cov = covariate_rdf(model, ds, indent="  ")
-    extra = "\n".join(x for x in (var_rdf, la, dev, pgx, cov) if x)
+    # v0.3 §8: the per-θ estimation SE/RSE + estimate correlations ride as their own RDF
+    # predicates — reducible uncertainty, kept apart from the Ω/Σ above (Trap 1).
+    est_rdf = annotate.estimation_rdf(model, indent="  ")
+    extra = "\n".join(x for x in (var_rdf, est_rdf, la, dev, pgx, cov) if x)
     ann = annotate.rdf_annotation_xml(model, ds, extra_predicates=extra)
     var_note = (
         "    <!-- v0.2 population variability: the curated Omega/Sigma are carried as "
@@ -46,6 +49,11 @@ def build(model, ds=None, patient: Optional[Dict[str, Any]] = None) -> str:
         "random effects, so a deterministic SBML consumer sees only the typical patient "
         "(parameters + rate rules). -->\n"
         if var_rdf else ""
+    ) + (
+        "    <!-- v0.3 estimation uncertainty: the per-theta SE/RSE are carried as hypnos: RDF "
+        "on the CURATED typical values. A deterministic SBML consumer sees the point "
+        "estimate only. -->\n"
+        if est_rdf else ""
     )
     if not (model.kernel_implemented and model.kernel_function in KERNELS):
         # Emit a stub SBML carrying provenance only; no dynamics without a kernel.

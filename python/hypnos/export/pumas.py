@@ -12,6 +12,9 @@ from typing import Any, Dict, Optional
 
 from . import annotate
 from ._common import resolve_patient, safe_name
+from ._estimation import (
+    covariance_step_note, independence_caveat, theta_covariance, theta_estimates,
+)
 from ._variability import omega_diagonal, residual_spec
 from .registry import KERNELS
 
@@ -88,6 +91,41 @@ def _population_block(model, name: str, p) -> list:
     return lines
 
 
+def _estimation_block(model, name: str) -> list:
+    """The curated ESTIMATE covariance of θ as a plain named object, for ``simobs``-style
+    parametric uncertainty propagation (v0.3 §8). Estimation uncertainty — distinct from
+    the ``@random`` η block. Emitted only when the model publishes it."""
+    ests = theta_estimates(model)
+    if not ests:
+        return []
+    syms, cov = theta_covariance(model)
+    n = len(syms)
+    rows = ";\n".join("        " + " ".join(f"{cov[i][j]:.10g}" for j in range(n)) for i in range(n))
+    lines = [
+        "",
+        "# ── estimation uncertainty (v0.3): the estimate covariance of θ ──",
+        "#    ESTIMATION covariance (how well the data pin the typical value; reducible) —",
+        "#    NOT the @random Ω (between-subject spread).",
+        f"#    hypnos:uncertaintyStatus = {model.uncertainty_status}",
+        f"#    hypnos:estimationBandTier = {model.estimation_band_tier}",
+        f"#    method {ests[0].method}; natural scale, on the CURATED typical values",
+        "#    (not the patient-instantiated @pre values above; rse_percent is scale-free).",
+        f"{name}_theta_cov = (",
+        "    names = [" + ", ".join(f":{s}" for s in syms) + "],",
+        "    estimate = [" + ", ".join(f"{e.central:.10g}" for e in ests) + "],",
+        "    rse_percent = [" + ", ".join(
+            f"{e.rse_percent:.6g}" if e.rse_percent is not None else "NaN" for e in ests) + "],",
+        "    cov = [",
+        rows,
+        "    ],",
+        ")",
+    ]
+    for note in (covariance_step_note(model), independence_caveat(model)):
+        if note:
+            lines.append(f"# NOTE: {note}")
+    return lines
+
+
 def build(model, ds=None, patient: Optional[Dict[str, Any]] = None) -> str:
     pat = resolve_patient(model, patient)
     head = _comment_block(annotate.banner(model, model.tier))
@@ -135,6 +173,7 @@ def build(model, ds=None, patient: Optional[Dict[str, Any]] = None) -> str:
     ]
     if model.has_published_variability:
         lines += _population_block(model, safe_name(model), p)
+    lines += _estimation_block(model, safe_name(model))
     return "\n".join(lines) + "\n"
 
 

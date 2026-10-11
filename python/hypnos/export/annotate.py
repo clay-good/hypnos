@@ -109,6 +109,47 @@ def variability_rdf(model: Model, indent: str = "  ") -> str:
     return "\n".join(lines)
 
 
+def estimation_rdf(model: Model, indent: str = "  ") -> str:
+    """``hypnos:`` RDF predicates describing the curated estimation uncertainty (v0.3 §8).
+
+    The per-θ SE/RSE and any published estimate correlations ride as metadata beside the
+    Ω/Σ of :func:`variability_rdf` — in their OWN predicates, because an estimation RSE is
+    not a between-subject CV (v0.3 Trap 1). Each ``rdf:li`` carries the curated typical
+    value the SE is on, which is *not* the patient-instantiated ``<parameter>`` value.
+    Returns ``""`` when the model publishes no estimation uncertainty (never-synthesize).
+    """
+    from ._estimation import (
+        covariance_step_note, estimate_correlations, independence_caveat, theta_estimates,
+    )
+
+    ests = theta_estimates(model)
+    if not ests:
+        return ""
+    pad = f"{indent}    "
+    lines = [
+        f"{pad}<hypnos:uncertaintyStatus>{model.uncertainty_status}</hypnos:uncertaintyStatus>",
+        f"{pad}<hypnos:estimationBandTier>{model.estimation_band_tier}</hypnos:estimationBandTier>",
+        f"{pad}<hypnos:parameterStandardError>",
+        f"{pad}  <rdf:Bag>",
+    ]
+    for e in ests:
+        rse = f' hypnos:rsePercent="{e.rse_percent:.6g}"' if e.rse_percent is not None else ""
+        ci = (f' hypnos:ci95Low="{e.ci95[0]:.10g}" hypnos:ci95High="{e.ci95[1]:.10g}"'
+              if e.ci95 else "")
+        lines.append(
+            f'{pad}    <rdf:li hypnos:parameter="{e.symbol}" hypnos:estimate="{e.central:.10g}" '
+            f'hypnos:se="{e.se:.10g}" hypnos:scale="{e.scale}"{rse}{ci} '
+            f'hypnos:method="{e.method}" hypnos:tier="{e.tier}"/>')
+    lines += [f"{pad}  </rdf:Bag>", f"{pad}</hypnos:parameterStandardError>"]
+    for a, b, r in estimate_correlations(model):
+        lines.append(f'{pad}<hypnos:estimateCorrelation hypnos:between="{a} {b}" '
+                     f'hypnos:correlation="{r:.6g}"/>')
+    for note in (covariance_step_note(model), independence_caveat(model)):
+        if note:
+            lines.append(f"{pad}<hypnos:estimationNote>{note}</hypnos:estimationNote>")
+    return "\n".join(lines)
+
+
 def la_rdf(model: Model, drug: Optional[Dict[str, Any]] = None, indent: str = "  ") -> str:
     """``hypnos:`` RDF predicates for the local-anesthetic blocks (v0.6 §9).
 

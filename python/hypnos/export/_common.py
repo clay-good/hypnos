@@ -13,6 +13,8 @@ REFERENCE_PATIENT: Dict[str, Any] = {"age": 50, "weight": 77, "height": 177, "se
 
 def resolve_patient(model: Model, patient: Optional[Dict[str, Any]]) -> Dict[str, Any]:
     if patient is not None:
+        from ..covariates import point_patient
+        point_patient(patient)           # refuses a physically impossible patient (ValueError)
         return dict(patient)
     return dict(REFERENCE_PATIENT)
 

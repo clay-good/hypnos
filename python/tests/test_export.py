@@ -235,3 +235,9 @@ def test_sbml_rules_reference_only_declared_non_constant_parameters(ds, mid, pat
     for p in params.values():
         if p.hasAttribute("units"):
             assert p.getAttribute("units") in units | builtin, f"undefined unit on {p.getAttribute('id')}"
+
+
+@pytest.mark.parametrize("fmt", _MODEL_FORMATS)
+def test_export_refuses_a_physically_impossible_patient(ds, fmt):
+    with pytest.raises(ValueError, match="weight must be a finite number > 0"):
+        export_model(fmt, ds[SCHNIDER], ds, {"age": 50, "weight": 0, "height": 177, "sex": "M"})

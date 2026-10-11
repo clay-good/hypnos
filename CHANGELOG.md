@@ -18,6 +18,8 @@ version is pinned in `dataset/VERSION` and stamped into every export as
   that every rule targets a declared non-constant parameter, that every `<ci>` is declared, that no
   variable has two rules, and that every unit is defined.
 - Neither tool is available here, so these are checked structurally, not by running NONMEM or libSBML.
+- Exports now refuse a physically impossible patient with the same `ValueError` as `simulate` (it was a
+  `ZeroDivisionError` from inside the kernel).
 - 53 new tests.
 
 ### v0.3 §2.2 / Trap 5 — second-order uncertainty on Ω and Σ (2026-10-10)

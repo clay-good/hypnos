@@ -453,6 +453,67 @@ if volatiles:
                    "Comparative only — NOT a per-patient predictor.")
 
 # --------------------------------------------------------------------------- #
+# Reversal agents (v0.5 Part A) — antagonism is an interaction, not a solo curve
+# --------------------------------------------------------------------------- #
+reversal_agents = {m.drug_name: m for m in ds if m.is_reversal_agent}
+if reversal_agents:
+    from hypnos.presets import default_schedule_for as _default_schedule
+    from hypnos.simulate import simulate_reversal
+
+    st.divider()
+    st.subheader("Reversal — a GIVEN antagonist dose acting on its agonist (v0.5)")
+    st.caption("Three mechanisms, three different failure modes: sugammadex **encapsulates** "
+               "rocuronium, naloxone **competes** at the receptor and can be outlasted "
+               "(renarcotization), neostigmine acts **indirectly** and hits a ceiling in deep block. "
+               "Forward-only: this renders the dose you enter — it never computes one.")
+    rc1, rc2, rc3 = st.columns(3)
+    agent_name = rc1.selectbox("Reversal agent", sorted(reversal_agents),
+                               index=sorted(reversal_agents).index("sugammadex")
+                               if "sugammadex" in reversal_agents else 0)
+    rev_model = reversal_agents[agent_name]
+    mech = rev_model.reversal_mechanism["type"]
+    agonist = ds[rev_model.reversal_targets[0]]
+    ago_dose = next((d for kind, _, d in _default_schedule(agonist.drug_name) if kind == "bolus"),
+                    "1 mg/kg")
+    rev_dose = rc2.text_input("Reversal dose given", "0.4 mg" if mech == "competitive_receptor"
+                              else "4 mg/kg", disabled=mech == "enzyme_inhibition")
+    rev_at = rc3.slider("Reversal given at (min)", 1, 60, 10, disabled=mech == "enzyme_inhibition")
+    horizon = 240 if mech == "competitive_receptor" else 60
+    tr = np.linspace(0, horizon, 4 * horizon + 1)
+    pd_for_agonist = next((m.id for m in ds if m.purpose == "pd" and m.drug_name == agonist.drug_name),
+                          None)
+    try:
+        rr = simulate_reversal(
+            ds, rev_model.id, patient=dict(age=age, weight=weight, height=height, sex=sex),
+            reversal_dose=rev_dose.strip(), agonist_dose=ago_dose, t=tr,
+            reversal_time_min=float(rev_at), pd_model=pd_for_agonist if mech == "encapsulation" else None)
+    except (ValueError, NotImplementedError, KeyError) as exc:
+        rr = None
+        st.warning(f"Cannot simulate this reversal: {exc}")
+    if rr is not None:
+        st.markdown(f"**{rev_model.label}** on **{agonist.drug_name}** ({ago_dose} at t = 0) — "
+                    f"tier {rr.tier}")
+        if mech == "encapsulation" and rr.effect is not None:
+            st.line_chart(pd.DataFrame({"t (min)": tr, "no reversal": rr.effect_no_reversal,
+                                        "reversed": rr.effect}), x="t (min)")
+            st.caption("Train-of-four T1 twitch height (%): the reversed curve recovers as free "
+                       "rocuronium is bound into an inert complex.")
+        elif mech == "competitive_receptor":
+            st.line_chart(pd.DataFrame({"t (min)": tr, "apparent-Ce50 multiplier": rr.ce50_multiplier}),
+                          x="t (min)")
+            st.caption("How far the antagonist shifts the opioid's apparent Ce50. A multiplier that "
+                       "peaks and falls back toward 1 means the opioid effect returns.")
+        elif mech == "enzyme_inhibition":
+            st.line_chart(pd.DataFrame({"block depth before reversal (1 = complete)": rr.free_ce,
+                                        "residual block after neostigmine": rr.effect}),
+                          x="block depth before reversal (1 = complete)")
+            st.caption("Residual block against the depth it started from: above the depth floor "
+                       "the block is unchanged — the ceiling.")
+        for w_ in rr.warnings[1:]:
+            st.warning(w_)
+        st.caption(rr.warnings[0] + " NOT a dosing tool.")
+
+# --------------------------------------------------------------------------- #
 # Developmental extrapolation overlay (v0.8 §6)
 # --------------------------------------------------------------------------- #
 # A neonate/infant is outside every adult model's envelope, so this view has its own

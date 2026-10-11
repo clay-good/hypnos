@@ -852,7 +852,7 @@ hypnos/
 ├── notebooks/                   # reference notebooks executed in CI (nbmake): divergence · v0.2 variability · v0.5 organ envelope · v0.6 local anesthetics
 ├── CHANGELOG.md · .zenodo.json   # release metadata (Zenodo DOI on first tagged release)
 ├── python/tests/                # analytic-vs-numeric, round-trip, envelope, tier, CLI, verification
-├── dashboard/app.py             # Streamlit: divergence + bands + PD effect band (v0.2) + reducible/irreducible readout (v0.3) + onset + synergy + local anesthetics (v0.6) + volatiles + developmental overlay (v0.8) + pharmacogenomics (v0.9)
+├── dashboard/app.py             # Streamlit: divergence + bands + PD effect band (v0.2) + reducible/irreducible readout (v0.3) + onset + synergy + local anesthetics (v0.6) + volatiles + reversal (v0.5) + developmental overlay (v0.8) + pharmacogenomics (v0.9)
 ├── docs/about/essay.md          # why model-selection risk is the load-bearing idea
 ├── docs/specs/v0.1/spec.md      # the design spec (typical-value layer)
 ├── docs/specs/v0.2/variability.md  # the population-variability layer (Ω/Σ, bands)

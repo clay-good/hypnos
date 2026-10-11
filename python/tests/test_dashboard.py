@@ -145,3 +145,28 @@ def test_dashboard_pharmacogenomics_never_infers_and_leads_with_avoidance():
     # the substrate guardrail table and the honest-majority line both render
     assert any("Not affected" in m.value for m in at.markdown)
     assert any("honest majority" in c.value for c in at.caption)
+
+
+def test_dashboard_reversal_panel_covers_the_three_mechanisms():
+    # v0.5 Part A reaches the dashboard: each mechanism renders with its own failure mode
+    at = AppTest.from_file(APP, default_timeout=120).run()
+    assert not at.exception
+    assert any("Reversal — a GIVEN antagonist dose" in s.value for s in at.subheader)
+    warnings = " ".join(w.value for w in at.warning)
+    assert "ENCAPSULATION" in warnings                      # default agent: sugammadex
+    assert any("never computes a reversal dose" in c.value for c in at.caption)
+    agent = next(s for s in at.selectbox if s.label == "Reversal agent")
+    agent.set_value("naloxone").run()
+    assert not at.exception
+    assert "RENARCOTIZATION" in " ".join(w.value for w in at.warning)
+    agent = next(s for s in at.selectbox if s.label == "Reversal agent")
+    agent.set_value("neostigmine").run()
+    assert not at.exception
+    assert "CEILING" in " ".join(w.value for w in at.warning)
+
+
+def test_dashboard_reversal_panel_survives_an_unparseable_dose():
+    at = AppTest.from_file(APP, default_timeout=120).run()
+    next(t for t in at.text_input if t.label == "Reversal dose given").set_value("banana").run()
+    assert not at.exception
+    assert "Cannot simulate this reversal" in " ".join(w.value for w in at.warning)

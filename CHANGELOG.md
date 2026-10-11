@@ -8,6 +8,13 @@ version is pinned in `dataset/VERSION` and stamped into every export as
 
 ## [Unreleased]
 
+### Dashboard — the reversal subsystem (2026-10-10)
+- v0.5's reversal agents were the last subsystem with no dashboard view. A new panel simulates a *given*
+  dose of sugammadex (train-of-four with vs without reversal), naloxone (the apparent-Ce50 multiplier
+  rising and relapsing — renarcotization), or neostigmine (residual block against starting depth — the
+  ceiling), with each mechanism's warning. It never computes a dose, and an unparseable dose is a warning,
+  not a crash. 2 new tests.
+
 ### CI — lint job (2026-10-10)
 - CI now runs `ruff check python dashboard scripts`; "ruff clean" was asserted by hand until now.
   `scripts/regenerate.py` keeps its `;`-chained matplotlib style via a per-file `E702` ignore. `ruff` joins

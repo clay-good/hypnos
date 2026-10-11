@@ -43,7 +43,7 @@ jobs:
           python-version: "3.12"
       - run: |
           python -m pip install --upgrade pip
-          pip install "ruff>=0.4"
+          pip install "ruff==0.15.10"   # pinned, with the rule set pinned in pyproject.toml
       - name: Ruff
         run: ruff check python dashboard scripts sync_dataset_into_package.py
 

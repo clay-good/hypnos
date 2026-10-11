@@ -37,7 +37,9 @@ version is pinned in `dataset/VERSION` and stamped into every export as
   not a crash. 2 new tests.
 
 ### CI — lint job (2026-10-10)
-- CI now runs `ruff check python dashboard scripts`; "ruff clean" was asserted by hand until now.
+- CI now runs `ruff check python dashboard scripts`; "ruff clean" was asserted by hand until now. The
+  ruff version (0.15.10) and the rule set (`E4`, `E7`, `E9`, `F`) are both pinned: the first version of
+  this job installed an unpinned ruff whose larger default rule set failed CI on three commits.
   `scripts/regenerate.py` keeps its `;`-chained matplotlib style via a per-file `E702` ignore. `ruff` joins
   the `dev` extra, and CONTRIBUTING lists the command.
 

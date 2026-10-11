@@ -66,6 +66,12 @@ def build_dict(model, ds=None, patient: Optional[Dict[str, Any]] = None) -> Dict
     else:
         doc["estimation"] = {"uncertainty_status": "none",
                              "note": "no published estimation uncertainty (no confidence band)"}
+    # v0.4 §8: the Hypnos-COMPUTED external_validation[] blocks pass through verbatim, with
+    # their manifest/provenance, so a consumer sees reproducible metrics — kept apart from
+    # the publisher-reported predictive_performance.
+    doc["validation_status"] = model.validation_status
+    if model.has_external_validation:
+        doc["external_validation"] = model.external_validation
     # v0.5 §D: the reversal coupling and the opt-in Tier-D disease-state modifiers pass
     # through verbatim. The instantiated parameters below are NEVER pre-adjusted by a
     # modifier — a consumer sees the adjustment, its citation, and its opt-in flag.

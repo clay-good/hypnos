@@ -116,6 +116,29 @@ def _estimation_xml(model) -> str:
     return "\n" + "\n".join(parts)
 
 
+def _validation_xml(model) -> str:
+    """Hypnos-computed external-validation metrics as a goodness-of-fit ``Diagnostics``
+    block (v0.4 §8), a sibling of the v0.3 estimation object. Empty when none are curated."""
+    entries = annotate._validation_entries(model)
+    if not entries:
+        return ""
+    parts = [f'    <Diagnostics validationStatus="{escape(model.validation_status)}">',
+             f'      <!-- {escape(annotate._NOT_CLEARANCE)} -->']
+    for e in entries:
+        attrs = (f'dataset={quoteattr(str(e["dataset"]))} mode="{escape(str(e["mode"]))}" '
+                 f'target="{escape(str(e["target"]))}"')
+        if e["n_subjects"] is not None:
+            attrs += f' nSubjects="{e["n_subjects"]}"'
+        if e["in_envelope"] is not None:
+            attrs += f' inEnvelope="{str(e["in_envelope"]).lower()}"'
+        parts.append(f'      <ExternalValidation {attrs}>')
+        parts += [f'        <Metric name="{escape(str(n))}" value="{v:.10g}" units={quoteattr(u)}/>'
+                  for n, v, u in e["metrics"]]
+        parts.append('      </ExternalValidation>')
+    parts.append('    </Diagnostics>')
+    return "\n" + "\n".join(parts)
+
+
 def build(model, ds=None, patient: Optional[Dict[str, Any]] = None) -> str:
     pat = resolve_patient(model, patient)
     name = safe_name(model)
@@ -212,6 +235,7 @@ def build(model, ds=None, patient: Optional[Dict[str, Any]] = None) -> str:
         '    <CovariateModel>\n' + cov_lines + '\n    </CovariateModel>'
         + _variability_xml(model)
         + _estimation_xml(model)
+        + _validation_xml(model)
         + kernel_note + '\n'
         + prov_xml + '\n'
         '  </pharmml:ModelDefinition>\n'

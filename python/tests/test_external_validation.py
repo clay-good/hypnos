@@ -539,3 +539,170 @@ def test_visual_predictive_check_bins_observed_and_predicted():
     for b in range(5):
         if v.n_per_bin[b] > 0:
             assert v.predicted[10][b] <= v.observed[50][b] <= v.predicted[90][b] + 1e-6
+
+
+# --------------------------------------------------------------------------- #
+# v0.4 §7 — the VPC reaches the CLI; §8 — computed metrics travel in every export
+# --------------------------------------------------------------------------- #
+MARSH = "hypnotics_iv.propofol.marsh_1991"
+
+
+def _self_subjects(ds, mid, offset=0.0):
+    from hypnos.analysis import subjects_from_cohort_self_consistency
+    return subjects_from_cohort_self_consistency(ds, mid, target="cp", offset_pct=offset, n_subjects=3)
+
+
+def test_vpc_names_a_no_bsv_model_as_point_prediction_not_a_band():
+    # never-synthesize: a model with no curated Ω gets a goodness-of-fit, NAMED as such (§7)
+    from hypnos.analysis import visual_predictive_check
+    ds = hypnos.load()
+    v = visual_predictive_check(ds, MARSH, _self_subjects(ds, MARSH), n_bins=4, seed=1)
+    assert v.has_band is False and v.median_coverage() is None
+    rec = v.to_record()
+    assert rec["kind"] == "point_prediction_goodness_of_fit"
+    assert rec["predicted"]["10"] == rec["predicted"]["90"]        # a line, not a band
+    e = visual_predictive_check(ds, ELEVELD, _self_subjects(ds, ELEVELD), n_bins=4, seed=1)
+    assert e.has_band is True and e.to_record()["kind"] == "vpc"
+
+
+def test_vpc_median_coverage_detects_a_biased_model():
+    from hypnos.analysis import visual_predictive_check
+    ds = hypnos.load()
+    good = visual_predictive_check(ds, ELEVELD, _self_subjects(ds, ELEVELD, 0.0), n_bins=4, seed=7)
+    bad = visual_predictive_check(ds, ELEVELD, _self_subjects(ds, ELEVELD, 300.0), n_bins=4, seed=7)
+    assert good.median_coverage() == 1.0       # observations ARE the model -> inside the band
+    assert bad.median_coverage() == 0.0        # a 4x bias falls outside it everywhere
+
+
+def test_vpc_record_is_json_serializable_and_seed_reproducible():
+    import json
+    from hypnos.analysis import visual_predictive_check
+    ds = hypnos.load()
+    subs = _self_subjects(ds, ELEVELD)
+    a = json.dumps(visual_predictive_check(ds, ELEVELD, subs, n_bins=6, seed=3).to_record())
+    b = json.dumps(visual_predictive_check(ds, ELEVELD, subs, n_bins=6, seed=3).to_record())
+    assert a == b
+    rec = json.loads(a)
+    assert len(rec["bin_centers_min"]) == len(rec["n_per_bin"]) == 6
+    # an empty bin serializes as null, never NaN (which is not JSON)
+    assert all(v is None or isinstance(v, float) for v in rec["observed"]["50"])
+
+
+def test_cli_vpc_table_and_json(capsys):
+    import json
+    from hypnos.cli import main
+    base = ["validate-cohort", "--model", ELEVELD, "--self-consistency", "--offset", "0",
+            "--vpc", "--bins", "4", "--seed", "7"]
+    assert main(base) == 0
+    out = capsys.readouterr().out
+    assert "visual predictive check (P10/P50/P90)" in out
+    assert "inside the predicted band in 100%" in out and "NOT a dosing tool" in out
+    assert main(base + ["--json"]) == 0
+    assert json.loads(capsys.readouterr().out)["kind"] == "vpc"
+
+
+def test_cli_vpc_flags_bias_and_names_the_no_band_case(capsys):
+    from hypnos.cli import main
+    assert main(["validate-cohort", "--model", ELEVELD, "--self-consistency", "--offset", "300",
+                 "--vpc", "--bins", "4"]) == 0
+    assert "observed median OUTSIDE the predicted band" in capsys.readouterr().out
+    assert main(["validate-cohort", "--model", MARSH, "--self-consistency", "--vpc"]) == 0
+    out = capsys.readouterr().out
+    assert "point-prediction goodness-of-fit (NOT a VPC)" in out and "never-synthesize" in out
+    assert "predicted band in" not in out
+
+
+def _validated_eleveld(ds):
+    """Eleveld carrying a constructed computed-metric block (no model commits one yet)."""
+    import copy
+    raw = copy.deepcopy(ds[ELEVELD].raw)
+    raw["validation_status"] = "external_pk"
+    raw["external_validation"] = [
+        {"dataset": "opentci_propofol", "mode": "pk_concentration", "target": "cp",
+         "cohort": {"n_subjects": 1031, "filter": "all", "in_envelope": True},
+         "metrics": [{"name": "MDPE", "value": -3.2, "units": "%"},
+                     {"name": "MDAPE", "value": 18.9, "units": "%"}],
+         "provenance": {"computed_by": "hypnos", "seed": 7, "manifest_checksum": "sha256:abc"},
+         "reproducible": True},
+        {"dataset": "opentci_propofol", "mode": "pk_concentration", "target": "cp",
+         "cohort": {"n_subjects": 88, "filter": "bmi > 35", "in_envelope": False},
+         "metrics": [{"name": "MDAPE", "value": 41.5, "units": "%"}],
+         "provenance": {"computed_by": "hypnos"}, "reproducible": True}]
+    return Model(raw)
+
+
+_EV_FORMATS = ["nonmem", "pharmml", "sbml", "tci_json", "rxode2", "pumas"]
+
+
+@pytest.mark.parametrize("fmt", _EV_FORMATS)
+def test_export_carries_computed_validation_with_its_stratification(fmt):
+    import json
+    import re
+    import xml.dom.minidom as minidom
+    from hypnos.export import export_model
+    ds = hypnos.load()
+    text = export_model(fmt, _validated_eleveld(ds), ds)[1]
+    if fmt == "tci_json":
+        doc = json.loads(text)
+        assert doc["validation_status"] == "external_pk"
+        assert doc["external_validation"] == _validated_eleveld(ds).external_validation
+        return
+    assert re.search(r"validationStatus\W+external_pk", text)
+    assert "18.9" in text and "41.5" in text and "opentci_propofol" in text
+    # the stratification axis travels with each metric — both strata are told apart
+    assert re.search(r"inEnvelope=\"true\"|in-envelope", text)
+    assert re.search(r"inEnvelope=\"false\"|OUT-of-envelope", text)
+    assert "NOT a clinical clearance" in text
+    if fmt in ("sbml", "pharmml"):
+        minidom.parseString(text)
+
+
+def test_sbml_validation_rdf_round_trips():
+    import xml.dom.minidom as minidom
+    from hypnos.export import export_model
+    ds = hypnos.load()
+    dom = minidom.parseString(export_model("sbml", _validated_eleveld(ds), ds)[1])
+    evs = dom.getElementsByTagName("hypnos:externalValidation")
+    assert [e.getAttribute("hypnos:nSubjects") for e in evs] == ["1031", "88"]
+    assert evs[0].getAttribute("hypnos:manifestChecksum") == "sha256:abc"
+    got = {m.getAttribute("hypnos:name"): float(m.getAttribute("hypnos:value"))
+           for m in evs[0].getElementsByTagName("hypnos:metric")}
+    assert got == {"MDPE": -3.2, "MDAPE": 18.9}
+
+
+@pytest.mark.parametrize("fmt", _EV_FORMATS)
+def test_export_carries_no_validation_block_when_none_computed(fmt):
+    import json
+    from hypnos.export import export_model
+    ds = hypnos.load()
+    text = export_model(fmt, ds[ELEVELD], ds)[1]
+    if fmt == "tci_json":
+        doc = json.loads(text)
+        assert doc["validation_status"] == "none" and "external_validation" not in doc
+    else:
+        assert "xternalValidation" not in text and "validationStatus" not in text
+
+
+def test_cli_leaderboard_report_is_a_reproducible_markdown_artifact(capsys):
+    from hypnos.cli import main
+    argv = ["leaderboard", "--drug", "propofol", "--target", "cp", "--self-consistency",
+            "--offset", "20", "--seed", "7", "--report"]
+    assert main(argv) == 0
+    out = capsys.readouterr().out
+    assert out.startswith("# Hypnos external validation — propofol (cp)")
+    assert "NOT FOR CLINICAL USE" in out and "not** a clinical clearance" in out
+    rows = [ln for ln in out.splitlines() if ln.startswith("| ") and "`hypnotics_iv." in ln]
+    assert len(rows) >= 3 and rows[0].startswith("| 1 | ")          # every eligible model, ranked
+    assert "shared PD link" not in out                                # a cp target has no PD link
+    # the report names the command that regenerates it, and regenerating is byte-identical
+    assert "hypnos leaderboard --drug propofol --target cp --self-consistency --offset 20 --seed 7 --report" in out
+    assert main(argv) == 0
+    assert capsys.readouterr().out == out
+
+
+def test_cli_leaderboard_report_names_the_pd_link_for_an_effect_target(capsys):
+    from hypnos.cli import main
+    assert main(["leaderboard", "--drug", "propofol", "--self-consistency", "--report"]) == 0
+    out = capsys.readouterr().out
+    assert "shared PD link `pd_effect.propofol.bis_sigmoid`" in out
+    assert "--pd-model pd_effect.propofol.bis_sigmoid" in out

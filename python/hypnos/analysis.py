@@ -698,6 +698,34 @@ class VpcResult:
     n_per_bin: np.ndarray
     percentiles: Tuple[int, int, int]
     seed: int
+    # False when the model curates no BSV: `predicted` is then the deterministic median
+    # repeated — a point-prediction goodness-of-fit, NOT a band (v0.4 §7, never-synthesize).
+    has_band: bool = True
+
+    def median_coverage(self) -> Optional[float]:
+        """Fraction of populated bins whose OBSERVED median falls inside the predicted
+        lo–hi band; ``None`` when there is no band to cover anything (or no data)."""
+        if not self.has_band or not self.predicted:
+            return None
+        lo, mid, hi = self.percentiles
+        ok = [bool(self.predicted[lo][b] <= self.observed[mid][b] <= self.predicted[hi][b])
+              for b in range(len(self.bin_centers)) if self.n_per_bin[b] > 0]
+        return (sum(ok) / len(ok)) if ok else None
+
+    def to_record(self) -> Dict[str, Any]:
+        """JSON-serializable bins (empty observed bins as ``None``)."""
+        def col(a):
+            return [None if not np.isfinite(v) else round(float(v), 6) for v in a]
+        return {
+            "model_id": self.model_id, "target": self.target, "seed": self.seed,
+            "percentiles": list(self.percentiles), "has_band": self.has_band,
+            "kind": "vpc" if self.has_band else "point_prediction_goodness_of_fit",
+            "bin_centers_min": col(self.bin_centers),
+            "n_per_bin": [int(n) for n in self.n_per_bin],
+            "observed": {str(p): col(v) for p, v in self.observed.items()},
+            "predicted": {str(p): col(v) for p, v in self.predicted.items()},
+            "median_coverage": self.median_coverage(),
+        }
 
 
 def visual_predictive_check(
@@ -768,7 +796,7 @@ def visual_predictive_check(
         predicted = {p: np.asarray(curve) for p in percentiles}
     return VpcResult(model_id=model_id, target=target, bin_centers=centers,
                      observed=observed, predicted=predicted, n_per_bin=n_per_bin,
-                     percentiles=percentiles, seed=seed)
+                     percentiles=percentiles, seed=seed, has_band=band is not None)
 
 
 def subjects_from_opentci(

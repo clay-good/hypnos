@@ -45,7 +45,10 @@ def build(model, ds=None, patient: Optional[Dict[str, Any]] = None) -> str:
     # Tier-D disease-state modifiers ride as RDF — core SBML can express neither.
     rev = annotate.reversal_rdf(model, indent="  ")
     dz = annotate.disease_modifier_rdf(model, ds, indent="  ")
-    extra = "\n".join(x for x in (var_rdf, est_rdf, la, dev, pgx, cov, rev, dz) if x)
+    # v0.4 §8: Hypnos-computed external-validation metrics (annotation — SBML describes the
+    # model, not its post-hoc validation).
+    ev = annotate.external_validation_rdf(model, indent="  ")
+    extra = "\n".join(x for x in (var_rdf, est_rdf, la, dev, pgx, cov, rev, dz, ev) if x)
     ann = annotate.rdf_annotation_xml(model, ds, extra_predicates=extra)
     var_note = (
         "    <!-- v0.2 population variability: the curated Omega/Sigma are carried as "

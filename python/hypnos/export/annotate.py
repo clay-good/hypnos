@@ -344,8 +344,58 @@ def disease_modifier_rdf(model: Model, ds=None, indent: str = "  ") -> str:
     return "\n".join(lines)
 
 
+def _validation_entries(model: Model) -> List[Dict[str, Any]]:
+    """Hypnos-COMPUTED metric sets flattened for annotation: one dict per entry with the
+    cohort, the stratification axis, and ``{metric name: value}`` (v0.4 §4.1)."""
+    out = []
+    for e in model.external_validation:
+        cohort = e.get("cohort") or {}
+        out.append({
+            "dataset": e.get("dataset"), "mode": e.get("mode"), "target": e.get("target"),
+            "n_subjects": cohort.get("n_subjects"), "in_envelope": cohort.get("in_envelope"),
+            "metrics": [(m.get("name"), m.get("value"), m.get("units") or "")
+                        for m in e.get("metrics", []) if m.get("value") is not None],
+            "checksum": (e.get("provenance") or {}).get("manifest_checksum"),
+        })
+    return out
+
+
+_NOT_CLEARANCE = ("Hypnos-COMPUTED and reproducible — distinct from publisher-reported "
+                  "predictive_performance; good external performance is NOT a clinical clearance")
+
+
+def external_validation_rdf(model: Model, indent: str = "  ") -> str:
+    """``hypnos:externalValidation`` RDF (v0.4 §8).
+
+    These formats describe the model, not its post-hoc validation, so the computed
+    Varvel metrics + their cohort ride as annotation with ``hypnos:validationStatus``.
+    Each entry keeps ``inEnvelope`` — a metric without its stratification axis would
+    read as a blanket claim. Returns ``""`` when the model carries no computed metrics."""
+    entries = _validation_entries(model)
+    if not entries:
+        return ""
+    pad = f"{indent}    "
+    lines = [f"{pad}<hypnos:validationStatus>{model.validation_status}</hypnos:validationStatus>",
+             f"{pad}<!-- {_NOT_CLEARANCE} -->"]
+    for e in entries:
+        attrs = (f'hypnos:dataset={quoteattr(str(e["dataset"]))} hypnos:mode="{e["mode"]}" '
+                 f'hypnos:target="{e["target"]}"')
+        if e["n_subjects"] is not None:
+            attrs += f' hypnos:nSubjects="{e["n_subjects"]}"'
+        if e["in_envelope"] is not None:
+            attrs += f' hypnos:inEnvelope="{str(e["in_envelope"]).lower()}"'
+        if e["checksum"]:
+            attrs += f' hypnos:manifestChecksum={quoteattr(str(e["checksum"]))}'
+        lines.append(f"{pad}<hypnos:externalValidation {attrs}>")
+        lines += [f'{pad}  <hypnos:metric hypnos:name="{n}" hypnos:value="{v:.10g}" '
+                  f'hypnos:units={quoteattr(u)}/>' for n, v, u in e["metrics"]]
+        lines.append(f"{pad}</hypnos:externalValidation>")
+    return "\n".join(lines)
+
+
 def breadth_comments(model: Model, ds=None) -> List[str]:
-    """The v0.5 reversal + disease-modifier blocks as plain comment lines (no prefix).
+    """The v0.5 reversal + disease-modifier blocks and the v0.4 computed-validation block
+    as plain comment lines (no prefix).
 
     For the text formats (NONMEM / rxode2 / Pumas), whose core can express neither a
     cross-model binding reaction nor an opt-in adjustment: the same facts the RDF carries,
@@ -366,6 +416,17 @@ def breadth_comments(model: Model, ds=None) -> List[str]:
             + f" (evidenceTier {dz.evidence_tier}, appliedByDefault "
               f"{str(dz.applied_by_default).lower()}" + (f", {uri}" if uri else "") + ")")
         lines.append("  OPT-IN, UNVALIDATED EXTRAPOLATION — NOT applied to the parameters in this file")
+    # v0.4 §8: the Hypnos-computed external-validation metrics + their cohort.
+    entries = _validation_entries(model)
+    if entries:
+        lines.append(f"hypnos:validationStatus = {model.validation_status}")
+        for e in entries:
+            where = {True: "in-envelope", False: "OUT-of-envelope", None: "unstratified"}[e["in_envelope"]]
+            n = f", n={e['n_subjects']}" if e["n_subjects"] is not None else ""
+            mets = ", ".join(f"{nm} {v:g}{u}" for nm, v, u in e["metrics"])
+            lines.append(f"hypnos:externalValidation = {e['dataset']} ({e['mode']} -> {e['target']}, "
+                         f"{where}{n}): {mets}")
+        lines.append(f"  {_NOT_CLEARANCE}")
     return lines
 
 

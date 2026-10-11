@@ -182,6 +182,8 @@ def cmd_validate_cohort(args) -> int:
     except (ValueError, NotImplementedError) as e:
         print(str(e), file=sys.stderr)
         return 2
+    if args.vpc:
+        return _print_vpc(ds, args, subjects, source)
     if args.json:
         print(json.dumps(cv.to_record(), indent=2))
         return 0
@@ -197,6 +199,101 @@ def cmd_validate_cohort(args) -> int:
     print("  Hypnos-COMPUTED (reproducible), distinct from any publisher-reported predictive_performance. "
           "NOT a dosing tool.")
     return 0
+
+
+def _print_vpc(ds, args, subjects, source) -> int:
+    """`validate-cohort --vpc`: the visual predictive check as a binned table (v0.4 §7) —
+    observed percentiles beside the model's seeded prediction band on the same time bins.
+    The data behind the classic VPC figure, reproducible from the seed."""
+    from .analysis import visual_predictive_check
+
+    v = visual_predictive_check(ds, args.model, subjects, target=args.target,
+                                pd_model=args.pd_model, n_bins=args.bins, seed=args.seed)
+    if args.json:
+        print(json.dumps(v.to_record(), indent=2))
+        return 0
+    lo, mid, hi = v.percentiles
+    kind = (f"visual predictive check (P{lo}/P{mid}/P{hi})" if v.has_band
+            else "point-prediction goodness-of-fit (NOT a VPC)")
+    print(f"{kind} — {v.model_id} vs {source}")
+    print(f"  target {v.target} · {int(v.n_per_bin.sum())} observation(s) in {len(v.bin_centers)} "
+          f"time bin(s) · seed {v.seed}")
+    if not v.has_band:
+        print("  no curated between-subject variability for this model — no predicted band is drawn "
+              "(never-synthesize); observed percentiles are shown against the median line only")
+    pred_hdr = f"predicted P{lo}/P{mid}/P{hi}" if v.has_band else "predicted (median)"
+    print(f"  {'t (min)':>8s} {'n':>5s}   {'observed P%d/P%d/P%d' % (lo, mid, hi):>30s}   {pred_hdr:>30s}")
+    for b, tc in enumerate(v.bin_centers):
+        if v.n_per_bin[b] == 0:
+            print(f"  {tc:8.1f} {0:5d}   {'(empty bin)':>30s}")
+            continue
+        obs = "/".join(f"{v.observed[p][b]:.3g}" for p in (lo, mid, hi))
+        if v.has_band:
+            pred = "/".join(f"{v.predicted[p][b]:.3g}" for p in (lo, mid, hi))
+            inside = v.predicted[lo][b] <= v.observed[mid][b] <= v.predicted[hi][b]
+            flag = "" if inside else "   << observed median OUTSIDE the predicted band"
+        else:
+            pred, flag = f"{v.predicted[mid][b]:.3g}", ""
+        print(f"  {tc:8.1f} {int(v.n_per_bin[b]):5d}   {obs:>30s}   {pred:>30s}{flag}")
+    cov = v.median_coverage()
+    if cov is not None:
+        print(f"  observed median inside the predicted band in {cov:.0%} of populated bins")
+    basis = ("the band is at the cohort-mean patient under the first subject's dosing — a "
+             "screening view, as good as the curated Ω" if v.has_band
+             else "the median is at the cohort-mean patient under the first subject's dosing")
+    print(f"  {basis}. NOT a clinical clearance; NOT a dosing tool.")
+    return 0
+
+
+def _leaderboard_report(lb, args, source) -> str:
+    """`leaderboard --report`: the standalone, citable markdown validation report (v0.4 §8)
+    for ANY cohort — the leaderboard, the envelope stratification, and what reproduces it.
+    Derived metrics only; never a raw observation."""
+    link = f" · shared PD link `{args.pd_model}`" if args.target in ("bis", "tof") else ""
+    lines = [
+        f"# Hypnos external validation — {args.drug} ({args.target})",
+        "",
+        "> **NOT FOR CLINICAL USE.** Hypnos-COMPUTED, reproducible Varvel metrics — kept strictly "
+        "separate from any publisher-reported `predictive_performance`. Good external performance "
+        "is **not** a clinical clearance, and this is not a dosing tool.",
+        "",
+        f"- **cohort:** {source} · {lb.n_subjects} subject(s) scored · seed {lb.seed}",
+        f"- **target:** {args.target}{link}",
+        f"- **Hypnos:** {__version__}",
+        "",
+        "## Leaderboard (ranked by overall MDAPE — inaccuracy; lower is better)",
+        "",
+        "| Rank | Model | Tier | MDPE % (bias) | MDAPE % | wobble % | in-env MDAPE % (n) | out-env MDAPE % (n) |",
+        "| ---: | --- | :---: | ---: | ---: | ---: | ---: | ---: |",
+    ]
+
+    def cell(cv):
+        return "—" if cv is None else f"{cv.population.mdape:.1f} ({cv.n_subjects})"
+
+    for i, e in enumerate(lb.entries):
+        p = e.overall.population
+        lines.append(f"| {i + 1} | `{e.model_id}` | {e.declared_tier} | {p.mdpe:+.1f} | {p.mdape:.1f} | "
+                     f"{p.wobble:.1f} | {cell(e.in_envelope)} | {cell(e.out_envelope)} |")
+    lines += [
+        "",
+        "Every model was scored on the same subjects by the same kernels and seed, so the ranking "
+        "compares models, not cohorts. In-/out-of-envelope columns re-score each model on the "
+        "subjects inside and outside its own applicability envelope; a `—` means no subject fell "
+        "in that stratum. A computed metric never moves a tier — a human reading the evidence does.",
+        "",
+        "## Reproduce",
+        "",
+        "```bash",
+        "hypnos leaderboard " + " ".join(
+            ["--drug", args.drug, "--target", args.target]
+            + (["--pd-model", args.pd_model] if link else [])
+            + (["--self-consistency", "--offset", f"{args.offset:g}"] if args.self_consistency
+               else ["--observations", str(args.observations)])
+            + ["--seed", str(args.seed), "--report"]),
+        "```",
+        "",
+    ]
+    return "\n".join(lines)
 
 
 def cmd_leaderboard(args) -> int:
@@ -252,6 +349,9 @@ def cmd_leaderboard(args) -> int:
                                  dataset=source, seed=args.seed)
     if args.json:
         print(json.dumps(lb.to_record(), indent=2))
+        return 0
+    if args.report:
+        print(_leaderboard_report(lb, args, source))
         return 0
     print(f"leaderboard — drug {args.drug} · target {target} · {lb.n_subjects} subject(s) · "
           f"seed {lb.seed}   (cohort: {source})")
@@ -1094,6 +1194,11 @@ def build_parser() -> argparse.ArgumentParser:
     vcp.add_argument("--pd-model", dest="pd_model", default=None, help="PD model id for an effect target")
     vcp.add_argument("--seed", type=int, default=0, help="bootstrap-CI seed (reproducible)")
     vcp.add_argument("--json", action="store_true", help="emit the external_validation[] record (JSON)")
+    vcp.add_argument("--vpc", action="store_true",
+                     help="v0.4 §7: the visual predictive check instead of the Varvel metrics — "
+                          "observed percentiles per time bin beside the model's seeded prediction "
+                          "band (a model with no curated BSV gets a point-prediction check, named as such)")
+    vcp.add_argument("--bins", type=int, default=8, help="time bins for --vpc (default 8)")
     vcp.set_defaults(func=cmd_validate_cohort)
 
     lbp = sub.add_parser("leaderboard", help="v0.4 VE2/VE3: the cross-model, envelope-stratified "
@@ -1110,6 +1215,9 @@ def build_parser() -> argparse.ArgumentParser:
     lbp.add_argument("--offset", type=float, default=20.0, help="self-consistency bias %% (default 20)")
     lbp.add_argument("--seed", type=int, default=7, help="bootstrap-CI seed (reproducible)")
     lbp.add_argument("--json", action="store_true", help="emit the full leaderboard record (JSON)")
+    lbp.add_argument("--report", action="store_true",
+                     help="v0.4 §8: emit the standalone markdown validation report (leaderboard + "
+                          "envelope stratification + the command that reproduces it)")
     lbp.set_defaults(func=cmd_leaderboard)
 
     vp = sub.add_parser("verify", help="field-by-field verification checklist for a model")

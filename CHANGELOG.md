@@ -8,6 +8,25 @@ version is pinned in `dataset/VERSION` and stamped into every export as
 
 ## [Unreleased]
 
+### v0.4 §7/§8 finish — the VPC on the CLI; computed validation metrics in every export (2026-10-10)
+- **`hypnos validate-cohort --vpc [--bins N] [--json]`.** The visual predictive check was a Python-only
+  function; it is now a CLI table: observed P10/P50/P90 per time bin beside the model's seeded prediction
+  band, each bin flagged when the observed median falls outside the band, plus an overall coverage line.
+- **No band is ever implied.** `VpcResult` gains `has_band`, `median_coverage()`, and `to_record()`. A model
+  with no curated BSV is reported as a "point-prediction goodness-of-fit (NOT a VPC)" — before, its
+  collapsed median was indistinguishable from a zero-width band.
+- **Exports (§8).** Hypnos-computed `external_validation[]` blocks now travel in all six model formats:
+  `hypnos:externalValidation` + `hypnos:validationStatus` RDF in SBML, a `<Diagnostics>` block in PharmML,
+  comment lines in NONMEM / rxode2 / Pumas, verbatim in TCI-JSON. Every metric keeps its in/out-of-envelope
+  stratum and the statement that good external performance is not a clinical clearance.
+- No committed model carries computed metrics yet (live runs are terms-gated), so these carriers are
+  exercised on constructed records; today's generated exports are unchanged apart from TCI-JSON's
+  `validation_status: "none"`.
+- **`hypnos leaderboard --report`.** The standalone markdown validation report (§8) for any cohort: the
+  ranked table, the in/out-of-envelope stratification, and the exact command that reproduces it. The
+  markdown report previously existed only inside the VitalDB fetch script.
+- 21 new tests.
+
 ### v0.5 §C/§D finish — reversal + disease modifiers in every export and in `hypnos verify` (2026-10-10)
 - **Exports (§D).** The `reversal_mechanism` (type, tier, stoichiometry/binding/antagonism/ceiling numbers,
   and the link to the agonist model it acts on) and each `disease_state_modifier` (condition, affected

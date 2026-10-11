@@ -8,6 +8,11 @@ version is pinned in `dataset/VERSION` and stamped into every export as
 
 ## [Unreleased]
 
+### CI — lint job (2026-10-10)
+- CI now runs `ruff check python dashboard scripts`; "ruff clean" was asserted by hand until now.
+  `scripts/regenerate.py` keeps its `;`-chained matplotlib style via a per-file `E702` ignore. `ruff` joins
+  the `dev` extra, and CONTRIBUTING lists the command.
+
 ### Hardening — bad input is an error message, not a traceback; three bugs found on the way (2026-10-10)
 Fuzzing every CLI command with invalid input produced 30+ raw Python tracebacks. Now:
 - **CLI.** `main()` turns bad input into one line on stderr and exit code 2 (`HYPNOS_DEBUG=1` re-raises for

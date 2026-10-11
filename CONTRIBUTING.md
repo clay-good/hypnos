@@ -63,6 +63,7 @@ cross-checking) but never promote on their own authority.**
 pip install -e ".[dev]"
 hypnos validate          # JSON Schema + integrity (citations, tiers, kernels, envelopes)
 pytest                   # analytic-vs-numeric, round-trip, envelope, tier propagation
+ruff check python dashboard scripts   # lint (CI runs the same command)
 ```
 
 ## What is out of scope (hard lines, not roadmap)

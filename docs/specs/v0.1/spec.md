@@ -193,7 +193,7 @@ This is where Hypnos diverges most from Nidus, because pharmacometrics has its *
 **Exports are generated artifacts, never hand-edited** (CI regenerates on every push), and each carries:
 
 - a `hypnos:datasetVersion` provenance annotation so consumers can pin for reproducibility;
-- the propagated **confidence tier** and any **envelope/failure-mode warnings** as MIRIAM-style RDF (`bqbiol:isDescribedBy` DOI/PMID links survive even if a downstream tool strips the custom `hypnos:` predicates — same durability argument as Nidus);
+- the propagated **confidence tier** and any **envelope/failure-mode warnings** (evaluated *for the patient the export is instantiated at*, by the same safety evaluation `simulate` uses — so a pediatric model exported at the adult reference patient reads Tier D with `hypnos:declaredTier` and `hypnos:envelopeWarning`; `hypnos export --age/--weight/…` instantiates it in-envelope) as MIRIAM-style RDF (`bqbiol:isDescribedBy` DOI/PMID links survive even if a downstream tool strips the custom `hypnos:` predicates — same durability argument as Nidus);
 - a mandatory, machine-readable **`hypnos:clinicalUse = "PROHIBITED — research/education/simulation only"`** annotation on *every* exported model. There is no Phase-C-only carve-out as in Nidus; the warning is universal because the drugs are lethal if mis-dosed.
 
 ---

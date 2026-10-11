@@ -11,7 +11,7 @@ import json
 from typing import Any, Dict, Optional
 
 from . import annotate
-from ._common import resolve_patient, safe_name
+from ._common import instantiated_standing, resolve_patient, safe_name
 from .registry import KERNELS
 
 
@@ -33,7 +33,9 @@ def build_dict(model, ds=None, patient: Optional[Dict[str, Any]] = None) -> Dict
         "applicability_envelope": model.raw.get("applicability_envelope", {}),
         "known_failure_modes": model.raw.get("known_failure_modes", []),
         "instantiated_for": pat,
-        "provenance": annotate.provenance(model, ds),
+        # tier PROPAGATED to `instantiated_for` (+ the declared tier and the warnings when
+        # that patient is outside the model's envelope) — v0.1 §7.
+        "provenance": annotate.provenance(model, ds, *instantiated_standing(model, ds, pat)),
     }
     # v0.2 population-variability layer — lossless passthrough (it is JSON). A
     # consumer can pin reproducibility AND know how much of the NLME object is

@@ -675,7 +675,7 @@ Validation, run in CI ([test suite](python/tests)):
 
 ### Export formats
 
-Exports are generated artifacts, never hand-edited (CI regenerates them), each instantiated at a stated reference patient and carrying the propagated tier, the verbatim covariate equations, MIRIAM `bqmodel:isDerivedFrom` DOI/PMID links, and the universal `clinicalUse = PROHIBITED` flag.
+Exports are generated artifacts, never hand-edited (CI regenerates them), each instantiated at a stated patient (the adult reference by default; `hypnos export --age … --weight …` to choose another) and carrying the tier **propagated to that patient** — a model outside its envelope there is exported Tier D with its declared tier and the `envelopeWarning` text — the verbatim covariate equations, MIRIAM `bqmodel:isDerivedFrom` DOI/PMID links, and the universal `clinicalUse = PROHIBITED` flag.
 
 | Format | Role | Status |
 | --- | --- | --- |

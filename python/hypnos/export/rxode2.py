@@ -11,7 +11,7 @@ from __future__ import annotations
 from typing import Any, Dict, Optional
 
 from . import annotate
-from ._common import resolve_patient, safe_name
+from ._common import instantiated_standing, resolve_patient, safe_name
 from ._covariate import function_covariate_block
 from ._developmental import function_block as developmental_functions
 from ._estimation import (
@@ -129,7 +129,10 @@ def _estimation_block(model, name: str) -> list:
 
 def build(model, ds=None, patient: Optional[Dict[str, Any]] = None) -> str:
     pat = resolve_patient(model, patient)
-    head = _comment_block(annotate.banner(model, model.tier))
+    tier, env_warns = instantiated_standing(model, ds, pat)
+    head = _comment_block(annotate.banner(model, tier))
+    if env_warns:
+        head += "\n" + _comment_block("\n".join(annotate.envelope_comments(env_warns)))
     # v0.5 §D: reversal coupling + opt-in disease modifiers, ahead of the kernel gate.
     breadth = annotate.breadth_comments(model, ds)
     if breadth:
@@ -138,7 +141,7 @@ def build(model, ds=None, patient: Optional[Dict[str, Any]] = None) -> str:
         return head + "\n# KERNEL PENDING — no instantiated rxode2 model emitted.\n"
 
     p = KERNELS[model.kernel_function](pat)
-    prov = annotate.provenance(model, ds, model.tier)
+    prov = annotate.provenance(model, ds, tier)
     params = (
         f"k10={p.k10:.10g} k12={p.k12:.10g} k21={p.k21:.10g} "
         f"k13={p.k13:.10g} k31={p.k31:.10g} ke0={p.ke0:.10g} V1={p.V1:.10g}"

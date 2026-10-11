@@ -19,7 +19,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from .. import CLINICAL_USE, __version__
 from . import annotate, bibtex, pharmml, sbml, tci_json
-from ._common import resolve_patient, safe_name
+from ._common import instantiated_standing, resolve_patient, safe_name
 
 # COMBINE / MIRIAM format URIs
 _FMT_MANIFEST = "http://identifiers.org/combine.specifications/omex-manifest"
@@ -49,11 +49,13 @@ def _manifest(entries: List[Tuple[str, str, bool]]) -> str:
     return "\n".join(lines) + "\n"
 
 
-def _metadata_rdf(models, ds) -> str:
-    """A small RDF/XML provenance document for the archive."""
+def _metadata_rdf(models, ds, patient: Optional[Dict[str, Any]] = None) -> str:
+    """A small RDF/XML provenance document for the archive (tiers propagated to the
+    patient the bundled models are instantiated at, like the models themselves)."""
     blocks = []
     for m in models:
-        prov = annotate.provenance(m, ds)
+        prov = annotate.provenance(
+            m, ds, *instantiated_standing(m, ds, resolve_patient(m, patient)))
         cites = "".join(
             f'      <bqmodel:isDerivedFrom rdf:resource="{u}"/>\n'
             for u in prov["bqmodel:isDerivedFrom"]
@@ -61,8 +63,10 @@ def _metadata_rdf(models, ds) -> str:
         blocks.append(
             f'  <rdf:Description rdf:about="#{safe_name(m)}">\n'
             f'    <hypnos:modelId>{m.id}</hypnos:modelId>\n'
-            f'    <hypnos:confidenceTier>{m.tier}</hypnos:confidenceTier>\n'
-            f'    <hypnos:reviewStatus>{m.review_status}</hypnos:reviewStatus>\n'
+            f'    <hypnos:confidenceTier>{prov["hypnos:confidenceTier"]}</hypnos:confidenceTier>\n'
+            + (f'    <hypnos:declaredTier>{m.tier}</hypnos:declaredTier>\n'
+               if "hypnos:declaredTier" in prov else "")
+            +            f'    <hypnos:reviewStatus>{m.review_status}</hypnos:reviewStatus>\n'
             f'    <hypnos:clinicalUse>{CLINICAL_USE}</hypnos:clinicalUse>\n'
             f'    <hypnos:datasetVersion>{__version__}</hypnos:datasetVersion>\n'
             f'{cites}'
@@ -108,7 +112,7 @@ def build_model_archive(model, ds=None, patient: Optional[Dict[str, Any]] = None
     files[tci_name] = tci_json.build(model, ds, pat)
     entries.append((tci_name, _FMT_JSON, False))
 
-    files["metadata.rdf"] = _metadata_rdf([model], ds)
+    files["metadata.rdf"] = _metadata_rdf([model], ds, patient)
     entries.append(("metadata.rdf", _FMT_META, False))
 
     if ds is not None:
@@ -136,7 +140,7 @@ def build_dataset_archive(ds, models=None, patient: Optional[Dict[str, Any]] = N
 
     files["citations.bib"] = bibtex.build(ds, models)
     entries.append(("citations.bib", _FMT_BIBTEX, False))
-    files["metadata.rdf"] = _metadata_rdf(models, ds)
+    files["metadata.rdf"] = _metadata_rdf(models, ds, patient)
     entries.append(("metadata.rdf", _FMT_META, False))
     files["README.txt"] = (
         f"Hypnos dataset COMBINE archive — v{__version__}\n"

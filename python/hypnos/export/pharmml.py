@@ -14,7 +14,7 @@ from typing import Any, Dict, Optional
 from xml.sax.saxutils import escape, quoteattr
 
 from . import annotate
-from ._common import resolve_patient, safe_name
+from ._common import instantiated_standing, resolve_patient, safe_name
 from ._covariate import pharmml_covariate_xml
 from ._developmental import pharmml_xml as developmental_xml
 from ._estimation import (
@@ -144,7 +144,7 @@ def _validation_xml(model) -> str:
 def build(model, ds=None, patient: Optional[Dict[str, Any]] = None) -> str:
     pat = resolve_patient(model, patient)
     name = safe_name(model)
-    prov = annotate.provenance(model, ds)
+    prov = annotate.provenance(model, ds, *instantiated_standing(model, ds, pat))
 
     cov_lines = "\n".join(
         f'      <CovariateEquation symbol="{escape(p.symbol)}">{escape(p.covariate_model or "")}</CovariateEquation>'
@@ -235,7 +235,11 @@ def build(model, ds=None, patient: Optional[Dict[str, Any]] = None) -> str:
         "    <Annotation>\n"
         f'      <hypnos:clinicalUse>{escape(prov["hypnos:clinicalUse"])}</hypnos:clinicalUse>\n'
         f'      <hypnos:confidenceTier>{prov["hypnos:confidenceTier"]}</hypnos:confidenceTier>\n'
-        f'      <hypnos:datasetVersion>{prov["hypnos:datasetVersion"]}</hypnos:datasetVersion>\n'
+        + (f'      <hypnos:declaredTier>{prov["hypnos:declaredTier"]}</hypnos:declaredTier>\n'
+           if "hypnos:declaredTier" in prov else "")
+        + "".join(f'      <hypnos:envelopeWarning>{escape(w)}</hypnos:envelopeWarning>\n'
+                  for w in prov.get("hypnos:envelopeWarning", []))
+        +        f'      <hypnos:datasetVersion>{prov["hypnos:datasetVersion"]}</hypnos:datasetVersion>\n'
         + safety_xml
         + la_xml
         + "".join(

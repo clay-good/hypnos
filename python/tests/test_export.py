@@ -109,3 +109,99 @@ def test_tci_json_marks_pending_kernel(ds):
     doc = json.loads(text)
     assert doc["instantiated_parameters"] is None
     assert "pending" in doc["kernel_status"]
+
+
+# --------------------------------------------------------------------------- #
+# v0.1 §7 — an export carries the tier PROPAGATED to the patient it is instantiated at
+# --------------------------------------------------------------------------- #
+import re  # noqa: E402
+import zipfile  # noqa: E402
+from io import BytesIO  # noqa: E402
+
+from hypnos.export import combine  # noqa: E402
+from hypnos.simulate import simulate as _simulate_api  # noqa: E402
+
+KATARIA = "hypnotics_iv.propofol.kataria_1994"      # pediatric (3–11 y), declared tier C
+_MODEL_FORMATS = ["nonmem", "pharmml", "sbml", "tci_json", "rxode2", "pumas"]
+_CHILD = {"age": 6, "weight": 22, "height": 116, "sex": "M"}
+_OBESE = {"age": 50, "weight": 140, "height": 165, "sex": "M"}     # BMI ~51
+
+
+def _exported_tier(fmt, text):
+    if fmt == "tci_json":
+        return json.loads(text)["provenance"]["hypnos:confidenceTier"]
+    m = re.search(r"onfidenceTier\W+(\w)\b", text) or re.search(r"\(tier (\w),", text)
+    return m.group(1)
+
+
+@pytest.mark.parametrize("fmt", _MODEL_FORMATS)
+def test_pediatric_model_at_the_adult_reference_patient_is_exported_tier_d(ds, fmt):
+    # the default export instantiates Kataria for a 50-year-old: that artifact is an
+    # extrapolation and must say so, not carry the model's in-envelope tier
+    text = export_model(fmt, ds[KATARIA], ds)[1]
+    assert _exported_tier(fmt, text) == "D"
+    assert "nvelopeWarning" in text and "outside derivation envelope" in text
+    assert re.search(r"eclaredTier\W+C\b|declared C\)", text)       # the declared tier stays visible
+
+
+@pytest.mark.parametrize("fmt", _MODEL_FORMATS)
+def test_same_model_in_envelope_keeps_its_declared_tier_and_no_warning(ds, fmt):
+    text = export_model(fmt, ds[KATARIA], ds, _CHILD)[1]
+    assert _exported_tier(fmt, text) == ds[KATARIA].tier == "C"
+    assert "nvelopeWarning" not in text and "eclaredTier" not in text
+    assert "OUTSIDE THIS MODEL'S ENVELOPE" not in text
+
+
+@pytest.mark.parametrize("fmt", _MODEL_FORMATS)
+@pytest.mark.parametrize("mid,patient", [(SCHNIDER, _OBESE), (KATARIA, None), (SCHNIDER, None),
+                                         (KATARIA, _CHILD)])
+def test_exported_tier_is_never_more_confident_than_the_simulation(ds, fmt, mid, patient):
+    # one shared safety evaluation: the label on the artifact equals simulate()'s tier
+    from hypnos.export._common import REFERENCE_PATIENT
+    pat = patient or dict(REFERENCE_PATIENT)
+    sim = _simulate_api(ds, mid, patient=pat, schedule=[("bolus", 0.0, "2 mg/kg")],
+                        t=np.linspace(0, 5, 11))
+    assert _exported_tier(fmt, export_model(fmt, ds[mid], ds, patient)[1]) == sim.tier
+
+
+def test_schnider_in_obesity_export_names_the_failure_mode(ds):
+    text = export_model("sbml", ds[SCHNIDER], ds, _OBESE)[1]
+    ET.fromstring(text)
+    assert "<hypnos:confidenceTier>D</hypnos:confidenceTier>" in text
+    assert "<hypnos:declaredTier>B</hypnos:declaredTier>" in text
+    assert "FAILURE MODE" in text and "bmi" in text.lower()
+
+
+def test_envelope_warnings_never_change_the_exported_numbers(ds):
+    # the label changes; the instantiated parameters are still exactly the kernel's
+    doc = json.loads(export_model("tci_json", ds[KATARIA], ds)[1])
+    from hypnos.export._common import REFERENCE_PATIENT
+    direct = instantiate(ds[KATARIA], dict(REFERENCE_PATIENT))
+    assert doc["instantiated_parameters"]["micro_rate_constants"]["k10"] == pytest.approx(direct.k10)
+    assert doc["provenance"]["hypnos:declaredTier"] == "C"
+    assert len(doc["provenance"]["hypnos:envelopeWarning"]) >= 2
+
+
+def test_omex_metadata_carries_the_propagated_tier(ds):
+    z = zipfile.ZipFile(BytesIO(combine.build_model_archive(ds[KATARIA], ds)))
+    meta = z.read("metadata.rdf").decode()
+    assert "<hypnos:confidenceTier>D</hypnos:confidenceTier>" in meta
+    assert "<hypnos:declaredTier>C</hypnos:declaredTier>" in meta
+    z2 = zipfile.ZipFile(BytesIO(combine.build_model_archive(ds[KATARIA], ds, _CHILD)))
+    assert "<hypnos:confidenceTier>C</hypnos:confidenceTier>" in z2.read("metadata.rdf").decode()
+
+
+def test_cli_export_accepts_a_patient(ds, tmp_path):
+    from hypnos.cli import main
+    base = ["export", "--format", "tci_json", "--model", KATARIA]
+    assert main(base + ["--output", str(tmp_path / "adult")]) == 0
+    assert main(base + ["--output", str(tmp_path / "child"), "--age", "6", "--weight", "22",
+                        "--height", "116"]) == 0
+    name = "hypnotics_iv_propofol_kataria_1994.tci.json"
+    adult = json.loads((tmp_path / "adult" / name).read_text())
+    child = json.loads((tmp_path / "child" / name).read_text())
+    assert adult["provenance"]["hypnos:confidenceTier"] == "D"
+    assert child["provenance"]["hypnos:confidenceTier"] == "C"
+    assert child["instantiated_for"]["age"] == 6.0
+    # no flags -> the library default patient, byte-identical to export_model()
+    assert (tmp_path / "adult" / name).read_text() == export_model("tci_json", ds[KATARIA], ds)[1]

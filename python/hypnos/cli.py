@@ -22,6 +22,7 @@ import numpy as np
 from . import CLINICAL_USE, __version__
 from .analysis import decrement_time, time_to_peak_effect
 from .export import FORMATS, bibtex, combine, csv_flat, export_model
+from .export._common import REFERENCE_PATIENT
 from .filter import performance_table, pk_drugs, select, summary
 from .inhalational import mac as mac_eval
 from .inhalational import washin, washin_comparison, washout, washout_comparison
@@ -1145,19 +1146,25 @@ def cmd_export(args) -> int:
     out = Path(args.output)
     models = [ds[args.model]] if args.model else list(ds)
     pk_models = [m for m in models if m.purpose == "pk"]
+    # The individual every model export is instantiated at (default: the adult reference
+    # patient). A model outside its envelope for this patient is exported tiered-down with
+    # the warnings — pass e.g. a child here to instantiate a pediatric model in-envelope.
+    patient = _patient_from_args(args)
+    if patient == REFERENCE_PATIENT:
+        patient = None                   # no flags given: the library default, byte-identical
 
     # COMBINE .omex archive (binary): single archive if --output ends in .omex, else per-model.
     if args.format == "omex":
         if str(out).endswith(".omex"):
             out.parent.mkdir(parents=True, exist_ok=True)
             sel = [m for m in pk_models if m.kernel_implemented] if not args.model else pk_models
-            out.write_bytes(combine.build_dataset_archive(ds, sel))
+            out.write_bytes(combine.build_dataset_archive(ds, sel, patient))
             print(f"wrote dataset archive {out} ({len(sel)} model(s))")
             return 0
         out.mkdir(parents=True, exist_ok=True)
         written = 0
         for m in pk_models:
-            (out / combine.model_filename(m)).write_bytes(combine.build_model_archive(m, ds))
+            (out / combine.model_filename(m)).write_bytes(combine.build_model_archive(m, ds, patient))
             written += 1
         print(f"wrote {written} omex archive(s) to {out}/")
         return 0
@@ -1179,7 +1186,7 @@ def cmd_export(args) -> int:
     out.mkdir(parents=True, exist_ok=True)
     written = 0
     for m in pk_models:
-        fname, text = export_model(args.format, m, ds)
+        fname, text = export_model(args.format, m, ds, patient)
         (out / fname).write_text(text, encoding="utf-8")
         written += 1
     print(f"wrote {written} {args.format} file(s) to {out}/")
@@ -1395,6 +1402,7 @@ def build_parser() -> argparse.ArgumentParser:
     ep.add_argument("--format", required=True, choices=FORMATS)
     ep.add_argument("--output", required=True)
     ep.add_argument("--model", default=None, help="single model id (default: all PK models)")
+    _add_patient_args(ep)
     ep.set_defaults(func=cmd_export)
     return p
 

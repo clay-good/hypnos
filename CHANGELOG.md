@@ -8,6 +8,23 @@ version is pinned in `dataset/VERSION` and stamped into every export as
 
 ## [Unreleased]
 
+### Fix — exports now carry the tier propagated to the patient they are instantiated at (2026-10-10)
+- **What was wrong.** Every export labeled a model with its *declared* tier, even when the patient it was
+  instantiated for was outside the model's envelope. The default exports of the pediatric Kataria and
+  Paedfusor models — instantiated at the 50-year-old, 77 kg adult reference patient — read Tier C / B with
+  no warning, and Schnider exported for a BMI-51 patient read Tier B. v0.1 §7 requires the propagated tier
+  and the envelope/failure-mode warnings on every export.
+- **Fix.** All six model formats and the `.omex` metadata now use the one safety evaluation `simulate`
+  uses (`instantiated_standing`): the propagated tier, `hypnos:declaredTier` when it differs, and each
+  `hypnos:envelopeWarning`. The exported numbers are unchanged — only the label is now true.
+- **Proof.** A test asserts the tier on each exported artifact equals `simulate()`'s tier for the same
+  model and patient, in every format; Kataria at the adult reference reads D with warnings, and C with
+  none when instantiated for a 6-year-old.
+- **`hypnos export` takes a patient** (`--age --weight --height --sex`, plus the organ/developmental
+  flags), so a pediatric model can be exported in-envelope. With no flags the output is byte-identical
+  to before for in-envelope models.
+- 40 new tests.
+
 ### v0.8 §7 + v0.9 §7 — developmental and pharmacogenomic blocks in every export (2026-10-10)
 Both layers were exported only as SBML RDF; their specs name every format.
 - **Developmental (v0.8).** New `hypnos.export._developmental`: a commented, opt-in `$PK` template in

@@ -31,8 +31,13 @@ def citation_uris(model: Model, ds) -> List[str]:
     return uris
 
 
-def provenance(model: Model, ds=None, tier: Optional[str] = None) -> Dict[str, Any]:
-    """Structured provenance block reused across all exporters."""
+def provenance(model: Model, ds=None, tier: Optional[str] = None,
+               warnings: Optional[List[str]] = None) -> Dict[str, Any]:
+    """Structured provenance block reused across all exporters.
+
+    ``tier`` is the tier PROPAGATED to the patient the export is instantiated at; when it
+    is lower than the model's declared tier the declared one is kept alongside, and
+    ``warnings`` (the envelope / failure-mode text that caused it) ride with it."""
     prov = {
         "hypnos:datasetVersion": __version__,
         "hypnos:modelId": model.id,
@@ -41,6 +46,10 @@ def provenance(model: Model, ds=None, tier: Optional[str] = None) -> Dict[str, A
         "hypnos:clinicalUse": CLINICAL_USE,
         "bqmodel:isDerivedFrom": citation_uris(model, ds),
     }
+    if tier and tier != model.tier:
+        prov["hypnos:declaredTier"] = model.tier
+    if warnings:
+        prov["hypnos:envelopeWarning"] = list(warnings)
     # Local-anesthetic records are doubly safety-critical (v0.6 §7/§9): the
     # concentration-vs-threshold view is exactly the artifact that tempts the
     # forbidden "max safe dose?" question, so a downstream consumer is twice-warned.
@@ -57,16 +66,34 @@ def banner(model: Model, tier: Optional[str] = None) -> str:
         "  toxicity margin, max-dose, or 'is this safe?' tool. Thresholds are RANGES.\n"
         if model.is_safety_critical else ""
     )
+    outside = (
+        f"  INSTANTIATED OUTSIDE THIS MODEL'S ENVELOPE — tier propagated to {t} "
+        f"(declared {model.tier}); see envelopeWarning below.\n"
+        if t != model.tier else ""
+    )
     return (
         "============================================================\n"
         "  HYPNOS EXPORT — NOT FOR CLINICAL USE\n"
         f"  clinicalUse = {CLINICAL_USE}\n"
         f"  model: {model.id}  (tier {t}, review: {model.review_status})\n"
         f"  dataset version: {__version__}\n"
+        + outside
         + safety
         + "  Research / education / simulation only. Not a dosing tool.\n"
         "============================================================"
     )
+
+
+def envelope_comments(warnings: List[str]) -> List[str]:
+    """The instantiated patient's envelope / failure-mode warnings as comment lines."""
+    return [f"hypnos:envelopeWarning = {w}" for w in warnings]
+
+
+def envelope_rdf(warnings: List[str], indent: str = "  ") -> str:
+    """The same warnings as ``hypnos:envelopeWarning`` RDF (v0.1 §7)."""
+    from xml.sax.saxutils import escape
+    return "\n".join(f"{indent}    <hypnos:envelopeWarning>{escape(w)}</hypnos:envelopeWarning>"
+                     for w in warnings)
 
 
 def variability_rdf(model: Model, indent: str = "  ") -> str:
@@ -486,7 +513,9 @@ def rdf_annotation_xml(model: Model, ds=None, tier: Optional[str] = None, indent
         f'{indent}           xmlns:hypnos="{HYPNOS_NS}">\n'
         f'{indent}    <hypnos:clinicalUse>{CLINICAL_USE}</hypnos:clinicalUse>\n'
         f'{indent}    <hypnos:confidenceTier>{t}</hypnos:confidenceTier>\n'
-        f'{indent}    <hypnos:datasetVersion>{__version__}</hypnos:datasetVersion>\n'
+        + (f'{indent}    <hypnos:declaredTier>{model.tier}</hypnos:declaredTier>\n'
+           if t != model.tier else "")
+        +        f'{indent}    <hypnos:datasetVersion>{__version__}</hypnos:datasetVersion>\n'
         f'{indent}    <bqmodel:isDerivedFrom>\n'
         f'{indent}      <rdf:Bag>\n{bag}\n{indent}      </rdf:Bag>\n'
         f'{indent}    </bqmodel:isDerivedFrom>\n'

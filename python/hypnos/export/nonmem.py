@@ -17,7 +17,7 @@ import math
 from typing import Any, Dict, Optional
 
 from . import annotate
-from ._common import resolve_patient, safe_name
+from ._common import instantiated_standing, resolve_patient, safe_name
 from ._covariate import nonmem_covariate_pk
 from ._developmental import nonmem_template
 from ._estimation import (
@@ -66,9 +66,10 @@ def _residual_sigma(model) -> Optional[Dict[str, Any]]:
 
 def build(model, ds=None, patient: Optional[Dict[str, Any]] = None) -> str:
     pat = resolve_patient(model, patient)
-    tier = model.tier
+    tier, env_warns = instantiated_standing(model, ds, pat)
     lines = []
     lines.append(_comment_block(annotate.banner(model, tier)))
+    lines.extend(f"; {ln}" for ln in annotate.envelope_comments(env_warns))
     lines.append(";")
     lines.append(f"; Instantiated for reference patient: {pat}")
     lines.append("; Population covariate equations (verbatim from source):")

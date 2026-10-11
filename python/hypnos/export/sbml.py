@@ -12,7 +12,7 @@ from __future__ import annotations
 from typing import Any, Dict, Optional
 
 from . import annotate
-from ._common import resolve_patient, safe_name
+from ._common import instantiated_standing, resolve_patient, safe_name
 from .registry import KERNELS
 
 _HEADER = '<?xml version="1.0" encoding="UTF-8"?>\n'
@@ -50,8 +50,11 @@ def build(model, ds=None, patient: Optional[Dict[str, Any]] = None) -> str:
     # v0.4 §8: Hypnos-computed external-validation metrics (annotation — SBML describes the
     # model, not its post-hoc validation).
     ev = annotate.external_validation_rdf(model, indent="  ")
-    extra = "\n".join(x for x in (var_rdf, est_rdf, la, dev, pgx, cov, rev, dz, ev) if x)
-    ann = annotate.rdf_annotation_xml(model, ds, extra_predicates=extra)
+    # v0.1 §7: the tier PROPAGATED to the instantiated patient + the warnings that caused it.
+    tier, env_warns = instantiated_standing(model, ds, pat)
+    env_rdf = annotate.envelope_rdf(env_warns, indent="  ")
+    extra = "\n".join(x for x in (env_rdf, var_rdf, est_rdf, la, dev, pgx, cov, rev, dz, ev) if x)
+    ann = annotate.rdf_annotation_xml(model, ds, tier=tier, extra_predicates=extra)
     var_note = (
         "    <!-- v0.2 population variability: the curated Omega/Sigma are carried as "
         "hypnos: RDF in the model annotation above. SBML core cannot express population "

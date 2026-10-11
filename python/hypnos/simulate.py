@@ -532,7 +532,9 @@ def _attach_confidence_band(
             "CONFIDENCE BAND: no published estimation uncertainty (SE on θ) for this model — no "
             "confidence band drawn (never-synthesize rule; distinct from the prediction band)")
         return
-    ses = model.estimation_ses()
+    # relative SEs: the curated SE is on the source's reference-individual θ, while `params`
+    # is instantiated for THIS patient — the uncertainty must scale with the parameter.
+    ses = model.estimation_relative_ses()
     if not ses:
         result.warnings.append(
             "CONFIDENCE BAND: uncertainty_status declares estimation uncertainty but no parameter "
@@ -544,7 +546,7 @@ def _attach_confidence_band(
     cp_draws = np.empty((samples, n))
     ce_draws = np.empty((samples, n))
     for i in range(samples):
-        mp = sample_parameter_vector(params, ses, rng)
+        mp = sample_parameter_vector(params, ses, rng, relative=True)
         traj = _simulate_ref(mp, dosing, t)
         cp_draws[i] = traj.cp
         ce_draws[i] = traj.ce

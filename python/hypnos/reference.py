@@ -270,7 +270,8 @@ def sample_individual(typical: MicroParams, omegas: Dict[str, float], rng) -> Mi
     )
 
 
-def sample_parameter_vector(typical: MicroParams, ses: Dict[str, float], rng) -> MicroParams:
+def sample_parameter_vector(typical: MicroParams, ses: Dict[str, float], rng, *,
+                            relative: bool = False) -> MicroParams:
     """Draw one *typical-value* parameter vector perturbed by its ESTIMATION uncertainty (v0.3 E1).
 
     This is the confidence-band analog of :func:`sample_individual`. Where ``sample_individual``
@@ -282,6 +283,12 @@ def sample_parameter_vector(typical: MicroParams, ses: Dict[str, float], rng) ->
         θ_b = θ_hat + N(0, SE_θ)     (natural scale; floored at a small positive)
 
     ``ses`` maps a volumes/clearances symbol (V1/V2/V3/Cl1/Cl2/Cl3/ke0) to its natural-scale SE.
+    With ``relative=True`` it maps to the *relative* SE (RSE as a fraction) instead and the
+    draw is ``θ_b = θ_hat · (1 + N(0, RSE))``. That is the form to use whenever ``typical`` is
+    a patient-instantiated vector: a curated SE is on the source's reference-individual θ, and
+    the patient's parameter is that θ times a covariate function, so the uncertainty scales
+    with it. Applying the absolute SE to a child's (much smaller) volumes would inflate the
+    band; to an obese adult's, deflate it.
     Parameters absent from ``ses`` are held at the point estimate (no fabricated uncertainty —
     the never-synthesize rule, v0.3 §5). Draws come from the seeded ``rng`` so a confidence band
     is byte-reproducible."""
@@ -289,7 +296,8 @@ def sample_parameter_vector(typical: MicroParams, ses: Dict[str, float], rng) ->
     for sym in _VC_SYMBOLS:
         se = ses.get(sym)
         if se and se > 0 and vc.get(sym, 0.0) > 0:
-            vc[sym] = max(vc[sym] + rng.normal(0.0, se), 1e-9)
+            sd = se * vc[sym] if relative else se
+            vc[sym] = max(vc[sym] + rng.normal(0.0, sd), 1e-9)
     return MicroParams.from_volumes_clearances(
         V1=vc["V1"], Cl1=vc["Cl1"], V2=vc["V2"], Cl2=vc["Cl2"],
         V3=vc["V3"], Cl3=vc["Cl3"], ke0=vc["ke0"],

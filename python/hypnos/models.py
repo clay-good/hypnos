@@ -1047,6 +1047,22 @@ class Model:
                 out[p.symbol] = float(e.se)
         return out
 
+    def estimation_relative_ses(self) -> Dict[str, float]:
+        """Map of structural-parameter symbol -> RELATIVE SE (RSE as a fraction) on its
+        typical value. The scale-free form of :meth:`estimation_ses`, and the one that
+        transfers to a patient-instantiated parameter (θ · covariate function): natural
+        scale ``se/|θ|``; log scale ``se`` itself. Never-synthesize: no SE, no entry."""
+        out: Dict[str, float] = {}
+        for p in self.parameters:
+            e = p.estimation
+            if e is None or e.se is None:
+                continue
+            if e.scale == "log":
+                out[p.symbol] = float(e.se)
+            elif p.central:
+                out[p.symbol] = float(e.se) / abs(float(p.central))
+        return out
+
     @property
     def variability_tier(self) -> Optional[str]:
         """Worst tier among the curated variability components (None if uncurated).

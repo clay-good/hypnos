@@ -177,6 +177,8 @@ The v0.2 kernels added `reference.sample_individual(typical, omegas, rng)` (refe
 
 - **`reference.sample_parameter_vector(theta, theta_cov, rng) -> ThetaVector`** — draw a perturbed typical-value vector θ\* from the estimate covariance (respecting any curated off-diagonal correlations; independent-with-caveat otherwise), on the curated `scale` (log-normal for log-scale θ, normal for natural-scale). Each draw is a *plausible alternative fit* of the same model. This composes with `MicroParams.from_volumes_clearances` (reference.py §62) exactly as `sample_individual` does — it perturbs the typical values *before* the structural→micro conversion, so the solver, exporters, and validation keep their single canonical representation.
 
+  > **As implemented.** `sample_parameter_vector(typical, ses, rng, relative=…)` draws independently per θ (no model publishes estimate correlations yet). `simulate` calls it with `relative=True` and `Model.estimation_relative_ses()`: a curated SE is on the source's *reference-individual* θ, while the vector being perturbed is instantiated for the *patient* (θ × a covariate function), so the uncertainty is applied as the scale-free RSE. Applying the absolute SE would make the band's relative width depend on patient size.
+
 - **Two band kinds, never conflated:**
   - A **confidence band** answers *"where is the typical curve, given how well the model is estimated?"* — outer loop draws θ\* from the estimate covariance; the *typical* trajectory is simulated for each θ\* (no η, no ε). Quantiles over θ\* draws.
   - A **prediction band** (v0.2) answers *"where will an individual / a measured sample land?"* — η draws (and optionally ε).

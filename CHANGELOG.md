@@ -8,6 +8,23 @@ version is pinned in `dataset/VERSION` and stamped into every export as
 
 ## [Unreleased]
 
+### Fix — the estimation confidence band no longer depends on patient size (2026-10-10)
+- **What was wrong.** `simulate(bands=["confidence"])` added each parameter's curated standard error in
+  *absolute* units to the patient-instantiated parameter. But the SE is on the source's reference
+  individual (e.g. V3 = 273 L ± 12.2 L, 4.5%), and a patient's parameter is that value times a covariate
+  function. For a 20 kg child the same ±12.2 L was ~15% of V3, so the band came out ~2.5x too wide; for a
+  160 kg adult it was ~0.6x too narrow. At the reference individual the band was correct.
+- **Fix.** The sampler now applies the *relative* SE (`Model.estimation_relative_ses()`,
+  `sample_parameter_vector(..., relative=True)`), so every patient gets the curated RSE. The absolute
+  mode remains the default for direct callers.
+- **Proof.** Relative band width at 30 min for Eleveld propofol — reference 4.7%, child 11.9%, obese 2.8%
+  before; within 25% of each other after (test). A second test draws 4,000 vectors per patient and checks
+  each parameter's scatter equals its curated RSE at 20, 70, and 160 kg.
+- `docs/images/reducibility.png` regenerated (its 80 kg patient is close to the reference, so the picture
+  barely moves). The estimation share of the variance decomposition shifts correspondingly for
+  non-reference patients.
+- 7 new tests.
+
 ### Fix — exports now carry the tier propagated to the patient they are instantiated at (2026-10-10)
 - **What was wrong.** Every export labeled a model with its *declared* tier, even when the patient it was
   instantiated for was outside the model's envelope. The default exports of the pediatric Kataria and

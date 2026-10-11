@@ -470,3 +470,74 @@ def test_export_states_a_failed_covariance_step():
     ds = hypnos.load()
     text = export_model("nonmem", _correlated_eleveld(ds, succeeded=False), ds)[1]
     assert "covariance step FAILED" in text and "MISSING, not zero" in text
+
+
+# --------------------------------------------------------------------------- #
+# The confidence band must scale with the PATIENT's parameters (relative SE)
+# --------------------------------------------------------------------------- #
+from hypnos.export.registry import instantiate  # noqa: E402
+from hypnos.reference import sample_parameter_vector  # noqa: E402
+
+_REFERENCE = dict(age=35, weight=70, height=170, sex="M")      # Eleveld's reference individual
+_CHILD = dict(age=6, weight=20, height=115, sex="M")
+_OBESE = dict(age=50, weight=160, height=175, sex="M")
+
+
+def test_relative_ses_equal_the_curated_rse():
+    ds = hypnos.load()
+    m = ds[ELEVELD]
+    rel = m.estimation_relative_ses()
+    for p in m.parameters:
+        if p.estimation and p.estimation.se is not None:
+            assert rel[p.symbol] == pytest.approx(p.estimation.rse_percent / 100.0, rel=1e-3)
+    assert "ke0" not in rel                         # no curated SE -> no entry (never-synthesize)
+    assert ds[MARSH].estimation_relative_ses() == {}
+
+
+def test_relative_ses_treat_a_log_scale_se_as_already_relative():
+    m = _model(est={"se": 0.06, "scale": "log", "method": "bootstrap", "tier": "B",
+                    "extraction": {"review_status": "unverified"}}, status="marginal")
+    assert m.estimation_relative_ses() == {"Cl": 0.06}
+
+
+@pytest.mark.parametrize("patient", [_REFERENCE, _CHILD, _OBESE])
+def test_sampled_parameters_scatter_by_the_curated_rse_for_any_patient(patient):
+    # a curated SE is on the reference-individual θ; a child's volumes are several times
+    # smaller, so applying the ABSOLUTE SE would inflate the relative scatter (the bug)
+    ds = hypnos.load()
+    m = ds[ELEVELD]
+    rel = m.estimation_relative_ses()
+    typical = instantiate(m, patient)
+    base = typical.as_volumes_clearances()
+    rng = np.random.default_rng(11)
+    draws = [sample_parameter_vector(typical, rel, rng, relative=True).as_volumes_clearances()
+             for _ in range(4000)]
+    for sym, rse in rel.items():
+        got = np.std([d[sym] for d in draws]) / base[sym]
+        assert got == pytest.approx(rse, rel=0.06), f"{sym} at {patient['weight']} kg"
+    assert all(d["ke0"] == pytest.approx(base["ke0"]) for d in draws[:50])   # no SE -> held fixed
+
+
+def test_confidence_band_relative_width_does_not_depend_on_patient_size():
+    ds = hypnos.load()
+
+    def width(patient):
+        r = hypnos.simulate(ds, ELEVELD, patient=patient, t=np.linspace(0, 30, 121),
+                            schedule=[("bolus", 0.0, "2 mg/kg"), ("infusion", 0.0, "6 mg/kg/h")],
+                            bands=["confidence"], seed=7)
+        q = r.cp_confidence_quantiles
+        return float((q[95][-1] - q[5][-1]) / q[50][-1])
+
+    ref, child, obese = width(_REFERENCE), width(_CHILD), width(_OBESE)
+    # the same few-percent estimation uncertainty for every patient: before the fix the
+    # child's band was ~2.5x the reference's and the obese adult's ~0.6x
+    assert child == pytest.approx(ref, rel=0.25) and obese == pytest.approx(ref, rel=0.25)
+    assert 0.02 < ref < 0.08
+
+
+def test_absolute_mode_is_unchanged_for_callers_passing_natural_scale_ses():
+    ds = hypnos.load()
+    typical = instantiate(ds[ELEVELD], _REFERENCE)
+    a = sample_parameter_vector(typical, {"V1": 0.5}, np.random.default_rng(3))
+    b = sample_parameter_vector(typical, {"V1": 0.5}, np.random.default_rng(3), relative=False)
+    assert a.V1 == b.V1 and a.V1 != typical.V1

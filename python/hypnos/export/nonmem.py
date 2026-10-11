@@ -75,6 +75,12 @@ def build(model, ds=None, patient: Optional[Dict[str, Any]] = None) -> str:
         if p.covariate_model:
             lines.append(f";   {p.symbol}: {p.covariate_model}")
     lines.append(";")
+    # v0.5 §D: reversal coupling + opt-in disease modifiers (the control stream can express
+    # neither), stated before the kernel gate so a kernel-pending antagonist still carries them.
+    breadth = annotate.breadth_comments(model, ds)
+    if breadth:
+        lines.extend(f"; {ln}" for ln in breadth)
+        lines.append(";")
 
     if not (model.kernel_implemented and model.kernel_function in KERNELS):
         lines.append("; KERNEL PENDING — numeric THETA block omitted (no verified kernel).")

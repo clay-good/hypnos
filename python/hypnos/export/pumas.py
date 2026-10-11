@@ -129,6 +129,10 @@ def _estimation_block(model, name: str) -> list:
 def build(model, ds=None, patient: Optional[Dict[str, Any]] = None) -> str:
     pat = resolve_patient(model, patient)
     head = _comment_block(annotate.banner(model, model.tier))
+    # v0.5 §D: reversal coupling + opt-in disease modifiers, ahead of the kernel gate.
+    breadth = annotate.breadth_comments(model, ds)
+    if breadth:
+        head += "\n" + _comment_block("\n".join(breadth))
     if not (model.kernel_implemented and model.kernel_function in KERNELS):
         return head + "\n# KERNEL PENDING — no instantiated Pumas model emitted.\n"
 

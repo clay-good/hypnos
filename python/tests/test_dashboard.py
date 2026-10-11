@@ -23,6 +23,17 @@ from streamlit.testing.v1 import AppTest  # noqa: E402
 APP = str(Path(__file__).resolve().parents[2] / "dashboard" / "app.py")
 
 
+def _enable_bands(at):
+    """Toggle the prediction bands at the smallest Monte-Carlo size, without rerunning.
+
+    These are rendering smoke tests, not band-precision tests (those live in
+    test_variability / test_covariate_band), so the sample count is the slider minimum and
+    all widget changes land in ONE rerun — which keeps the script inside the AppTest
+    timeout on a loaded machine."""
+    next(c for c in at.checkbox if c.label.startswith("Seeded")).set_value(True)
+    next(s for s in at.select_slider if s.label == "Monte-Carlo samples").set_value(500)
+
+
 def test_dashboard_renders_without_bands():
     at = AppTest.from_file(APP, default_timeout=60).run()
     assert not at.exception
@@ -62,8 +73,8 @@ def test_dashboard_local_anesthetic_section():
 def test_dashboard_renders_with_prediction_bands():
     at = AppTest.from_file(APP, default_timeout=120).run()
     assert not at.exception
-    bands_toggle = next(c for c in at.checkbox if c.label.startswith("Seeded"))
-    bands_toggle.set_value(True).run()
+    _enable_bands(at)
+    at.run()
     assert not at.exception
     # the uncertainty-aware divergence section must render once bands are on
     assert any("distinguishable" in s.value for s in at.subheader)
@@ -83,10 +94,10 @@ def test_dashboard_covariate_band():
     # v0.7 C2: a non-zero weight-uncertainty SD adds the covariate band + the fifth
     # variance component (equation-choice vs value-uncertainty) without crashing.
     at = AppTest.from_file(APP, default_timeout=120).run()
-    bands_toggle = next(c for c in at.checkbox if c.label.startswith("Seeded"))
-    bands_toggle.set_value(True).run()
+    _enable_bands(at)
     wsd = next(s for s in at.slider if "Weight uncertainty" in s.label)
-    wsd.set_value(12.0).run()
+    wsd.set_value(12.0)
+    at.run()
     assert not at.exception
     captions = " ".join(c.value for c in at.caption)
     assert "Covariate split" in captions

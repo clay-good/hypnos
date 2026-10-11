@@ -11,7 +11,7 @@ block.
 from __future__ import annotations
 
 from typing import Any, Dict, Optional
-from xml.sax.saxutils import escape
+from xml.sax.saxutils import escape, quoteattr
 
 from . import annotate
 from ._common import resolve_patient, safe_name
@@ -164,6 +164,24 @@ def build(model, ds=None, patient: Optional[Dict[str, Any]] = None) -> str:
             f'bindingCapacityUgMl="{ffm.get("binding_capacity_ug_ml")}" '
             f'tier="{escape(ffm.get("tier", ""))}"/>\n'
         )
+    # v0.5 §D: reversal coupling + opt-in Tier-D disease modifiers (annotation, not parameters).
+    rev = model.reversal_mechanism
+    if rev:
+        la_xml += (
+            f'      <hypnos:reversalMechanism type="{escape(str(rev.get("type")))}" '
+            f'tier="{escape(str(rev.get("tier", "D")))}" '
+            f'targets="{escape(" ".join(model.reversal_targets))}"'
+            + "".join(f" {annotate._camel(k)}={quoteattr(str(v))}"
+                      for k, v in annotate._reversal_facts(rev))
+            + "/>\n")
+    for dz in model.disease_state_modifiers:
+        sf = dz.scale_factor
+        la_xml += (
+            f'      <hypnos:diseaseStateModifier condition={quoteattr(annotate._condition_text(dz))} '
+            f'affectedParameter="{escape(dz.affected_parameter)}"'
+            + (f' scaleFactor="{sf:.10g}"' if sf is not None else "")
+            + f' evidenceTier="{dz.evidence_tier}" '
+            f'appliedByDefault="{str(dz.applied_by_default).lower()}"/>\n')
     prov_xml = (
         "    <Annotation>\n"
         f'      <hypnos:clinicalUse>{escape(prov["hypnos:clinicalUse"])}</hypnos:clinicalUse>\n'

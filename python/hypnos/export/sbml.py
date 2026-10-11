@@ -41,7 +41,11 @@ def build(model, ds=None, patient: Optional[Dict[str, Any]] = None) -> str:
     # v0.3 §8: the per-θ estimation SE/RSE + estimate correlations ride as their own RDF
     # predicates — reducible uncertainty, kept apart from the Ω/Σ above (Trap 1).
     est_rdf = annotate.estimation_rdf(model, indent="  ")
-    extra = "\n".join(x for x in (var_rdf, est_rdf, la, dev, pgx, cov) if x)
+    # v0.5 §D: the reversal coupling (mechanism + link to the agonist model) and the opt-in
+    # Tier-D disease-state modifiers ride as RDF — core SBML can express neither.
+    rev = annotate.reversal_rdf(model, indent="  ")
+    dz = annotate.disease_modifier_rdf(model, ds, indent="  ")
+    extra = "\n".join(x for x in (var_rdf, est_rdf, la, dev, pgx, cov, rev, dz) if x)
     ann = annotate.rdf_annotation_xml(model, ds, extra_predicates=extra)
     var_note = (
         "    <!-- v0.2 population variability: the curated Omega/Sigma are carried as "

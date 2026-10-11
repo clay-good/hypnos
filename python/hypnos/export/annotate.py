@@ -11,6 +11,7 @@ Two durability tiers, mirroring the spec (§7):
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
+from xml.sax.saxutils import quoteattr
 
 from .. import CLINICAL_USE, __version__
 from ..models import Model
@@ -262,6 +263,110 @@ def pharmacogenomics_rdf(model: Model, indent: str = "  ") -> str:
             f'hypnos:kind="{flag.kind}" hypnos:triggers="{" ".join(flag.trigger_agents)}" '
             f'hypnos:affectsKinetics="false" hypnos:evidenceTier="{flag.evidence_tier}"/>')
     return "\n".join(lines)
+
+
+def _reversal_facts(rm: Dict[str, Any]) -> List[tuple]:
+    """The mechanism-appropriate numbers of a ``reversal_mechanism`` as ``[(name, value)]``.
+
+    Only what the record curates: a null binding constant is omitted, never zero-filled."""
+    facts: List[tuple] = []
+    for block, keys in (("stoichiometry", ("ratio", "basis")),
+                        ("binding", ("k_on", "k_off", "kd", "approximation")),
+                        ("antagonism", ("ki", "ki_units", "ce50_shift_model")),
+                        ("indirect", ("ceiling", "depth_floor"))):
+        for k in keys:
+            v = (rm.get(block) or {}).get(k)
+            if v is not None:
+                facts.append((f"{block}.{k}", v))
+    return facts
+
+
+def _camel(dotted: str) -> str:
+    """``binding.k_off`` -> ``bindingKOff`` (an XML attribute local name)."""
+    parts = dotted.replace(".", "_").split("_")
+    return parts[0] + "".join(p.capitalize() for p in parts[1:])
+
+
+def reversal_rdf(model: Model, indent: str = "  ") -> str:
+    """``hypnos:`` RDF for the reversal-agent coupling (v0.5 §D).
+
+    SBML/NONMEM core cannot express a cross-model binding reaction, so the mechanism,
+    its stoichiometry/binding/antagonism/ceiling numbers, and the **link to the agonist
+    model(s)** it acts on ride as metadata — antagonism is an interaction, and an export
+    of the antagonist alone must still say what it reverses. Returns ``""`` for a model
+    with no ``reversal_mechanism``."""
+    rm = model.reversal_mechanism
+    if not rm:
+        return ""
+    pad = f"{indent}    "
+    attrs = "".join(f" hypnos:{_camel(k)}={quoteattr(str(v))}" for k, v in _reversal_facts(rm))
+    lines = [f'{pad}<hypnos:reversalMechanism hypnos:type="{rm.get("type")}" '
+             f'hypnos:tier="{rm.get("tier", "D")}"{attrs}>',
+             f"{pad}  <hypnos:reversalTargets>", f"{pad}    <rdf:Bag>"]
+    lines += [f'{pad}      <rdf:li hypnos:modelId="{t}"/>' for t in model.reversal_targets]
+    lines += [f"{pad}    </rdf:Bag>", f"{pad}  </hypnos:reversalTargets>",
+              f"{pad}</hypnos:reversalMechanism>"]
+    return "\n".join(lines)
+
+
+def _citation_uri(cid: Optional[str], ds) -> Optional[str]:
+    cit = ds.citation(cid) if (ds is not None and cid) else None
+    if cit and cit.get("doi"):
+        return f"https://doi.org/{cit['doi']}"
+    if cit and cit.get("pmid"):
+        return f"https://identifiers.org/pubmed:{cit['pmid']}"
+    return None
+
+
+def _condition_text(dz) -> str:
+    return f"{dz.dimension} < {dz.below:g}" if dz.below is not None else f"{dz.dimension} = {dz.value}"
+
+
+def disease_modifier_rdf(model: Model, ds=None, indent: str = "  ") -> str:
+    """``hypnos:diseaseStateModifier`` annotations (v0.5 §D).
+
+    Each carries its citation, tier, and the opt-in flag, so a downstream consumer cannot
+    apply one without seeing that it is an unvalidated, opt-in, Tier-D extrapolation. The
+    exported parameters are **never** pre-adjusted: the modifier travels beside them.
+    Returns ``""`` when the model carries none."""
+    pad = f"{indent}    "
+    lines: List[str] = []
+    for dz in model.disease_state_modifiers:
+        sf = dz.scale_factor
+        sf_attr = f' hypnos:scaleFactor="{sf:.10g}"' if sf is not None else ""
+        uri = _citation_uri(dz.primary_citation, ds)
+        cite = f" hypnos:citation={quoteattr(uri)}" if uri else ""
+        lines.append(
+            f"{pad}<hypnos:diseaseStateModifier hypnos:condition={quoteattr(_condition_text(dz))} "
+            f'hypnos:affectedParameter="{dz.affected_parameter}"{sf_attr} '
+            f'hypnos:evidenceTier="{dz.evidence_tier}" '
+            f'hypnos:appliedByDefault="{str(dz.applied_by_default).lower()}"{cite}/>')
+    return "\n".join(lines)
+
+
+def breadth_comments(model: Model, ds=None) -> List[str]:
+    """The v0.5 reversal + disease-modifier blocks as plain comment lines (no prefix).
+
+    For the text formats (NONMEM / rxode2 / Pumas), whose core can express neither a
+    cross-model binding reaction nor an opt-in adjustment: the same facts the RDF carries,
+    as comments, so the annotation is never format-dependent (v0.5 §D)."""
+    lines: List[str] = []
+    rm = model.reversal_mechanism
+    if rm:
+        lines.append(f"hypnos:reversalMechanism = {rm.get('type')} (tier {rm.get('tier', 'D')}) — "
+                     "an INTERACTION with the target model(s), not a solo trajectory")
+        lines += [f"  hypnos:reversalTarget = {t}" for t in model.reversal_targets]
+        lines += [f"  {k} = {v}" for k, v in _reversal_facts(rm)]
+    for dz in model.disease_state_modifiers:
+        sf = dz.scale_factor
+        uri = _citation_uri(dz.primary_citation, ds)
+        lines.append(
+            f"hypnos:diseaseStateModifier = {_condition_text(dz)}: {dz.affected_parameter}"
+            + (f" x {sf:g}" if sf is not None else "")
+            + f" (evidenceTier {dz.evidence_tier}, appliedByDefault "
+              f"{str(dz.applied_by_default).lower()}" + (f", {uri}" if uri else "") + ")")
+        lines.append("  OPT-IN, UNVALIDATED EXTRAPOLATION — NOT applied to the parameters in this file")
+    return lines
 
 
 def rdf_annotation_xml(model: Model, ds=None, tier: Optional[str] = None, indent: str = "  ",

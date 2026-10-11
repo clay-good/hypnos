@@ -8,6 +8,24 @@ version is pinned in `dataset/VERSION` and stamped into every export as
 
 ## [Unreleased]
 
+### v0.5 §C/§D finish — reversal + disease modifiers in every export and in `hypnos verify` (2026-10-10)
+- **Exports (§D).** The `reversal_mechanism` (type, tier, stoichiometry/binding/antagonism/ceiling numbers,
+  and the link to the agonist model it acts on) and each `disease_state_modifier` (condition, affected
+  parameter, scale factor, citation DOI, `evidenceTier`, `appliedByDefault`) now travel in all six model
+  formats: `hypnos:reversalMechanism` / `hypnos:diseaseStateModifier` RDF in SBML, annotations in PharmML,
+  comment lines in NONMEM / rxode2 / Pumas (ahead of the kernel gate, so a kernel-pending antagonist still
+  says what it reverses), verbatim in TCI-JSON. Null binding constants are omitted, never zero-filled.
+- **Modifiers are never pre-applied.** A test strips the modifier from the record and asserts every export
+  is otherwise identical; the text formats say "NOT applied to the parameters in this file".
+- **Verification (§C).** `hypnos verify` gains a `reversal` group (targets resolve; molar stoichiometry /
+  Ki / ceiling by mechanism; the mechanism's failure mode quoted) and a `special_population` group
+  (modifier direction + magnitude vs the source, Tier-D + opt-in, cited organ standing, binding flag).
+- **A gap the new checklist surfaced:** sugammadex curates no failure mode; it is flagged, not invented.
+- 41 new tests.
+- **Test hardening.** The two dashboard band smoke tests timed out (120 s AppTest limit) on a loaded
+  machine; they now toggle bands at the slider's minimum sample count in a single rerun (46 s → 11 s and
+  16 s → 4 s), with the same assertions. Band precision stays covered by the variability/covariate tests.
+
 ### v0.3 E3 finish — the estimation object reaches every export (2026-10-10)
 - **All six model formats now carry the curated estimation uncertainty** (v0.3 §8), where before only
   NONMEM had a per-θ comment block: PharmML gains a Standard-Output-shaped `Estimation` object (`MLE`,

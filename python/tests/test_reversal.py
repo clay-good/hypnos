@@ -114,3 +114,106 @@ def test_validate_requires_renarcotization_caveat(ds):
 
 def test_full_dataset_validates_clean():
     assert hypnos.validate_dataset() == []
+
+
+# --------------------------------------------------------------------------- #
+# v0.5 §D — the reversal coupling travels in every export; §C — the verify group
+# --------------------------------------------------------------------------- #
+import json  # noqa: E402
+import xml.dom.minidom as minidom  # noqa: E402
+
+from hypnos.export import export_model  # noqa: E402
+from hypnos.verification import checklist_markdown, model_verification  # noqa: E402
+
+SUGAMMADEX = "reversal.sugammadex.encapsulation"
+NALOXONE = "reversal.naloxone.competitive"
+NEOSTIGMINE = "reversal.neostigmine.indirect"
+_AGENTS = [SUGAMMADEX, NALOXONE, NEOSTIGMINE]
+_MODEL_FORMATS = ["nonmem", "pharmml", "sbml", "tci_json", "rxode2", "pumas"]
+
+
+@pytest.mark.parametrize("mid", _AGENTS)
+@pytest.mark.parametrize("fmt", _MODEL_FORMATS)
+def test_every_export_links_the_antagonist_to_its_target(fmt, mid):
+    # an export of the antagonist alone must still say WHAT it reverses and HOW
+    ds = hypnos.load()
+    m = ds[mid]
+    text = export_model(fmt, m, ds)[1]
+    assert m.reversal_mechanism["type"] in text
+    for target in m.reversal_targets:
+        assert target in text
+
+
+def test_tci_json_passes_reversal_mechanism_verbatim():
+    ds = hypnos.load()
+    doc = json.loads(export_model("tci_json", ds[SUGAMMADEX], ds)[1])
+    assert doc["reversal_mechanism"] == ds[SUGAMMADEX].raw["reversal_mechanism"]
+    # a non-reversal model carries no such key
+    roc = json.loads(export_model("tci_json", ds["nmb_agents.rocuronium.wierda_1991"], ds)[1])
+    assert "reversal_mechanism" not in roc
+
+
+def test_sbml_reversal_rdf_is_well_formed_and_carries_only_curated_numbers():
+    ds = hypnos.load()
+    dom = minidom.parseString(export_model("sbml", ds[SUGAMMADEX], ds)[1])
+    (rm,) = dom.getElementsByTagName("hypnos:reversalMechanism")
+    assert rm.getAttribute("hypnos:type") == "encapsulation"
+    assert rm.getAttribute("hypnos:stoichiometryBasis") == "molar"      # molar, never mass
+    assert float(rm.getAttribute("hypnos:stoichiometryRatio")) == 1.0
+    assert rm.getAttribute("hypnos:bindingApproximation") == "instantaneous_1to1"
+    # the binding constants are curated null -> omitted, never zero-filled
+    assert not rm.hasAttribute("hypnos:bindingKd") and not rm.hasAttribute("hypnos:bindingKOn")
+    targets = [li.getAttribute("hypnos:modelId") for li in rm.getElementsByTagName("rdf:li")]
+    assert targets == ["nmb_agents.rocuronium.wierda_1991"]
+
+
+@pytest.mark.parametrize("fmt", ["sbml", "pharmml"])
+def test_xml_reversal_carries_mechanism_numbers(fmt):
+    ds = hypnos.load()
+    nal = export_model(fmt, ds[NALOXONE], ds)[1]
+    minidom.parseString(nal)
+    assert 'ntagonismKi="1.0"' in nal and "Ce50_apparent" in nal
+    neo = export_model(fmt, ds[NEOSTIGMINE], ds)[1]
+    minidom.parseString(neo)
+    assert 'ndirectCeiling="0.5"' in neo
+
+
+def test_text_exports_state_reversal_is_an_interaction():
+    ds = hypnos.load()
+    for fmt, prefix in (("nonmem", ";"), ("rxode2", "#"), ("pumas", "#")):
+        text = export_model(fmt, ds[NEOSTIGMINE], ds)[1]
+        line = next(ln for ln in text.splitlines() if "hypnos:reversalMechanism" in ln)
+        assert line.startswith(prefix) and "not a solo trajectory" in line
+        assert "indirect.ceiling = 0.5" in text
+
+
+def test_non_reversal_model_exports_no_reversal_block():
+    ds = hypnos.load()
+    for fmt in _MODEL_FORMATS:
+        assert "eversalMechanism" not in export_model(
+            fmt, ds["hypnotics_iv.propofol.marsh_1991"], ds)[1]
+
+
+def test_verify_gains_a_reversal_group():
+    ds = hypnos.load()
+    mv = model_verification(ds, NALOXONE)
+    rev = [it for it in mv.checklist if it.group == "reversal"]
+    labels = " | ".join(it.label for it in rev)
+    assert "target model(s) resolve" in labels and "Ki value" in labels
+    assert any("opioids.fentanyl.shafer_1990" in it.value for it in rev)
+    # the renarcotization failure mode is found and quoted, not just asserted present
+    fm = next(it for it in rev if "failure mode" in it.label)
+    assert "renarcotization" in fm.value.lower() or "relapse" in fm.value.lower()
+    assert "## Reversal coupling" in checklist_markdown(mv)
+
+
+def test_verify_reversal_group_is_mechanism_specific_and_flags_gaps():
+    ds = hypnos.load()
+    neo = [it for it in model_verification(ds, NEOSTIGMINE).checklist if it.group == "reversal"]
+    assert any("ceiling=0.5" in it.value for it in neo)
+    sug = [it for it in model_verification(ds, SUGAMMADEX).checklist if it.group == "reversal"]
+    assert any("molar" in it.value for it in sug)
+    # sugammadex curates no failure mode yet: the checklist says so instead of staying silent
+    assert any("none curated" in it.value for it in sug if "failure mode" in it.label)
+    marsh = model_verification(ds, "hypnotics_iv.propofol.marsh_1991").checklist
+    assert not [it for it in marsh if it.group == "reversal"]

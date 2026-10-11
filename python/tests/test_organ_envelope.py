@@ -260,3 +260,93 @@ def test_validate_rejects_default_applied_disease_modifier():
     probs = _check_disease_modifiers(_dz_model("eleveld-2018-propofol", applied=True),
                                      {"eleveld-2018-propofol"})
     assert any("applied_by_default" in p for p in probs)
+
+
+# --------------------------------------------------------------------------- #
+# v0.5 §D — disease modifiers export as opt-in annotations; §C — the verify group
+# --------------------------------------------------------------------------- #
+import copy  # noqa: E402
+import json as _json  # noqa: E402
+import re  # noqa: E402
+import xml.dom.minidom as _minidom  # noqa: E402
+
+from hypnos.export import export_model  # noqa: E402
+from hypnos.verification import checklist_markdown, model_verification  # noqa: E402
+
+_DEX = "alpha2_agonists.dexmedetomidine.hannivoort_2015"
+_MINTO = "opioids.remifentanil.minto_1997"
+_FORMATS = ["nonmem", "pharmml", "sbml", "tci_json", "rxode2", "pumas"]
+
+
+@pytest.mark.parametrize("fmt", _FORMATS)
+def test_export_carries_disease_modifier_with_its_opt_in_flags(fmt):
+    # a consumer must not be able to apply the modifier without seeing it is opt-in + Tier-D
+    ds = hypnos.load()
+    text = export_model(fmt, ds[_DEX], ds)[1]
+    if fmt == "tci_json":
+        (dz,) = _json.loads(text)["disease_state_modifiers"]
+        assert dz == ds[_DEX].raw["disease_state_modifiers"][0]
+        assert dz["applied_by_default"] is False and dz["evidence_tier"] == "D"
+        return
+    assert "iseaseStateModifier" in text and "0.66" in text
+    assert re.search(r'appliedByDefault\W+false', text)
+    assert re.search(r'evidenceTier\W+D\b', text)
+    if fmt in ("sbml", "pharmml"):
+        _minidom.parseString(text)
+    else:
+        assert "NOT applied to the parameters in this file" in text
+
+
+@pytest.mark.parametrize("fmt", ["nonmem", "sbml", "tci_json", "rxode2", "pumas"])
+def test_export_parameters_are_never_pre_adjusted_by_a_modifier(fmt):
+    # the modifier travels BESIDE the parameters: stripping it leaves the artifact unchanged
+    ds = hypnos.load()
+    raw = copy.deepcopy(ds[_DEX].raw)
+    raw.pop("disease_state_modifiers")
+    bare = export_model(fmt, Model(raw=raw), ds)[1]
+    full = export_model(fmt, ds[_DEX], ds)[1]
+    if fmt == "tci_json":
+        a, b = _json.loads(full), _json.loads(bare)
+        assert a["instantiated_parameters"] == b["instantiated_parameters"]
+        return
+    kept = [ln for ln in full.splitlines()
+            if "iseaseStateModifier" not in ln and "OPT-IN, UNVALIDATED" not in ln]
+    assert [ln for ln in kept if ln.strip(";# ")] == [ln for ln in bare.splitlines() if ln.strip(";# ")]
+
+
+def test_sbml_disease_modifier_cites_its_source():
+    ds = hypnos.load()
+    dom = _minidom.parseString(export_model("sbml", ds[_DEX], ds)[1])
+    (dz,) = dom.getElementsByTagName("hypnos:diseaseStateModifier")
+    assert dz.getAttribute("hypnos:citation").startswith("https://doi.org/")
+    assert dz.getAttribute("hypnos:condition") == "child_pugh = present"
+    assert dz.getAttribute("hypnos:affectedParameter") == "Cl"
+
+
+def test_model_without_modifier_exports_none():
+    ds = hypnos.load()
+    for fmt in _FORMATS:
+        assert "iseaseStateModifier" not in export_model(fmt, ds[_MINTO], ds)[1]
+        assert "disease_state_modifiers" not in export_model(fmt, ds[_MINTO], ds)[1]
+
+
+def test_verify_gains_a_special_population_group():
+    ds = hypnos.load()
+    mv = model_verification(ds, _DEX)
+    sp = [it for it in mv.checklist if it.group == "special_population"]
+    labels = " | ".join(it.label for it in sp)
+    assert "DIRECTION and MAGNITUDE" in labels          # the human line item (§C)
+    assert "Tier-D and opt-in" in labels
+    assert any("dewolf-2001-dexmed-hepatic" in it.value for it in sp)
+    assert any("binding_sensitive=True" in it.value for it in sp)   # dexmedetomidine is flagged
+    assert "## Special populations" in checklist_markdown(mv)
+
+
+def test_verify_special_population_lists_cited_organ_standing():
+    # remifentanil's esterase exception: each tolerated axis is a line a human confirms
+    ds = hypnos.load()
+    sp = [it for it in model_verification(ds, _MINTO).checklist
+          if it.group == "special_population"]
+    axes = {it.label.split(" standing")[0] for it in sp if "standing" in it.label}
+    assert {"hepatic", "renal"} <= axes
+    assert all("MISSING" not in it.value for it in sp if "standing" in it.label)

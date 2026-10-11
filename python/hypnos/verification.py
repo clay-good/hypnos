@@ -22,7 +22,7 @@ REVIEW_STATES = ("unverified", "pending_human_review", "verified", "contested")
 
 @dataclass
 class ChecklistItem:
-    group: str           # "structural" | "covariate" | "covariate_equation" | "envelope" | "population" | "estimation" | "local_anesthetic" | "citation"
+    group: str           # "structural" | "covariate" | "covariate_equation" | "envelope" | "population" | "estimation" | "local_anesthetic" | "developmental" | "pharmacogenomics" | "reversal" | "special_population" | "citation"
     label: str
     value: str           # the current value a verifier must confirm against the PDF
     confirmed: bool = False
@@ -219,6 +219,66 @@ def _checklist_for(model: Model, ds: Dataset) -> List[ChecklistItem]:
             f"{flag.gene} susceptibility curated as a FLAG, not a modifier (Trap 2, cardinal)",
             f"{flag.kind}: {flag.action}; affects_kinetics={flag.affects_kinetics} "
             f"(must be False — no kinetic number), Tier {flag.evidence_tier}"))
+    # 5e. reversal coupling (v0.5 §C) — target resolves, stoichiometry/binding scale, and
+    #     the renarcotization/ceiling failure mode present.
+    rm = model.reversal_mechanism
+    if rm:
+        loc = (rm.get("extraction") or {}).get("source_locator")
+        targets = model.reversal_targets
+        missing = [t for t in targets if ds is not None and t not in ds]
+        items.append(ChecklistItem(
+            "reversal", "target model(s) resolve & are the right agonist",
+            ", ".join(targets) + (f"  ⚠️ UNRESOLVED: {', '.join(missing)}" if missing else ""),
+            locator=loc))
+        typ = rm.get("type")
+        if typ == "encapsulation":
+            st, b = rm.get("stoichiometry") or {}, rm.get("binding") or {}
+            items.append(ChecklistItem(
+                "reversal", "stoichiometry basis (MOLAR, not mass) & binding scale",
+                f"{st.get('ratio')}:1 {st.get('basis')}; kd={b.get('kd')}, "
+                f"approximation={b.get('approximation')}"))
+        elif typ == "competitive_receptor":
+            an = rm.get("antagonism") or {}
+            items.append(ChecklistItem(
+                "reversal", "Ki value, units & the Ce50-shift form",
+                f"Ki={an.get('ki')} {an.get('ki_units')}; {an.get('ce50_shift_model')}"))
+        elif typ == "enzyme_inhibition":
+            ind = rm.get("indirect") or {}
+            items.append(ChecklistItem(
+                "reversal", "ceiling & depth floor (cannot reverse deep block)",
+                f"ceiling={ind.get('ceiling')}, depth_floor={ind.get('depth_floor')}"))
+        want = {"competitive_receptor": ("renarcotiz", "relapse"),
+                "enzyme_inhibition": ("ceiling", "deep"),
+                "encapsulation": ("recurar", "re-curar", "under-dos", "underdos", "insufficient")}
+        modes = [fm.behavior or "" for fm in model.known_failure_modes]
+        hit = next((b for b in modes if any(w in b.lower() for w in want.get(typ, ()))), None)
+        items.append(ChecklistItem(
+            "reversal", "mechanism's failure mode present (renarcotization / ceiling / recurarization)",
+            hit or "⚠️ none curated for this mechanism"))
+    # 5f. special populations (v0.5 §C) — modifier cited, Tier-D, opt-in; organ standing
+    #     cited; binding sensitivity flagged. The human confirms DIRECTION and MAGNITUDE.
+    for dz in model.disease_state_modifiers:
+        loc = (dz.extraction or {}).get("source_locator")
+        cond = f"{dz.dimension} < {dz.below:g}" if dz.below is not None else f"{dz.dimension} = {dz.value}"
+        items.append(ChecklistItem(
+            "special_population",
+            f"{cond} modifier on {dz.affected_parameter} — DIRECTION and MAGNITUDE vs the source",
+            f"{dz.adjustment.get('type')} {dz.adjustment.get('value')}; "
+            f"citation {dz.primary_citation or '⚠️ MISSING'}", locator=loc))
+        items.append(ChecklistItem(
+            "special_population", f"{cond} modifier is Tier-D and opt-in (never applied by default)",
+            f"evidence_tier={dz.evidence_tier}, applied_by_default={dz.applied_by_default}"))
+    for tol in env.organ_tolerance:
+        items.append(ChecklistItem(
+            "special_population",
+            f"{tol.get('axis')} standing — the source supports unchanged kinetics in impairment",
+            f"citation {tol.get('citation') or '⚠️ MISSING'}"))
+    pb = (drug or {}).get("protein_binding") if drug else None
+    if pb and model.purpose == "pk":
+        items.append(ChecklistItem(
+            "special_population", "protein binding — fraction bound & binding-sensitivity flag",
+            f"fraction_bound={pb.get('fraction_bound')}, binding_sensitive={pb.get('binding_sensitive')}; "
+            f"citation {pb.get('citation') or '⚠️ MISSING'}"))
     # 6. citation resolves to the right paper
     cit = ds.citation(model.primary_citation) if ds is not None else None
     if cit:
@@ -313,7 +373,8 @@ def checklist_markdown(mv: ModelVerification) -> str:
         "",
     ]
     groups = ["structural", "covariate", "covariate_equation", "population", "envelope",
-              "estimation", "local_anesthetic", "developmental", "pharmacogenomics", "citation"]
+              "estimation", "local_anesthetic", "developmental", "pharmacogenomics",
+              "reversal", "special_population", "citation"]
     titles = {
         "structural": "Structural parameters",
         "covariate": "Covariate equations (incl. exact LBM/FFM form)",
@@ -324,6 +385,8 @@ def checklist_markdown(mv: ModelVerification) -> str:
         "local_anesthetic": "LA toxicity thresholds (basis, units, method, saturation, range-not-line — safety-critical)",
         "developmental": "Developmental extrapolation (PMA-clock, allometric exponents, reference weight, maturation — the 5 traps)",
         "pharmacogenomics": "Pharmacogenomics (genotype→phenotype, flag-vs-modifier, substrate scope, dose-direction — the 5 traps)",
+        "reversal": "Reversal coupling (target resolves, stoichiometry/binding scale, failure mode)",
+        "special_population": "Special populations (disease modifiers Tier-D/opt-in/cited, organ standing, binding)",
         "citation": "Primary citation",
     }
     for g in groups:

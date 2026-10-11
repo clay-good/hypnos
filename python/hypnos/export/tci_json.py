@@ -66,6 +66,13 @@ def build_dict(model, ds=None, patient: Optional[Dict[str, Any]] = None) -> Dict
     else:
         doc["estimation"] = {"uncertainty_status": "none",
                              "note": "no published estimation uncertainty (no confidence band)"}
+    # v0.5 §D: the reversal coupling and the opt-in Tier-D disease-state modifiers pass
+    # through verbatim. The instantiated parameters below are NEVER pre-adjusted by a
+    # modifier — a consumer sees the adjustment, its citation, and its opt-in flag.
+    if model.reversal_mechanism:
+        doc["reversal_mechanism"] = model.raw["reversal_mechanism"]
+    if model.raw.get("disease_state_modifiers"):
+        doc["disease_state_modifiers"] = model.raw["disease_state_modifiers"]
     # v0.6 LA: the site-absorption block and the toxicity-threshold RANGES pass
     # through verbatim (TCI-JSON is lossless; v0.6 §9). Threshold ranges export AS
     # ranges — there is no projection that collapses them to a single value. The

@@ -742,6 +742,153 @@ def _fig_covariate_band(ds, plt) -> None:
     plt.close(fig)
 
 
+def _fig_reducibility(ds, plt) -> None:
+    """v0.3 headline: two bands that answer different questions, and the reducible share.
+
+    Left: Eleveld's *prediction* band (between-subject spread — irreducible) against its far
+    narrower *confidence* band (how well the data pin the typical curve — reducible). Right:
+    the four-way variance decomposition at the peak instant, rolled up into what more
+    research could buy down vs what is the patient and the assay.
+    """
+    t = np.linspace(0, 30, 181)
+    sched = [("bolus", 0.0, "2 mg/kg"), ("infusion", 0.0, "6 mg/kg/h")]
+    patient = dict(age=50, weight=80, height=178, sex="M")
+    cmp = hypnos.compare(ds, drug="propofol", patient=patient, schedule=sched, t=t,
+                         bands=["prediction", "confidence"], percentile=(5, 95),
+                         samples=2000, seed=7)
+    elev = next(r for r in cmp.included if r.ce_confidence_quantiles is not None)
+    lo, hi = elev.band_percentile
+
+    fig, (axL, axR) = plt.subplots(1, 2, figsize=(13, 4.8))
+    axL.fill_between(t, elev.ce_quantiles[lo], elev.ce_quantiles[hi], color="#2ca02c", alpha=0.16,
+                     label=f"prediction band {lo}–{hi}% — which PATIENT (irreducible)")
+    axL.fill_between(t, elev.ce_confidence_quantiles[lo], elev.ce_confidence_quantiles[hi],
+                     color="#1b5e20", alpha=0.75,
+                     label=f"confidence band {lo}–{hi}% — how well the MEAN is pinned (reducible)")
+    axL.plot(t, elev.ce, color="#0b3d0b", lw=1.2)
+    axL.set_title("Eleveld propofol effect-site — an RSE is not a CV:\n"
+                  "the estimation band is a sliver inside the between-subject band", fontsize=11)
+    axL.set_xlabel("time (min)"); axL.set_ylabel("propofol Ce (µg/mL)")
+    axL.legend(fontsize=8.5, loc="lower right"); axL.grid(alpha=0.25)
+
+    d = cmp.divergence["ce"]
+    vs, red = d["variance_share"], d["reducibility"]
+    parts = [("structural\n(which model)", vs["structural"], "#d62728"),
+             ("estimation\n(SE on θ)", vs.get("estimation", 0.0), "#ff9896"),
+             ("between-subject\n(η / Ω)", vs["bsv"], "#2ca02c"),
+             ("residual\n(ε / Σ)", vs["residual"], "#bbbbbb")]
+    axR.barh([p[0] for p in parts], [p[1] for p in parts], color=[p[2] for p in parts])
+    for i, (_, v, _) in enumerate(parts):
+        axR.text(v + 0.01, i, f"{v:.1%}", va="center", fontsize=9)
+    axR.invert_yaxis(); axR.set_xlim(0, 1.08)
+    axR.set_title(f"Variance decomposition at t*={vs['t_star_min']:g} min\n"
+                  f"reducible {red['reducible']:.0%} (red) vs irreducible {red['irreducible']:.0%}",
+                  fontsize=11)
+    axR.set_xlabel("share of total predictive variance"); axR.grid(alpha=0.25, axis="x")
+    fig.suptitle("Hypnos v0.3 — estimation uncertainty vs between-subject variability"
+                 f"  ·  {_DISCLAIMER}", y=1.02)
+    fig.tight_layout(); fig.savefig(IMAGES / "reducibility.png", dpi=130, bbox_inches="tight")
+    plt.close(fig)
+
+
+def _fig_developmental(ds, plt) -> None:
+    """v0.8 headline: evidence vs extrapolation in a 6-month infant, and the per-kg shortcut.
+
+    The one model with fitted standing here (solid) is evidence and keeps its tier. The adult
+    models are Tier-D extrapolations: allometry+maturation and allometry-only bracket how
+    much un-modeled maturation matters, and the naive linear-per-kg rescaling is drawn as
+    the deliberately wrong reference. The spread is the message; none of it is a dose.
+    """
+    from hypnos.presets import default_schedule_for
+    from hypnos.simulate import developmental_overlay
+
+    t = np.linspace(0, 60, 361)
+    infant = dict(age=0.5, weight=7.5, height=67, sex="M",
+                  pma_weeks=66.0, postnatal_age_days=182.0)
+    sched = default_schedule_for("propofol")
+    ov = developmental_overlay(ds, drug="propofol", patient=infant, schedule=sched, t=t)
+    styles = {"allometry_plus_maturation": dict(color="#1f77b4", lw=2.4),
+              "allometry_only": dict(color="#d62728", lw=2.4, ls="-.")}
+
+    fig, ax = plt.subplots(figsize=(9.5, 5))
+    standing = [f for f in ov.fitted if f["in_standing"]]
+    for f in standing:
+        r = hypnos.simulate(ds, f["model_id"], patient=infant, schedule=sched, t=t)
+        name = f["model_id"].split(".")[-1]
+        ax.plot(t, r.cp * ov.conc_factor, color=_COLORS.get(name, "#2ca02c"), lw=2.8,
+                label=f"{name} — FITTED in this age/size range: evidence (Tier {f['tier']})")
+    for e in ov.extrapolations:
+        mf = (f", MF(PMA)={e.maturation_factor:.2f}" if e.maturation_factor is not None
+              else ", maturation UN-modeled")
+        ax.plot(t, e.result.cp * ov.conc_factor, **styles.get(e.basis, dict(color="#333")),
+                label=f"{e.model_id.split('.')[-1]} — {e.basis.replace('_', ' ')} (Tier {e.tier}{mf})")
+    if ov.linear_per_kg is not None:
+        ax.plot(t, ov.linear_per_kg.cp * ov.conc_factor, color="#7f7f7f", lw=2, ls=":",
+                label="linear-per-kg shortcut — VISIBLY WRONG reference")
+    ax.set_title("Propofol in a 6-month infant (PMA 66 wk, 7.5 kg) — one model has fitted standing;\n"
+                 "the adult models are extrapolation, and the per-kg shortcut is not a model at all",
+                 fontsize=11)
+    ax.set_xlabel("time (min)"); ax.set_ylabel(f"propofol Cp ({ov.concentration_unit})")
+    ax.set_yscale("log"); ax.legend(fontsize=8.5); ax.grid(alpha=0.25, which="both")
+    fig.suptitle("Hypnos v0.8 — developmental extrapolation overlay (spread and labels, never a dose)"
+                 f"  ·  {_DISCLAIMER}", y=1.02)
+    fig.tight_layout(); fig.savefig(IMAGES / "developmental.png", dpi=130, bbox_inches="tight")
+    plt.close(fig)
+
+
+def _fig_pharmacogenomics(ds, plt) -> None:
+    """v0.9 headline: the register of each drug under a declared genotype.
+
+    Rendered straight from ``pgx_overlay``: a susceptibility is an AVOID/AWARE flag (never a
+    number), a kinetic modifier is opt-in Tier-D, a substrate guardrail is an explicit "not
+    affected", and the honest majority is "no actionable evidence curated".
+    """
+    from matplotlib.patches import Patch
+
+    from hypnos.pharmacogenomics import pgx_overlay
+
+    genotypes = [("MH-susceptible\n(declared)", {"mh_susceptibility": True}),
+                 ("BCHE homozygous atypical\n(declared)", {"bche_phenotype": "homozygous_atypical"})]
+    kinds = {"avoid": ("AVOID", "#d62728"), "aware": ("AWARE", "#ff7f0e"),
+             "modifier": ("opt-in Tier-D modifier", "#1f77b4"),
+             "guardrail": ("not affected (guardrail)", "#c7c7c7"),
+             "none": ("no evidence curated", "#f2f2f2")}
+    drugs = sorted(d["name"] for d in ds.drugs.values())
+    fig, ax = plt.subplots(figsize=(8.5, 0.34 * len(drugs) + 2.2))
+    for j, (_, genotype) in enumerate(genotypes):
+        pg = pgx_overlay(ds, genotype=genotype)
+        cell = {d: ["none"] for d in drugs}
+        for g in pg.substrate_guardrails:
+            cell[g["drug"]] = ["guardrail"]
+        found = {}
+        for f in pg.modifiers:
+            found.setdefault(f.drug, []).append("modifier")
+        for f in pg.awareness_flags:
+            found.setdefault(f.drug, []).append("aware")
+        for f in pg.avoidance_flags:
+            found.setdefault(f.drug, []).append("avoid")
+        cell.update({d: sorted(set(v), key=list(kinds).index) for d, v in found.items()})
+        for i, d in enumerate(drugs):
+            ks = cell[d]
+            for n, k in enumerate(ks):                 # a drug can be both flagged AND modified
+                ax.barh(i, 1 / len(ks), left=j + n / len(ks), height=0.86, color=kinds[k][1],
+                        edgecolor="white")
+            ax.text(j + 0.5, i, " + ".join(kinds[k][0] for k in ks), ha="center", va="center",
+                    fontsize=7.5, color="#333" if ks[0] in ("guardrail", "none") else "white")
+    ax.set_yticks(range(len(drugs))); ax.set_yticklabels(drugs, fontsize=9); ax.invert_yaxis()
+    ax.set_xticks([0.5, 1.5]); ax.set_xticklabels([g[0] for g in genotypes], fontsize=9)
+    ax.set_xlim(0, 2); ax.tick_params(length=0)
+    for side in ("top", "right", "bottom", "left"):
+        ax.spines[side].set_visible(False)
+    ax.legend(handles=[Patch(color=c, label=lab) for lab, c in kinds.values()], fontsize=8,
+              loc="upper center", bbox_to_anchor=(0.5, -0.06), ncol=3, frameon=False)
+    ax.set_title("A susceptibility is a flag, never a number — and most drugs carry no\n"
+                 "actionable pharmacogenomic evidence at all (nothing is inferred)", fontsize=11)
+    fig.suptitle(f"Hypnos v0.9 — pharmacogenomic overlay  ·  {_DISCLAIMER}", y=1.0)
+    fig.tight_layout(); fig.savefig(IMAGES / "pharmacogenomics.png", dpi=130, bbox_inches="tight")
+    plt.close(fig)
+
+
 def regenerate_figures(ds) -> bool:
     try:
         import matplotlib
@@ -765,9 +912,13 @@ def regenerate_figures(ds) -> bool:
     _fig_covariate_equations(ds, plt)
     _fig_covariate_divergence(ds, plt)
     _fig_covariate_band(ds, plt)
+    _fig_reducibility(ds, plt)
+    _fig_developmental(ds, plt)
+    _fig_pharmacogenomics(ds, plt)
     print(f"figures: regenerated divergence, synergy, pediatric, mac_age, washin, washout, "
           f"variability, effect_band, la_double_uncertainty, la_cardiotoxicity, la_saturation, "
-          f"covariate_equations, covariate_divergence, covariate_band -> {IMAGES}/")
+          f"covariate_equations, covariate_divergence, covariate_band, reducibility, "
+          f"developmental, pharmacogenomics -> {IMAGES}/")
     return True
 
 

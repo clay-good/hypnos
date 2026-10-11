@@ -8,6 +8,19 @@ version is pinned in `dataset/VERSION` and stamped into every export as
 
 ## [Unreleased]
 
+### The three headline figures and dashboard views the specs promised (2026-10-10)
+The v0.3, v0.8, and v0.9 specs listed a headline figure and a dashboard view as shipped; neither existed.
+- **Figures** (regenerated from the live kernels by `scripts/regenerate.py`, like every other figure):
+  `reducibility.png` (v0.3 — Eleveld's confidence band inside its prediction band + the four-way variance
+  decomposition), `developmental.png` (v0.8 — fitted evidence vs allometry(+maturation) extrapolation vs
+  the linear-per-kg shortcut in a 6-month infant), `pharmacogenomics.png` (v0.9 — each drug's register
+  under a declared genotype: AVOID / AWARE / opt-in Tier-D modifier / not affected / no evidence).
+- **Dashboard:** a reducible-vs-irreducible readout under the variance decomposition (v0.3 §7); a
+  developmental overlay panel with its own child patient (PMA, weight, height) that draws fitted models
+  only where they have standing (v0.8 §6); a pharmacogenomics panel that shows nothing until a genotype
+  is declared and leads with avoidance flags (v0.9 §6).
+- 3 new dashboard tests; the figure smoke test covers the three new generators.
+
 ### v0.4 §7.2/§7.3 — published-vs-reproduced reconciliation; failure modes measured (2026-10-10)
 - **`reconcile_with_published` / `hypnos validate-cohort --reconcile`.** Each in-envelope publisher-reported
   MDPE/MDAPE beside the value recomputed on the cohort: `agrees` (published inside the computed 95% CI, or

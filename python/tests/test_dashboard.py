@@ -101,3 +101,47 @@ def test_dashboard_covariate_band():
     assert not at.exception
     captions = " ".join(c.value for c in at.caption)
     assert "Covariate split" in captions
+
+
+def test_dashboard_reducibility_readout():
+    # v0.3 §7: with bands on, the divergence view names the reducible vs irreducible share
+    at = AppTest.from_file(APP, default_timeout=120).run()
+    _enable_bands(at)
+    at.run()
+    assert not at.exception
+    captions = " ".join(c.value for c in at.caption)
+    assert "Reducible vs irreducible" in captions and "irreducible" in captions
+
+
+def test_dashboard_developmental_overlay():
+    # v0.8 §6: the default child (PMA 41 wk, 3.5 kg) has no fitted standing, so the view
+    # must say everything is extrapolation, carry the allometry-only caveat, and not crash
+    # when the PMA / weight move.
+    at = AppTest.from_file(APP, default_timeout=120).run()
+    assert not at.exception
+    assert any("Developmental extrapolation" in s.value for s in at.subheader)
+    warnings = " ".join(w.value for w in at.warning)
+    assert "everything drawn here is extrapolation" in warnings
+    assert "allometry only" in warnings and "OVER-stated" in warnings
+    assert any("MF(PMA)" in c.value for c in at.caption)
+    next(s for s in at.slider if s.label.startswith("Post-menstrual age")).set_value(60)
+    next(s for s in at.slider if s.label.startswith("Weight (kg) — child")).set_value(6.0)
+    at.run()
+    assert not at.exception
+
+
+def test_dashboard_pharmacogenomics_never_infers_and_leads_with_avoidance():
+    at = AppTest.from_file(APP, default_timeout=120).run()
+    assert not at.exception
+    # nothing declared -> no genetic effect shown, and it says so (never "wild-type assumed")
+    assert any("Genotype not declared" in i.value for i in at.info)
+    assert not any("AVOID" in e.value for e in at.error)
+    next(c for c in at.checkbox if c.label.startswith("Malignant-hyperthermia")).set_value(True)
+    next(s for s in at.selectbox if s.label.startswith("BCHE")).set_value("homozygous_atypical")
+    at.run()
+    assert not at.exception
+    errors = " ".join(e.value for e in at.error)
+    assert "AVOID" in errors and "no kinetic number" in errors
+    # the substrate guardrail table and the honest-majority line both render
+    assert any("Not affected" in m.value for m in at.markdown)
+    assert any("honest majority" in c.value for c in at.caption)

@@ -128,6 +128,10 @@ cmp.divergence["ce"]["reducibility"]
 
 The punch-line a single curve can never give: *for this patient at this instant, how much of the predictive uncertainty could research buy down — and how much is the patient and the assay?* That tells a researcher whether the answer is "fund a bigger study / curate more models" or "no model will ever pin this person down." The estimation (more-data) component contributes 0 until per-θ SEs are curated, and the readout says so honestly (`estimation_curated: false`) rather than overstating what is reducible.
 
+![Hypnos estimation uncertainty vs between-subject variability — the confidence band inside the prediction band, and the reducible share](docs/images/reducibility.png)
+
+The figure is live output (`compare(..., bands=["prediction", "confidence"])`): Eleveld's estimation band is a sliver inside its between-subject band, and at the peak instant most of the uncertainty is *which model* — reducible — not the patient. The dashboard names the same reducible/irreducible split under its variance decomposition.
+
 > **What is and isn't shipped.** The **machinery** — the schema vocabulary, the validate traps, the estimation verification group, the confidence bands, the reducible/irreducible split, and the estimation object in every export — is live. **One model carries values:** Eleveld 2018 propofol has per-θ SEs sourced from its open-access Table 2 (99% profile-likelihood CIs; `pending_human_review`, no estimate correlations published, so its covariance is diagonal under a *recorded* independence assumption). Every other model's RSE/covariance values await transcription from the source PDF — the human-verification step the project refuses to let an LLM perform — so those models draw no confidence band and export no estimation object. A missing confidence band is a true statement; a fabricated one is a lie with error bars.
 
 ## v0.4: the external-validation metric engine — claims vs. evidence
@@ -429,6 +433,10 @@ The envelope can grey a model when a patient is younger than its derivation rang
 
 v0.8 makes the developmental silence *speak* with the same evidence-vs-annotation discipline v0.5 used for organ failure. A model **fitted in children** — Kataria (3–11 y), Paedfusor (>1 y), or Eleveld's broad-application model (neonate→elderly) — is **evidence**: it keeps its tier. An adult model carried into a neonate is an explicit, bounded, **Tier-D extrapolation** by allometric size and (where curated) PMA maturation — *never* a silent linear-per-kg rescaling, the dangerous mental model this subsystem exists to render visibly wrong.
 
+![Hypnos developmental extrapolation overlay — fitted evidence vs allometry(+maturation) extrapolation vs the linear-per-kg shortcut](docs/images/developmental.png)
+
+Live output of `developmental_overlay` for a 6-month infant: Eleveld was fitted in this range and keeps its tier; Marsh (allometry + maturation) and Schnider (allometry only) are Tier-D extrapolations; the dotted line is the naive per-kg rescaling, drawn as a reference that is visibly not a model. The dashboard has the same view with a PMA / weight slider.
+
 ```text
 $ hypnos developmental --drug propofol --pma-weeks 40 --postnatal-days 3 --weight 3.4 --age 0.06 --sex M
 fitted-pediatric standing (evidence; greyed where out of band):
@@ -451,6 +459,10 @@ The two kernels (`hypnos.developmental.allometric_scale`, `maturation_factor`) a
 Anesthetic pharmacogenetics splits cleanly into two kinds the field — and any naive "pharmacogenomic dosing" tool — routinely blur. A handful of genotypes change **kinetics** (atypical butyrylcholinesterase prolongs succinylcholine/mivacurium; CYP2D6 activates codeine/tramadol). But the single most important fact, **malignant-hyperthermia susceptibility** (RYR1/CACNA1S), changes **risk, not kinetics** — it is an absolute trigger to *avoid*, not a dose to adjust. Modeling it as a clearance scale-factor would be a category error with lethal implications. ([Full design spec.](docs/specs/v0.9/pharmacogenomics.md))
 
 v0.9 adds genotype as a **declared** envelope axis with two rigorously-separated record kinds: a **kinetic modifier** scales a forward prediction (opt-in, Tier-D, substrate-scoped, cited), and a **safety flag** forbids a trigger or warns of a prolonged effect and carries **no number** (`affects_kinetics` is `False` by construction). The schema `$defs` are disjoint, so MH can never be smuggled in as a clearance change. `hypnos pgx` (and `pgx_overlay`) leads with avoidance, because that is the true register of the field:
+
+![Hypnos pharmacogenomic overlay — each drug's register under a declared genotype](docs/images/pharmacogenomics.png)
+
+Rendered from `pgx_overlay` for two declared genotypes: a susceptibility is an AVOID or AWARE flag, the one kinetic modifier is opt-in and Tier-D, the BCHE substrate guardrails read "not affected," and most of the formulary carries no actionable evidence. The dashboard's pharmacogenomics panel shows the same thing interactively and shows nothing until a genotype is declared.
 
 ```text
 $ hypnos pgx --bche homozygous_atypical --mh-susceptible
@@ -840,7 +852,7 @@ hypnos/
 ├── notebooks/                   # reference notebooks executed in CI (nbmake): divergence · v0.2 variability · v0.5 organ envelope · v0.6 local anesthetics
 ├── CHANGELOG.md · .zenodo.json   # release metadata (Zenodo DOI on first tagged release)
 ├── python/tests/                # analytic-vs-numeric, round-trip, envelope, tier, CLI, verification
-├── dashboard/app.py             # Streamlit: divergence + bands + PD effect band (v0.2) + onset + synergy + volatiles + local anesthetics (v0.6)
+├── dashboard/app.py             # Streamlit: divergence + bands + PD effect band (v0.2) + reducible/irreducible readout (v0.3) + onset + synergy + local anesthetics (v0.6) + volatiles + developmental overlay (v0.8) + pharmacogenomics (v0.9)
 ├── docs/about/essay.md          # why model-selection risk is the load-bearing idea
 ├── docs/specs/v0.1/spec.md      # the design spec (typical-value layer)
 ├── docs/specs/v0.2/variability.md  # the population-variability layer (Ω/Σ, bands)

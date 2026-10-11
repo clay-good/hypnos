@@ -233,6 +233,13 @@ with col2:
                 shares["covariate (which equation / weight)"] = vs["covariate"]
             st.bar_chart(pd.DataFrame({"share": list(shares.values())}, index=list(shares.keys())),
                          horizontal=True)
+            red = d.get("reducibility")
+            if red:
+                st.caption(
+                    f"**Reducible vs irreducible** (v0.3 §7): {red['reducible']:.0%} of this "
+                    f"uncertainty is *reducible* — research could buy it down — and "
+                    f"{red['irreducible']:.0%} is *irreducible* (the patient and the assay). "
+                    f"{red['note'].capitalize()}.")
             split = d.get("covariate_split")
             if split is not None:
                 st.caption(
@@ -444,3 +451,114 @@ if volatiles:
         st.line_chart(washout, x="t (min)")
         st.caption("Single-compartment alveolar model, standard ventilation. "
                    "Comparative only — NOT a per-patient predictor.")
+
+# --------------------------------------------------------------------------- #
+# Developmental extrapolation overlay (v0.8 §6)
+# --------------------------------------------------------------------------- #
+# A neonate/infant is outside every adult model's envelope, so this view has its own
+# patient: post-menstrual age is the maturation clock (never chronological age).
+dev_drugs = sorted({m.drug_name for m in ds if m.has_developmental_model})
+if dev_drugs:
+    from hypnos.presets import default_schedule_for
+    from hypnos.simulate import developmental_overlay
+
+    st.divider()
+    st.subheader("Developmental extrapolation — children are not small adults (v0.8)")
+    st.caption("Which models were actually **fitted** in children, how far the allometry "
+               "(+ PMA-maturation) **extrapolation** of the adult models spreads, and how badly "
+               "the naive **linear-per-kg shortcut** misses. Every extrapolated curve is Tier-D "
+               "and opt-in. The honest output is the spread and the labels — NOT a pediatric dose.")
+    dc1, dc2, dc3, dc4 = st.columns(4)
+    dev_drug = dc1.selectbox("Drug (developmental)", dev_drugs)
+    pma = dc2.slider("Post-menstrual age (weeks)", 28, 120, 41,
+                     help="PMA = gestational age at birth + postnatal age. It drives clearance "
+                          "maturation; chronological age must never be substituted (v0.8 Trap 1).")
+    dev_weight = dc3.slider("Weight (kg) — child", 1.0, 20.0, 3.5, step=0.5)
+    dev_height = dc4.slider("Height (cm) — child", 35, 115, 50)
+    postnatal_days = max(0.0, (pma - 40) * 7.0)      # term birth assumed only to derive an age
+    child = dict(age=postnatal_days / 365.25, weight=dev_weight, height=dev_height, sex=sex,
+                 pma_weeks=float(pma), postnatal_age_days=postnatal_days)
+    td = np.linspace(0, 30, 181)
+    dev_sched = default_schedule_for(dev_drug)
+    ov = developmental_overlay(ds, drug=dev_drug, patient=child, schedule=dev_sched, t=td)
+    curves = pd.DataFrame({"t (min)": td})
+    for f_ in ov.fitted:
+        if f_["in_standing"]:                        # evidence: a model fitted in this range
+            fit = hypnos.simulate(ds, f_["model_id"], patient=child, schedule=dev_sched, t=td)
+            curves[f"{f_['model_id'].split('.')[-1]} — FITTED (Tier {f_['tier']})"] = fit.cp * ov.conc_factor
+    for e in ov.extrapolations:
+        curves[f"{e.model_id.split('.')[-1]} — {e.basis} (Tier {e.tier})"] = e.result.cp * ov.conc_factor
+    if ov.linear_per_kg is not None:
+        curves["linear-per-kg shortcut (VISIBLY WRONG)"] = ov.linear_per_kg.cp * ov.conc_factor
+    dv1, dv2 = st.columns([3, 2])
+    with dv1:
+        st.markdown(f"**Plasma concentration ({ov.concentration_unit}) — fitted evidence vs "
+                    "extrapolations vs the shortcut**")
+        if len(curves.columns) > 1:
+            st.line_chart(curves, x="t (min)")
+        else:
+            st.info("No adult model of this drug carries a curated developmental block — "
+                    "no extrapolation is drawn (never a fabricated curve).")
+        for e in ov.extrapolations:
+            if e.basis == "allometry_only":
+                st.warning(f"⚠ {e.model_id.split('.')[-1]} — allometry only: maturation is "
+                           "un-modeled, so neonatal clearance is OVER-stated and exposure UNDER-predicted.")
+    with dv2:
+        st.markdown("**Fitted-pediatric standing (evidence, not extrapolation)**")
+        st.dataframe(pd.DataFrame([
+            {"model": f_["model_id"].split(".")[-1], "tier": f_["tier"],
+             "standing": "in standing" if f_["in_standing"] else "greyed → Tier D"}
+            for f_ in ov.fitted]), hide_index=True)
+        if not any(f_["in_standing"] for f_ in ov.fitted):
+            st.warning("No model has fitted standing for this child — everything drawn here is extrapolation.")
+        mf = [f"{e.model_id.split('.')[-1]} MF(PMA) = {e.maturation_factor:.2f}"
+              for e in ov.extrapolations if e.maturation_factor is not None]
+        if mf:
+            st.caption("Clearance maturation at this PMA (1.0 = mature): " + "; ".join(mf) + ".")
+    st.caption("Not one of these curves is validated in this patient. NOT a dosing tool.")
+
+# --------------------------------------------------------------------------- #
+# Pharmacogenomic overlay (v0.9 §6) — avoidance first, kinetics second
+# --------------------------------------------------------------------------- #
+if any(m.has_pharmacogenomics for m in ds):
+    from hypnos.pharmacogenomics import pgx_overlay
+
+    st.divider()
+    st.subheader("Pharmacogenomics — a declared genotype (v0.9)")
+    st.caption("Hypnos never infers a genotype: nothing fires unless you declare it. A "
+               "susceptibility is an **avoidance flag**, never a number; the few kinetic "
+               "modifiers are opt-in Tier-D extrapolations. NOT a dosing tool.")
+    gc1, gc2 = st.columns(2)
+    mh = gc1.checkbox("Malignant-hyperthermia susceptibility (declared)", value=False)
+    bche = gc2.selectbox("BCHE (butyrylcholinesterase) phenotype",
+                         ["— not declared —", "heterozygous_atypical", "homozygous_atypical"])
+    genotype = {}
+    if mh:
+        genotype["mh_susceptibility"] = True
+    if bche != "— not declared —":
+        genotype["bche_phenotype"] = bche
+    if not genotype:
+        st.info("Genotype not declared — no pharmacogenomic effect is shown (never 'wild-type assumed').")
+    else:
+        pg = pgx_overlay(ds, genotype=genotype)
+        for fl in pg.avoidance_flags:
+            st.error(f"**AVOID — {fl.drug}** ({fl.gene}): {fl.record.action}  \n"
+                     f"Consequence: {fl.record.consequence} (Tier {fl.record.evidence_tier}, safety-critical; "
+                     "no kinetic number — there is nothing to adjust)")
+        for fl in pg.awareness_flags:
+            st.warning(f"**AWARE — {fl.drug}** ({fl.gene}): {fl.record.action}")
+        if not pg.safety_flags:
+            st.caption("No safety/avoidance flag for this genotype.")
+        if pg.modifiers:
+            st.markdown("**Kinetic modifiers — opt-in, Tier-D, forward-only**")
+            st.dataframe(pd.DataFrame([
+                {"drug": fl.drug, "gene": fl.gene, "phenotype": fl.record.phenotype_value,
+                 "effect": (f"×{fl.record.scale_factor:g} on {fl.record.affected_parameter}"
+                            if fl.record.scale_factor is not None else "direction only"),
+                 "tier": fl.record.evidence_tier}
+                for fl in pg.modifiers]), hide_index=True)
+        if pg.substrate_guardrails:
+            st.markdown("**Not affected (substrate guardrail — a genetic effect never leaks to a non-substrate)**")
+            st.dataframe(pd.DataFrame(pg.substrate_guardrails)[["drug", "gene", "reason"]], hide_index=True)
+        st.caption("No actionable pharmacogenomic evidence curated for: "
+                   + ", ".join(pg.no_evidence) + " — the honest majority.")

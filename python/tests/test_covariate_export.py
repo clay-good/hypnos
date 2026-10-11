@@ -222,3 +222,21 @@ def test_xml_exports_carry_protein_binding_flags(ds, fmt):
 def test_tci_json_carries_protein_binding_for_any_drug_that_curates_it(ds):
     assert tci_json.build_dict(ds[SCHNIDER], ds)["protein_binding"]["binding_sensitive"] is True
     assert "protein_binding" not in tci_json.build_dict(ds["volatiles.sevoflurane.mac"], ds)
+
+
+@pytest.mark.parametrize("mid", _COV_MODELS)
+def test_nonmem_pk_reads_only_columns_it_declares(ds, mid):
+    # the sex-conditional covariate block reads SEX; it used to be missing from $INPUT, so
+    # the control stream referenced an undefined variable and could not run
+    ctl = nonmem.build(ds[mid], ds)
+    declared = set(ctl.split("$INPUT")[1].split("\n")[0].split())
+    pk = ctl.split("$PK")[1].split("$ERROR")[0]
+    code = [ln.split(";")[0] for ln in pk.splitlines() if ln.strip() and not ln.lstrip().startswith(";")]
+    defined = {ln.split("=")[0].strip() for ln in code if "=" in ln and "IF" not in ln.split("=")[0]}
+    used = set()
+    for ln in code:
+        rhs = ln.split("=", 1)[1] if ("=" in ln and "IF" not in ln.split("=")[0]) else ln
+        used |= set(re.findall(r"\b[A-Z][A-Z0-9]*\b", rhs))
+    used -= {"IF", "THEN", "ELSE", "ENDIF", "EQ", "EXP", "THETA", "ETA"}
+    assert used <= declared | defined, f"undeclared in $PK: {sorted(used - declared - defined)}"
+    assert "SEX" in declared

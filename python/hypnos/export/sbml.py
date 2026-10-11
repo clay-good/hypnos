@@ -153,6 +153,8 @@ def build(model, ds=None, patient: Optional[Dict[str, Any]] = None) -> str:
         '    <listOfUnitDefinitions>\n'
         '      <unitDefinition id="per_min"><listOfUnits>'
         '<unit kind="second" exponent="-1" scale="0" multiplier="60"/></listOfUnits></unitDefinition>\n'
+        '      <unitDefinition id="mg"><listOfUnits>'
+        '<unit kind="gram" exponent="1" scale="-3" multiplier="1"/></listOfUnits></unitDefinition>\n'
         '      <unitDefinition id="mg_per_l"><listOfUnits>'
         '<unit kind="gram" exponent="1" scale="-3" multiplier="1"/>'
         '<unit kind="litre" exponent="-1" scale="0" multiplier="1"/></listOfUnits></unitDefinition>\n'

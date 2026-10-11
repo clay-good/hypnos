@@ -205,3 +205,33 @@ def test_cli_export_accepts_a_patient(ds, tmp_path):
     assert child["instantiated_for"]["age"] == 6.0
     # no flags -> the library default patient, byte-identical to export_model()
     assert (tmp_path / "adult" / name).read_text() == export_model("tci_json", ds[KATARIA], ds)[1]
+
+
+# --------------------------------------------------------------------------- #
+# SBML structural consistency (the rules libSBML would reject, checked without it)
+# --------------------------------------------------------------------------- #
+@pytest.mark.parametrize("mid", _PK_MODEL_IDS)
+@pytest.mark.parametrize("patient", [None, _CHILD, _OBESE], ids=["reference", "child", "obese"])
+def test_sbml_rules_reference_only_declared_non_constant_parameters(ds, mid, patient):
+    dom = minidom.parseString(export_model("sbml", ds[mid], ds, patient)[1])
+    params = {p.getAttribute("id"): p for p in dom.getElementsByTagName("parameter")}
+    ids = [p.getAttribute("id") for p in dom.getElementsByTagName("parameter")]
+    assert len(ids) == len(set(ids)), "duplicate parameter ids"
+    for p in params.values():
+        float(p.getAttribute("value"))                      # every parameter has a numeric value
+    ruled = []
+    for tag in ("rateRule", "assignmentRule"):
+        for rule in dom.getElementsByTagName(tag):
+            var = rule.getAttribute("variable")
+            ruled.append(var)
+            assert var in params, f"{tag} targets undeclared {var}"
+            assert params[var].getAttribute("constant") == "false", f"{var} is ruled but constant"
+            for ci in rule.getElementsByTagName("ci"):
+                assert ci.firstChild.data.strip() in params, f"{tag} {var} reads an undeclared symbol"
+    assert len(ruled) == len(set(ruled)), "a variable is the target of more than one rule"
+    # every units attribute names a unitDefinition in this document or an SBML base unit
+    units = {u.getAttribute("id") for u in dom.getElementsByTagName("unitDefinition")}
+    builtin = {"dimensionless", "litre", "kilogram", "second", "mole", "gram", "metre"}
+    for p in params.values():
+        if p.hasAttribute("units"):
+            assert p.getAttribute("units") in units | builtin, f"undefined unit on {p.getAttribute('id')}"

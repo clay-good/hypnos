@@ -86,6 +86,7 @@ def nonmem_covariate_pk(model, ds) -> Tuple[List[str], List[str]]:
             lines.append("  BMI = WT/(HT/100)**2")
             needed_cols.update(("WT", "HT"))
             bmi_emitted = True
+        needed_cols.add("SEX")           # the branch below reads it: 1 = male, otherwise female
         lines.append("  IF (SEX.EQ.1) THEN")
         lines.append(f"    {sym} = {nm_male}   ; male ({di.equation})")
         lines.append("  ELSE")

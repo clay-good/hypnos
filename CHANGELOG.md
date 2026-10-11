@@ -8,6 +8,18 @@ version is pinned in `dataset/VERSION` and stamped into every export as
 
 ## [Unreleased]
 
+### Fix — two exports that the target tool would have rejected (2026-10-10)
+- **NONMEM:** the sex-conditional covariate block in `$PK` reads `SEX`, but `SEX` was never added to
+  `$INPUT`, so every covariate-bound control stream (Schnider, Eleveld ×2, Minto, Kim) referenced an
+  undefined variable. `SEX` is now declared; a test checks `$PK` reads only declared or locally defined
+  symbols.
+- **SBML:** the amount parameters `A1`–`A3` used `units="mg"` with no `mg` unit definition in the
+  document. It is now defined; a new structural test (all PK models × three patients) checks unique ids,
+  that every rule targets a declared non-constant parameter, that every `<ci>` is declared, that no
+  variable has two rules, and that every unit is defined.
+- Neither tool is available here, so these are checked structurally, not by running NONMEM or libSBML.
+- 53 new tests.
+
 ### v0.3 §2.2 / Trap 5 — second-order uncertainty on Ω and Σ (2026-10-10)
 - The schema gains `variance_se` / `sd_se` on each residual-error term beside the existing `omega2_se`
   (the scale is in the key name; an unscaled `sigma_se` is rejected). `hypnos validate` flags an SE filed

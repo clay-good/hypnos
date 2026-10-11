@@ -21,7 +21,7 @@ from ._estimation import (
     covariance_step_note, estimate_correlations, independence_caveat, theta_covariance,
     theta_estimates,
 )
-from ._variability import omega_correlations, omega_diagonal, residual_spec
+from ._variability import omega_correlations, omega_diagonal, omega_ses, residual_spec
 from .registry import KERNELS
 
 _NS = 'xmlns:pharmml="http://www.pharmml.org/pharmml/0.8/PharmML"'
@@ -37,11 +37,13 @@ def _variability_xml(model) -> str:
         f'variabilityStatus="{escape(model.variability_status)}">',
         '      <VariabilityLevel symbol="indiv" type="betweenSubject"/>',
     ]
+    ses = omega_ses(model)
     for sym, om2, cv in omega_diagonal(model):
+        se = f' varianceSe="{ses[sym]:.10g}"' if sym in ses else ""    # v0.3 §2.2: SE on ω²
         parts.append(
             f'      <RandomEffect symbol="eta_{escape(sym)}" parameter="{escape(sym)}" '
             f'level="indiv" distribution="Normal" transformation="log" '
-            f'variance="{om2:.10g}" cvPercent="{cv:.4g}"/>'
+            f'variance="{om2:.10g}" cvPercent="{cv:.4g}"{se}/>'
         )
     for a, b, r in omega_correlations(model):
         parts.append(

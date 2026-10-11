@@ -8,6 +8,15 @@ version is pinned in `dataset/VERSION` and stamped into every export as
 
 ## [Unreleased]
 
+### v0.3 §2.2 / Trap 5 — second-order uncertainty on Ω and Σ (2026-10-10)
+- The schema gains `variance_se` / `sd_se` on each residual-error term beside the existing `omega2_se`
+  (the scale is in the key name; an unscaled `sigma_se` is rejected). `hypnos validate` flags an SE filed
+  on a scale its value is not curated on (variance vs SD — Trap 5) and negative SEs; `hypnos verify`
+  asks "on the VARIANCE or the SD?" per curated SE, showing the RSE on the variance; NONMEM, PharmML,
+  SBML, and TCI-JSON carry `omega2_se` where curated.
+- No model curates a second-order SE yet (sources rarely report them), so this is machinery exercised on
+  constructed records; the real dataset and its exports are unchanged. 6 new tests.
+
 ### Dashboard — the reversal subsystem (2026-10-10)
 - v0.5's reversal agents were the last subsystem with no dashboard view. A new panel simulates a *given*
   dose of sugammadex (train-of-four with vs without reversal), naloxone (the apparent-Ce50 multiplier

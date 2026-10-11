@@ -437,6 +437,27 @@ def _check_estimation(m, known_citations) -> List[str]:
                 "parameter carrying an estimation SE"
             )
 
+    # (Trap 5) second-order SEs on Ω / Σ: an SE must sit on the scale its value is curated
+    # on (an RSE on a variance is twice the RSE on the SD), and cannot be negative.
+    for p in m.parameters:
+        v = p.variability
+        if v is None or v.omega2_se is None:
+            continue
+        if v.omega2 is None:
+            problems.append(f"[estimation] {m.id}: parameter {p.symbol} has omega2_se but no "
+                            "omega2 — an SE on a variance that is not curated (Trap 5)")
+        if v.omega2_se < 0:
+            problems.append(f"[estimation] {m.id}: parameter {p.symbol} omega2_se is negative")
+    if m.residual_error is not None:
+        for term, scale, se, value in m.residual_error.second_order_ses():
+            if value is None:
+                problems.append(
+                    f"[estimation] {m.id}: residual_error.{term}.{scale}_se is an SE on the "
+                    f"{scale.upper()}, but that term curates no `{scale}` — variance-vs-SD "
+                    "mismatch (Trap 5)")
+            if se < 0:
+                problems.append(f"[estimation] {m.id}: residual_error.{term}.{scale}_se is negative")
+
     return problems
 
 

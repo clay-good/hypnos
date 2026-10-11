@@ -24,7 +24,7 @@ from ._estimation import (
     covariance_step_note, estimate_correlations, independence_caveat, theta_covariance,
     theta_estimates,
 )
-from ._variability import contiguous_block, residual_spec
+from ._variability import contiguous_block, omega_ses, residual_spec
 from .registry import KERNELS
 
 # $PK / $THETA structural order (TRANS4), paired with the dataset symbol whose
@@ -156,6 +156,7 @@ def build(model, ds=None, patient: Optional[Dict[str, Any]] = None) -> str:
         for note in (covariance_step_note(model), independence_caveat(model)):
             if note:
                 lines.append(f"; NOTE: {note}")
+    om2_ses = omega_ses(model)
     if omegas:
         lines.append(f"; $OMEGA — between-subject variance (eta-scale); band-tier {model.band_tier}")
         block = contiguous_block(model)
@@ -176,7 +177,8 @@ def build(model, ds=None, patient: Optional[Dict[str, Any]] = None) -> str:
             om2 = omegas.get(sym)
             if om2 is not None:
                 cv = 100.0 * math.sqrt(math.exp(om2) - 1.0)
-                lines.append(f"  {om2:.6g}       ; ETA({k}) {nm}  (BSV, CV~{cv:.0f}%)")
+                se = (f"; SE on this variance {om2_ses[sym]:g}" if sym in om2_ses else "")
+                lines.append(f"  {om2:.6g}       ; ETA({k}) {nm}  (BSV, CV~{cv:.0f}%{se})")
             else:
                 lines.append(f"  0 FIX        ; ETA({k}) {nm}  (no published BSV — fixed)")
         if model.omega_block is not None and block is None:

@@ -541,3 +541,89 @@ def test_absolute_mode_is_unchanged_for_callers_passing_natural_scale_ses():
     a = sample_parameter_vector(typical, {"V1": 0.5}, np.random.default_rng(3))
     b = sample_parameter_vector(typical, {"V1": 0.5}, np.random.default_rng(3), relative=False)
     assert a.V1 == b.V1 and a.V1 != typical.V1
+
+
+# --------------------------------------------------------------------------- #
+# v0.3 §2.2 / Trap 5 — second-order SEs on Ω and Σ (variance vs SD in the key name)
+# --------------------------------------------------------------------------- #
+from hypnos.verification import _checklist_for  # noqa: E402
+
+
+def _second_order_eleveld(ds, *, omega2_se=0.08, sigma=None):
+    raw = copy.deepcopy(ds[ELEVELD].raw)
+    v1 = next(p for p in raw["parameters"] if p["symbol"] == "V1")
+    v1["variability"]["bsv"]["omega2_se"] = omega2_se
+    raw["residual_error"]["log"].update(sigma if sigma is not None else {"sd_se": 0.004})
+    return Model(raw=raw)
+
+
+def test_schema_accepts_second_order_ses_and_rejects_unknown_scales():
+    import jsonschema
+    from pathlib import Path
+    ds = hypnos.load()
+    schema = json.loads((Path(__file__).resolve().parents[2] / "dataset" / "schema"
+                         / "model.schema.json").read_text())
+    ok = _second_order_eleveld(ds)
+    jsonschema.validate(ok.raw, schema)
+    bad = copy.deepcopy(ok.raw)
+    bad["residual_error"]["log"]["sigma_se"] = 0.004      # scale must be in the key name
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(bad, schema)
+
+
+def test_omega2_rse_is_on_the_variance():
+    ds = hypnos.load()
+    m = _second_order_eleveld(ds, omega2_se=0.061)
+    v = m.param("V1").variability
+    assert v.omega2_rse_percent == pytest.approx(10.0)            # 0.061 / 0.61
+    assert m.param("V2").variability.omega2_rse_percent is None   # not curated -> no number
+    assert m.residual_error.second_order_ses() == [("log", "sd", 0.004, 0.191)]
+
+
+def test_clean_second_order_block_validates_and_real_dataset_is_untouched():
+    ds = hypnos.load()
+    assert _check_estimation(_second_order_eleveld(ds), CITES) == []
+    assert all(p.variability is None or p.variability.omega2_se is None
+               for m in ds for p in m.parameters)                 # none curated: an honest gap
+
+
+def test_trap5_se_on_a_scale_the_value_is_not_curated_on():
+    ds = hypnos.load()
+    # Eleveld curates the log residual as an SD; an SE filed on the VARIANCE has no anchor
+    probs = _check_estimation(_second_order_eleveld(ds, sigma={"variance_se": 0.002}), CITES)
+    assert any("variance-vs-SD mismatch (Trap 5)" in p for p in probs)
+    probs = _check_estimation(_second_order_eleveld(ds, omega2_se=-0.1), CITES)
+    assert any("omega2_se is negative" in p for p in probs)
+
+
+def test_verify_checklist_asks_variance_or_sd():
+    ds = hypnos.load()
+    def trap5(model):
+        return [it for it in _checklist_for(model, ds)
+                if it.group == "estimation" and "Trap 5" in it.label]
+    items = trap5(_second_order_eleveld(ds))
+    labels = " | ".join(it.label for it in items)
+    assert "V1 SE on ω² — on the VARIANCE, not the SD" in labels
+    assert "residual log SE — on the SD" in labels
+    assert any("RSE 13.1% on the variance" in it.value for it in items)
+    assert trap5(ds[ELEVELD]) == []
+
+
+def test_exports_carry_omega2_se_only_where_curated():
+    ds = hypnos.load()
+    m = _second_order_eleveld(ds)
+    assert json.loads(export_model("tci_json", m, ds)[1])["variability"]["bsv"]["V1"]["omega2_se"] == 0.08
+    sbml_text = export_model("sbml", m, ds)[1]
+    minidom.parseString(sbml_text)
+    assert re.search(r'hypnos:parameter="V1" hypnos:omega2="0\.61" hypnos:cvPercent="[\d.]+" '
+                     r'hypnos:omega2Se="0\.08"', sbml_text)
+    assert sbml_text.count("hypnos:omega2Se") == 1                 # V2..ke0 curate none
+    pharmml_text = export_model("pharmml", m, ds)[1]
+    minidom.parseString(pharmml_text)
+    assert pharmml_text.count('varianceSe="0.08"') == 1
+    assert "SE on this variance 0.08" in export_model("nonmem", m, ds)[1]
+    # the residual SE rides verbatim in the lossless format
+    assert json.loads(export_model("tci_json", m, ds)[1])["variability"]["residual_error"]["log"]["sd_se"] == 0.004
+    for fmt in ("sbml", "pharmml", "nonmem", "tci_json"):
+        plain = export_model(fmt, ds[ELEVELD], ds)[1]            # the real record curates none
+        assert "omega2_se" not in plain and "omega2Se" not in plain and "varianceSe" not in plain

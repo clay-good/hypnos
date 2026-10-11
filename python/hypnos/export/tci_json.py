@@ -44,7 +44,9 @@ def build_dict(model, ds=None, patient: Optional[Dict[str, Any]] = None) -> Dict
         doc["variability"] = {
             "variability_status": model.variability_status,
             "band_tier": model.band_tier,
-            "bsv": {p.symbol: {"omega2": p.variability.omega2, "cv_percent": p.variability.cv_percent}
+            "bsv": {p.symbol: {"omega2": p.variability.omega2, "cv_percent": p.variability.cv_percent,
+                               **({"omega2_se": p.variability.omega2_se}       # v0.3 §2.2, if curated
+                                  if p.variability.omega2_se is not None else {})}
                     for p in model.parameters if p.variability and p.variability.omega2 is not None},
             "residual_error": model.raw.get("residual_error"),
             "omega_block": model.raw.get("omega_block"),

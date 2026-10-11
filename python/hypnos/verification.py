@@ -118,6 +118,21 @@ def _checklist_for(model: Model, ds: Dataset) -> List[ChecklistItem]:
         items.append(ChecklistItem(
             "estimation", f"{p.symbol} estimation uncertainty (RSE/SE — NOT a BSV CV)",
             "; ".join(bits), locator=loc))
+    # (Trap 5) second-order SEs on Ω / Σ — is the RSE on the VARIANCE or on the SD?
+    for p in model.parameters:
+        v = p.variability
+        if v is not None and v.omega2_se is not None:
+            rse = v.omega2_rse_percent
+            items.append(ChecklistItem(
+                "estimation", f"{p.symbol} SE on ω² — on the VARIANCE, not the SD (Trap 5)",
+                f"omega2={v.omega2}, omega2_se={v.omega2_se:g}"
+                + (f" (RSE {rse:.1f}% on the variance)" if rse is not None else ""),
+                locator=(v.extraction or {}).get("source_locator")))
+    if model.residual_error is not None:
+        for term, scale, se, value in model.residual_error.second_order_ses():
+            items.append(ChecklistItem(
+                "estimation", f"residual {term} SE — on the {scale.upper()} (Trap 5)",
+                f"{scale}={value}, {scale}_se={se:g}"))
     if model.estimate_covariance is not None:
         ec = model.estimate_covariance
         items.append(ChecklistItem(

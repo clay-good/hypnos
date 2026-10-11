@@ -45,7 +45,7 @@ RSE% is the field's most-tabulated form. We store **SE on the estimated scale** 
 
 ### 2.2 Uncertainty *on the random effects* (SE on Ω and Σ)
 
-The variance components Ω and Σ are themselves estimates with their own SEs. A reported ω² = 0.0625 with a 40% RSE on that variance is a *poorly identified* BSV — its v0.2 band is real but the band's *width* is itself uncertain. We curate `omega2_se` / `sigma_se` where published, as a second-order uncertainty on the v0.2 layer. This is rarely reported in full; the field is optional and usually absent (an honest gap).
+The variance components Ω and Σ are themselves estimates with their own SEs. A reported ω² = 0.0625 with a 40% RSE on that variance is a *poorly identified* BSV — its v0.2 band is real but the band's *width* is itself uncertain. We curate `omega2_se` / `sigma_se` where published, as a second-order uncertainty on the v0.2 layer. *(Shipped: `omega2_se` on each BSV block and `variance_se` / `sd_se` on each residual term — the scale is in the key name, there is no bare `sigma_se` key — with the Trap-5 validator, a `verify` line item, and carriers in NONMEM / PharmML / SBML / TCI-JSON. No model curates one yet.)* This is rarely reported in full; the field is optional and usually absent (an honest gap).
 
 ### 2.3 The estimate correlation/covariance matrix (the $COV output)
 

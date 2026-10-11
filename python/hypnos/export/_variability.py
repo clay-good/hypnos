@@ -75,6 +75,13 @@ def _as_var(d) -> Optional[float]:
     return None
 
 
+def omega_ses(model) -> dict:
+    """``{symbol: omega2_se}`` — the curated SE on each ω² (v0.3 §2.2), on the VARIANCE.
+    Empty where the source does not report it (usually; an honest gap)."""
+    return {p.symbol: float(p.variability.omega2_se) for p in model.parameters
+            if p.variability and p.variability.omega2_se is not None}
+
+
 def residual_spec(model) -> Optional[ResidualSpec]:
     """Normalize a curated ``residual_error`` into a :class:`ResidualSpec` (or None)."""
     re_ = model.residual_error

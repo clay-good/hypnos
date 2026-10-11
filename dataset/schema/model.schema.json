@@ -464,7 +464,8 @@
           "additionalProperties": false,
           "properties": {
             "variance": { "type": ["number", "null"], "description": "sigma^2_prop on the multiplicative scale." },
-            "cv_percent": { "type": ["number", "null"] }
+            "cv_percent": { "type": ["number", "null"] },
+            "variance_se": { "type": ["number", "null"], "description": "SE on the curated sigma^2_prop — second-order ESTIMATION uncertainty (v0.3 §2.2). On the VARIANCE, hence the key name (v0.3 §4 Trap 5)." }
           }
         },
         "additive": {
@@ -473,6 +474,8 @@
           "properties": {
             "sd": { "type": ["number", "null"], "description": "sigma_add in concentration units (note: SD, not variance)." },
             "variance": { "type": ["number", "null"] },
+            "sd_se": { "type": ["number", "null"], "description": "SE on the curated additive SD (v0.3 §2.2 / Trap 5)." },
+            "variance_se": { "type": ["number", "null"], "description": "SE on the curated additive variance (v0.3 §2.2 / Trap 5)." },
             "units": { "type": "string" }
           }
         },
@@ -482,7 +485,9 @@
           "additionalProperties": false,
           "properties": {
             "sd": { "type": ["number", "null"] },
-            "variance": { "type": ["number", "null"] }
+            "variance": { "type": ["number", "null"] },
+            "sd_se": { "type": ["number", "null"], "description": "SE on the curated log-scale SD (v0.3 §2.2 / Trap 5)." },
+            "variance_se": { "type": ["number", "null"], "description": "SE on the curated log-scale variance (v0.3 §2.2 / Trap 5)." }
           }
         },
         "tier": { "type": "string", "enum": ["A", "B", "C", "D"] },

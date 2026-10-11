@@ -106,7 +106,7 @@ def variability_rdf(model: Model, indent: str = "  ") -> str:
     embedded inside the model's single ``rdf:RDF`` block) — or ``""`` when the model
     publishes no variability (the never-synthesize rule: absence is a true gap).
     """
-    from ._variability import omega_correlations, omega_diagonal, residual_spec
+    from ._variability import omega_correlations, omega_diagonal, omega_ses, residual_spec
 
     if not model.has_published_variability:
         return ""
@@ -117,9 +117,11 @@ def variability_rdf(model: Model, indent: str = "  ") -> str:
         f"{pad}<hypnos:betweenSubjectVariability>",
         f"{pad}  <rdf:Bag>",
     ]
+    ses = omega_ses(model)
     for sym, om2, cv in omega_diagonal(model):
+        se = f' hypnos:omega2Se="{ses[sym]:.10g}"' if sym in ses else ""
         lines.append(f'{pad}    <rdf:li hypnos:parameter="{sym}" '
-                     f'hypnos:omega2="{om2:.10g}" hypnos:cvPercent="{cv:.4g}"/>')
+                     f'hypnos:omega2="{om2:.10g}" hypnos:cvPercent="{cv:.4g}"{se}/>')
     lines += [f"{pad}  </rdf:Bag>", f"{pad}</hypnos:betweenSubjectVariability>"]
     for a, b, r in omega_correlations(model):
         lines.append(f'{pad}<hypnos:omegaCorrelation hypnos:between="{a} {b}" '

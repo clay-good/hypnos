@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 # Tier ordering: A is best, D is worst. "Worst input wins" => max by this rank.
 TIER_RANK = {"A": 0, "B": 1, "C": 2, "D": 3}
@@ -71,6 +71,14 @@ class ParameterVariability:
     extraction: Dict[str, Any] = field(default_factory=dict)
 
     @property
+    def omega2_rse_percent(self) -> Optional[float]:
+        """RSE% of the curated ω² — on the VARIANCE, not the SD (v0.3 §4 Trap 5): an RSE on
+        ω is half the RSE on ω², so the scale is part of the number. None when uncurated."""
+        if self.omega2_se is None or not self.omega2:
+            return None
+        return 100.0 * self.omega2_se / abs(self.omega2)
+
+    @property
     def cv_from_omega2(self) -> Optional[float]:
         """Exact log-normal CV% recomputed from omega2 (the consistency reference)."""
         if self.omega2 is None or self.omega2 < 0:
@@ -89,6 +97,20 @@ class ResidualError:
     tier: str = "D"
     primary_citation: Optional[str] = None
     extraction: Dict[str, Any] = field(default_factory=dict)
+
+    def second_order_ses(self) -> List[Tuple[str, str, float, Optional[float]]]:
+        """Curated SEs on the Σ components (v0.3 §2.2) as ``[(term, scale, se, value)]`` —
+        ``scale`` is ``"variance"`` or ``"sd"``, read from the key name (``variance_se`` /
+        ``sd_se``), and ``value`` is the same-scale component it is an SE *on* (None when
+        the record curates the SE on a scale it does not curate the value on)."""
+        out: List[Tuple[str, str, float, Optional[float]]] = []
+        for term in ("proportional", "additive", "log"):
+            block = getattr(self, term) or {}
+            for scale in ("variance", "sd"):
+                se = block.get(f"{scale}_se")
+                if se is not None:
+                    out.append((term, scale, float(se), block.get(scale)))
+        return out
 
 
 @dataclass(frozen=True)

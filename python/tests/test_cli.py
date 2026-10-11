@@ -126,3 +126,73 @@ def test_validate_cohort_requires_a_source(capsys):
     rc = main(["validate-cohort", "--model", "hypnotics_iv.propofol.eleveld_2018"])
     assert rc == 2
     assert "self-consistency" in capsys.readouterr().err
+
+
+# --------------------------------------------------------------------------- #
+# Bad input is one line on stderr and exit 2 — never a traceback
+# --------------------------------------------------------------------------- #
+_MARSH = "hypnotics_iv.propofol.marsh_1991"
+_ELEVELD = "hypnotics_iv.propofol.eleveld_2018"
+
+_BAD_INPUT = [
+    (["simulate", "nope.x.y"], "unknown model id 'nope.x.y'"),
+    (["simulate", "hypnotics_iv.propofol.marsh"], "did you mean hypnotics_iv.propofol.marsh_1991"),
+    (["simulate", _MARSH, "--weight", "0"], "patient weight must be a finite number > 0"),
+    (["simulate", _MARSH, "--weight", "-5"], "patient weight must be a finite number > 0"),
+    (["simulate", "hypnotics_iv.propofol.schnider_1998", "--height", "0"], "patient height"),
+    (["simulate", _ELEVELD, "--age", "-1"], "patient age must be a finite number >= 0"),
+    (["simulate", "hypnotics_iv.propofol.schnider_1998", "--sex", "X"], "sex must be 'M' or 'F'"),
+    (["simulate", _MARSH, "--n", "0"], "--n must be at least 2"),
+    (["simulate", _MARSH, "--tmax", "0"], "--tmax must be > 0"),
+    (["simulate", "opioids.fentanyl.shafer_1990"], "kernel is not implemented"),
+    (["simulate", "volatiles.sevoflurane.mac"], "expects a PK model"),
+    (["simulate", _ELEVELD, "--bands", "--samples", "0"], "samples >= 1"),
+    (["simulate", _ELEVELD, "--bands", "--percentile", "150"], "--percentile expects 'lo,hi'"),
+    (["simulate", _ELEVELD, "--bands", "--percentile", "95,5"], "0 <= lo < hi <= 100"),
+    (["simulate", _ELEVELD, "--pd", "nope"], "unknown model id 'nope'"),
+    (["simulate", _ELEVELD, "--covariate-band", "--weight-sd", "-3"], "SD must be >= 0"),
+    (["simulate", _MARSH, "--developmental"], "pma_weeks"),
+    (["compare", "--drug", "nope"], "no PK models for drug 'nope'"),
+    (["compare", "--drug", "propofol", "--weight", "0"], "patient weight"),
+    (["tpeak", "nope"], "unknown model id"),
+    (["tpeak", _MARSH, "--weight", "0"], "patient weight"),
+    (["decrement", "nope"], "unknown model id"),
+    (["mac", "--agent", "nope", "--age", "40"], "unknown model id 'volatiles.nope.mac'"),
+    (["mac", "--agent", "sevoflurane", "--age", "-3"], "--age must be >= 0"),
+    (["la", "--drug", "bupivacaine", "--dose", "0"], "--dose must be > 0"),
+    (["la", "--drug", "bupivacaine", "--tmax", "0"], "--tmax must be > 0"),
+    (["reverse", "--agent", "nope"], "unknown reversal agent 'nope' (known: naloxone, neostigmine, sugammadex)"),
+    (["interact", "--propofol", "banana"], "unknown model id 'banana'"),
+    (["interact", "--surface", "nope"], "unknown model id 'nope'"),
+    (["covariates", "--equation", "james_1976", "--height", "0"], "patient height"),
+    (["developmental", "--drug", "nope"], "no executable PK models for drug 'nope'"),
+    (["export", "--format", "nonmem", "--output", "/dev/null/x"], "Not a directory"),
+    (["export", "--format", "nonmem", "--output", "unused", "--model", "nope"], "unknown model id"),
+]
+
+
+@pytest.mark.parametrize("argv,needle", _BAD_INPUT, ids=[" ".join(a) for a, _ in _BAD_INPUT])
+def test_bad_input_is_a_one_line_error_not_a_traceback(argv, needle, capsys, monkeypatch):
+    monkeypatch.delenv("HYPNOS_DEBUG", raising=False)
+    assert main(argv) == 2                      # returns; does not raise
+    err = capsys.readouterr().err
+    assert needle in err
+    assert "Traceback" not in err
+
+
+def test_hypnos_debug_reraises_for_a_real_traceback(monkeypatch):
+    monkeypatch.setenv("HYPNOS_DEBUG", "1")
+    with pytest.raises(KeyError):
+        main(["simulate", "nope.x.y"])
+
+
+@pytest.mark.parametrize("agent", ["sugammadex", "naloxone", "neostigmine"])
+def test_reverse_accepts_the_short_agent_name_its_help_advertises(agent, capsys):
+    assert main(["reverse", "--agent", agent]) == 0
+    out = capsys.readouterr().out
+    assert f"reversal: reversal.{agent}." in out
+
+
+def test_reverse_still_accepts_a_full_model_id(capsys):
+    assert main(["reverse", "--agent", "reversal.sugammadex.encapsulation"]) == 0
+    assert "encapsulation" in capsys.readouterr().out

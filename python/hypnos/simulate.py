@@ -936,6 +936,11 @@ def simulate(
                 "simulate(bands=...) requires an explicit integer seed — every "
                 "band-producing call is seeded so quantiles are byte-reproducible (spec §6)."
             )
+        lo, hi = percentile
+        if samples < 1 or not 0 <= lo < hi <= 100:
+            raise ValueError(
+                f"a band needs samples >= 1 and a percentile pair 0 <= lo < hi <= 100 "
+                f"(got samples={samples}, percentile={tuple(percentile)})")
         if "prediction" in kinds:
             _attach_bands(result, model, params, dosing, t, percentile=percentile,
                           samples=samples, seed=seed, residual=residual,

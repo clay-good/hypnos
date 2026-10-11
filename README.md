@@ -889,6 +889,9 @@ hypnos covariate-divergence --model propofol.schnider_1998 --weight 130 --height
 hypnos simulate <model_id> --covariate-band --weight-sd 12 --seed 7  # v0.7 C2: covariate-VALUE band (weight estimated ± 12 kg)
 hypnos compare --drug propofol --bands --covariate-band --weight-sd 13 --seed 7  # v0.7 C2: + the 5th variance component (equation vs value)
 hypnos tpeak <model_id> --age .. --weight .. --height .. --sex ..    # time to peak effect (onset)
+hypnos reverse --agent sugammadex --dose '4 mg/kg'                   # v0.5: a GIVEN reversal dose acting on its agonist (sugammadex / naloxone / neostigmine)
+hypnos export --format nonmem --output out/ --model <id> --age 6 --weight 22 --height 116   # instantiate an export for a chosen patient (tier propagated to that patient)
+# bad input (unknown id, impossible patient, kernel-pending model) prints one line and exits 2; HYPNOS_DEBUG=1 shows the traceback
 hypnos decrement <model_id> --duration 240 [--infusion '6 mg/kg/h']  # plasma decrement time (offset)
 hypnos validate-cohort --model <id> --self-consistency --offset 20   # v0.4: Varvel MDPE/MDAPE/wobble (known-answer fixture, no data)
 hypnos validate-cohort --model <id> --observations cohort.csv [--json]  # v0.4: external validation vs a cohort CSV (locally-run)

@@ -155,6 +155,7 @@ def evaluate(
     is derived with James in obesity rests on an inverted LBM, and that is the honest
     result a downstream consumer must see.
     """
+    _require_physical({k: v for k, v in patient.items() if not isinstance(v, dict)})
     if ds is None:
         ds = load()
     if equation_id not in EQUATIONS:
@@ -237,8 +238,28 @@ def point_patient(patient: Dict[str, Any]) -> Dict[str, Any]:
     every deterministic path (kernel, envelope, PD link) runs on this point vector."""
     out: Dict[str, Any] = {}
     for k, v in patient.items():
+        if isinstance(v, dict) and v.get("sd") is not None and v["sd"] < 0:
+            raise ValueError(f"patient {k}: a covariate SD must be >= 0 (got {v['sd']!r})")
         out[k] = v.get("mean", v.get("central")) if isinstance(v, dict) else v
+    _require_physical(out)
     return out
+
+
+def _require_physical(point: Dict[str, Any]) -> None:
+    """Reject a patient no kernel can evaluate — before it surfaces as a ZeroDivisionError
+    or a complex number deep inside a covariate equation. Only what is physically impossible
+    is refused; merely unusual values are the envelope's job (they tier down, with a reason)."""
+    for key, minimum in (("weight", "> 0"), ("height", "> 0"), ("age", ">= 0")):
+        v = point.get(key)
+        if v is None:
+            continue
+        ok = isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v) \
+            and (v > 0 if minimum == "> 0" else v >= 0)
+        if not ok:
+            raise ValueError(f"patient {key} must be a finite number {minimum} (got {v!r})")
+    sex = point.get("sex")
+    if sex is not None and str(sex).strip().upper()[:1] not in ("M", "F"):
+        raise ValueError(f"patient sex must be 'M' or 'F' (got {sex!r})")
 
 
 def sample_covariate_vector(patient: Dict[str, Any], rng) -> Dict[str, Any]:

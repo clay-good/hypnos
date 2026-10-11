@@ -64,3 +64,27 @@ def test_appears_in_three_way_divergence(ds):
     cmp = hypnos.compare(ds, drug="propofol", patient=patient, schedule=SCHED, t=T)
     included = {r.model_id.split(".")[-1] for r in cmp.included}
     assert {"marsh_1991", "schnider_1998", "eleveld_2018"} <= included
+
+
+def test_newborn_age_zero_is_a_valid_patient_and_continuous_with_age_to_zero():
+    # age 0 is inside Eleveld's envelope (neonate -> elderly). The Al-Sallami FFM term
+    # (age/13.4)^-12.7 used to raise ZeroDivisionError there; its limit is +inf, so the
+    # sigmoid is exactly 0 and the model is continuous as age -> 0+.
+    import numpy as np
+
+    import hypnos
+    from hypnos.reference import age_power, ffm_al_sallami
+    ds = hypnos.load()
+    t = np.linspace(0, 10, 41)
+    sched = [("bolus", 0.0, "2 mg/kg")]
+    for mid in ("hypnotics_iv.propofol.eleveld_2018", "opioids.remifentanil.eleveld_2017"):
+        for sex in ("M", "F"):
+            p0 = dict(age=0, weight=3.2, height=50, sex=sex)
+            at_zero = hypnos.simulate(ds, mid, patient=p0, schedule=sched, t=t)
+            near = hypnos.simulate(ds, mid, patient=dict(p0, age=1e-9), schedule=sched, t=t)
+            assert np.all(np.isfinite(at_zero.cp))
+            np.testing.assert_allclose(at_zero.cp, near.cp, rtol=1e-6)
+    assert ffm_al_sallami(3.2, 50, 0, "M") > 0
+    # bit-identical to the plain power everywhere else — no published reference value moves
+    for age in (0.02, 1, 13.4, 35, 88):
+        assert age_power(age, 13.4, -12.7) == (age / 13.4) ** (-12.7)

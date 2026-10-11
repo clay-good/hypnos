@@ -64,6 +64,22 @@ def _load_json_dir(path: Path) -> Dict[str, Dict[str, Any]]:
     return out
 
 
+class UnknownModelError(KeyError):
+    """A model id that is not in the dataset. A ``KeyError`` (so dict-style handling keeps
+    working) whose message names the nearest ids instead of only echoing the bad one."""
+
+    def __init__(self, model_id, known=()):
+        super().__init__(model_id)
+        import difflib
+        self.model_id = model_id
+        self.suggestions = difflib.get_close_matches(str(model_id), list(known), n=3, cutoff=0.5)
+
+    def __str__(self) -> str:
+        hint = (f"; did you mean {', '.join(self.suggestions)}?" if self.suggestions
+                else " (list them with `hypnos models`)")
+        return f"unknown model id {self.model_id!r}{hint}"
+
+
 class Dataset:
     """In-memory view of the dataset: models, drugs, and citations."""
 
@@ -87,7 +103,10 @@ class Dataset:
 
     # --- dict-like access -------------------------------------------------
     def __getitem__(self, model_id: str) -> Model:
-        return self._models[model_id]
+        try:
+            return self._models[model_id]
+        except KeyError:
+            raise UnknownModelError(model_id, self._models) from None
 
     def __contains__(self, model_id: str) -> bool:
         return model_id in self._models

@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 from typing import List, Optional
@@ -26,7 +27,7 @@ from .export._common import REFERENCE_PATIENT
 from .filter import performance_table, pk_drugs, select, summary
 from .inhalational import mac as mac_eval
 from .inhalational import washin, washin_comparison, washout, washout_comparison
-from .load import load
+from .load import UnknownModelError, load
 from .presets import default_schedule_for
 from .simulate import compare as compare_models
 from .simulate import simulate, simulate_interaction
@@ -80,6 +81,15 @@ def _patient_from_args(args) -> dict:
     if getattr(args, "mh_susceptibility", False):
         patient["mh_susceptibility"] = True
     return patient
+
+
+def _time_grid(args) -> np.ndarray:
+    """The simulation time grid from ``--tmax`` / ``--n``, refusing a degenerate one."""
+    if not args.tmax > 0:
+        raise ValueError(f"--tmax must be > 0 minutes (got {args.tmax:g})")
+    if args.n < 2:
+        raise ValueError(f"--n must be at least 2 time points (got {args.n})")
+    return np.linspace(0.0, args.tmax, args.n)
 
 
 def _add_patient_args(p: argparse.ArgumentParser) -> None:
@@ -425,7 +435,7 @@ def cmd_leaderboard(args) -> int:
 def _run_sim(args):
     ds = load()
     patient = _patient_from_args(args)
-    t = np.linspace(0.0, args.tmax, args.n)
+    t = _time_grid(args)
     schedule = _default_schedule_for(ds[args.model].drug_name)
     kinds = _band_kinds(args)
     res = simulate(ds, args.model, patient=patient, schedule=schedule, t=t, pd_model=args.pd,
@@ -503,13 +513,16 @@ def _mdape_str(model) -> str:
 def cmd_compare(args) -> int:
     ds = load()
     patient = _patient_from_args(args)
-    t = np.linspace(0.0, args.tmax, args.n)
+    t = _time_grid(args)
     pct = _parse_percentile(args.percentile)
     kinds = _band_kinds(args)
     cmp = compare_models(ds, drug=args.drug, patient=patient,
                          schedule=_default_schedule_for(args.drug), t=t,
                          bands=kinds, percentile=pct, samples=args.samples,
                          seed=args.seed if kinds else None)
+    if not cmp.included and not cmp.excluded:
+        known = sorted({m.drug_name for m in ds if m.purpose == "pk"})
+        raise ValueError(f"no PK models for drug {args.drug!r} (known: {', '.join(known)})")
     cu = cmp.concentration_unit
     cf = cmp.conc_factor
     print(f"drug: {cmp.drug}   patient: {patient}   (concentrations in {cu})")
@@ -578,7 +591,7 @@ def cmd_compare(args) -> int:
 def cmd_interact(args) -> int:
     ds = load()
     patient = _patient_from_args(args)
-    t = np.linspace(0.0, args.tmax, args.n)
+    t = _time_grid(args)
     prop_sched = [("bolus", 0.0, "2 mg/kg"), ("infusion", 0.0, "6 mg/kg/h")]
     remi_sched = [("bolus", 0.0, "1 mcg/kg"), ("infusion", 0.0, "0.25 mcg/kg/min")]
     ir = simulate_interaction(
@@ -606,9 +619,12 @@ def cmd_developmental(args) -> int:
     from .simulate import developmental_overlay
     ds = load()
     patient = _patient_from_args(args)
-    t = np.linspace(0.0, args.tmax, args.n)
+    t = _time_grid(args)
     ov = developmental_overlay(ds, drug=args.drug, patient=patient,
                                schedule=_default_schedule_for(args.drug), t=t)
+    if not ov.fitted and not ov.extrapolations:
+        known = sorted({m.drug_name for m in ds if m.purpose == "pk" and m.kernel_implemented})
+        raise ValueError(f"no executable PK models for drug {args.drug!r} (known: {', '.join(known)})")
     cu, cf = ov.concentration_unit, ov.conc_factor
     print(f"drug: {ov.drug}   patient: {patient}   (concentrations in {cu})")
     print("\nfitted-pediatric standing (evidence; greyed where out of band):")
@@ -687,9 +703,16 @@ def cmd_reverse(args) -> int:
     from .simulate import simulate_reversal
     ds = load()
     patient = _patient_from_args(args)
-    t = np.linspace(0.0, args.tmax, args.n)
+    t = _time_grid(args)
+    agent = args.agent
+    if "." not in agent:                 # short name (as the help says) -> the reversal model id
+        ids = [m.id for m in ds if m.is_reversal_agent and m.drug_name == agent]
+        if not ids:
+            known = sorted(m.drug_name for m in ds if m.is_reversal_agent)
+            raise ValueError(f"unknown reversal agent {agent!r} (known: {', '.join(known)})")
+        agent = ids[0]
     try:
-        r = simulate_reversal(ds, args.agent, patient=patient, reversal_dose=args.dose,
+        r = simulate_reversal(ds, agent, patient=patient, reversal_dose=args.dose,
                               agonist_dose=args.agonist_dose, t=t, reversal_time_min=args.at,
                               pd_model=args.pd)
     except (ValueError, NotImplementedError) as e:
@@ -862,7 +885,7 @@ def cmd_covariate_divergence(args) -> int:
     patient = _patient_from_args(args)
     try:
         cd = _covdiv(ds, mid, patient=patient,
-                     t=np.linspace(0.0, args.tmax, args.n))
+                     t=_time_grid(args))
     except (ValueError, NotImplementedError) as e:
         print(str(e), file=sys.stderr)
         return 2
@@ -974,6 +997,8 @@ def cmd_mac(args) -> int:
     agent = args.agent
     if "." not in agent:  # short name -> volatiles.<agent>.mac
         agent = f"volatiles.{agent.replace(' ', '_')}.mac"
+    if args.age < 0:
+        raise ValueError(f"--age must be >= 0 years (got {args.age:g})")
     res = mac_eval(ds, agent, age=args.age, end_tidal_pct=args.end_tidal,
                    n2o_end_tidal_pct=args.n2o)
     print(f"agent: {res.agent_id}   age: {res.age:g} y   tier: {res.tier}")
@@ -1019,6 +1044,10 @@ def cmd_la(args) -> int:
         print("provide --drug <name> (or --agents for the cross-agent cardiotoxicity comparison)",
               file=sys.stderr)
         return 2
+    if not args.dose > 0:
+        raise ValueError(f"--dose must be > 0 mg (got {args.dose:g})")
+    if not args.tmax > 0:
+        raise ValueError(f"--tmax must be > 0 minutes (got {args.tmax:g})")
     mid = args.drug if "." in args.drug else f"local_anesthetics.{args.drug.replace(' ', '_')}.systemic"
     try:
         rows = site_comparison(ds, mid, dose_mg=args.dose, t_min=args.tmax)
@@ -1410,7 +1439,15 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: Optional[List[str]] = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
-    return args.func(args)
+    try:
+        return args.func(args)
+    except (UnknownModelError, ValueError, NotImplementedError, OSError) as e:
+        # Bad input, not a bug: an unknown id, an impossible patient, a kernel-pending model,
+        # an unwritable path. One line on stderr and exit 2 — set HYPNOS_DEBUG=1 for the trace.
+        if os.environ.get("HYPNOS_DEBUG"):
+            raise
+        print(f"hypnos: error: {e}", file=sys.stderr)
+        return 2
 
 
 if __name__ == "__main__":  # pragma: no cover

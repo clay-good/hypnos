@@ -226,6 +226,8 @@ def sbml_covariate_rules(model, ds, patient: Dict[str, Any]) -> Tuple[List[str],
     The inputs (WT/HT/AGE/SEX) are emitted as constant parameters at the instantiated patient;
     the structural rate constants stay instantiated numbers, so the dynamics are unchanged.
     Empty when the model declares no covariate_model or the patient lacks weight/height."""
+    from ..covariates import evaluate
+
     derived = list(_derived(model, ds))
     if not derived or patient.get("weight") is None or patient.get("height") is None:
         return [], []
@@ -241,7 +243,7 @@ def sbml_covariate_rules(model, ds, patient: Dict[str, Any]) -> Tuple[List[str],
         sym = _sym_for(di.quantity)
         branch = {s: ast.parse(to_nonmem_expr(e), mode="eval").body
                   for s, e in (("male", male), ("female", female))}
-        value = evaluate_nonmem_expr(to_nonmem_expr(male if env["SEX"] == 1.0 else female), patient)
+        value = evaluate(di.equation, patient, ds=ds).value     # the library is the source of truth
         params.append(f'      <parameter id="{sym}" name="{di.quantity} via {di.equation}" '
                       f'value="{value:.10g}" constant="false"/>')
         rules += [f'      <assignmentRule variable="{sym}">',

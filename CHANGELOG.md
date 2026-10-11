@@ -8,6 +8,26 @@ version is pinned in `dataset/VERSION` and stamped into every export as
 
 ## [Unreleased]
 
+### Hardening — bad input is an error message, not a traceback; three bugs found on the way (2026-10-10)
+Fuzzing every CLI command with invalid input produced 30+ raw Python tracebacks. Now:
+- **CLI.** `main()` turns bad input into one line on stderr and exit code 2 (`HYPNOS_DEBUG=1` re-raises for
+  a real trace). Unknown model ids name the nearest matches (`did you mean …marsh_1991?`). `--tmax`,
+  `--n`, `--dose`, `--age`, band `--samples` / `--percentile` are range-checked. `compare` and
+  `developmental` reject an unknown drug instead of printing an empty result with exit 0.
+- **Library.** `simulate` / `compare` / `evaluate_covariate` refuse a physically impossible patient
+  (weight or height ≤ 0, negative age, non-finite or non-numeric values, sex other than M/F, a negative
+  covariate SD) with a `ValueError` naming the field — before it surfaces as a `ZeroDivisionError` or a
+  complex number inside a covariate equation. Merely unusual patients are still simulated and tiered
+  down by the envelope. `Dataset[...]` raises `UnknownModelError` (a `KeyError` subclass).
+- **Bug: `hypnos reverse --agent sugammadex` crashed** although the help text says to pass exactly that;
+  short agent names now resolve to the reversal model.
+- **Bug: a newborn (age 0) crashed both Eleveld models** although age 0 is inside their envelope: the
+  Al-Sallami FFM term `(age/13.4)^-12.7` raised `ZeroDivisionError`. It now takes its limit (the
+  sigmoid is exactly 0), is continuous with age → 0⁺, and is bit-identical for every age > 0.
+- **Bug: the SBML covariate rule's stated value** was re-evaluated from the exported string; it now comes
+  from the library, so it cannot fail where the library succeeds.
+- 51 new tests (33 bad-input cases, each asserting exit 2 and no traceback).
+
 ### Fix — the estimation confidence band no longer depends on patient size (2026-10-10)
 - **What was wrong.** `simulate(bands=["confidence"])` added each parameter's curated standard error in
   *absolute* units to the patient-instantiated parameter. But the SE is on the source's reference

@@ -45,6 +45,14 @@ def ffm_janmahasatian(weight: float, height_cm: float, sex: str) -> float:
     return 9.27e3 * weight / (8.78e3 + 244.0 * b)
 
 
+def age_power(age: float, scale: float, exponent: float) -> float:
+    """``(age/scale)**exponent`` for a NEGATIVE exponent, with its age -> 0 limit (``inf``)
+    in place of Python's ZeroDivisionError. A newborn (age 0) is a valid patient, and the
+    sigmoid this feeds — ``1/(1 + inf)`` — is exactly 0 there. Bit-identical to the plain
+    power for age > 0, so every published reference value is unchanged."""
+    return math.inf if age <= 0 else (age / scale) ** exponent
+
+
 def ffm_al_sallami(weight: float, height_cm: float, age: float, sex: str) -> float:
     """Al-Sallami (2015) fat-free mass (kg) — the age-aware FFM the Eleveld models use.
 
@@ -53,8 +61,8 @@ def ffm_al_sallami(weight: float, height_cm: float, age: float, sex: str) -> flo
     """
     jan = ffm_janmahasatian(weight, height_cm, sex)
     if str(sex).upper().startswith("M"):
-        return (0.88 + (1.0 - 0.88) / (1.0 + (age / 13.4) ** (-12.7))) * jan
-    return (1.11 + (1.0 - 1.11) / (1.0 + (age / 7.1) ** (-1.1))) * jan
+        return (0.88 + (1.0 - 0.88) / (1.0 + age_power(age, 13.4, -12.7))) * jan
+    return (1.11 + (1.0 - 1.11) / (1.0 + age_power(age, 7.1, -1.1))) * jan
 
 
 def bmi(weight: float, height_cm: float) -> float:

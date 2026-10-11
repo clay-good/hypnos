@@ -14,7 +14,7 @@ import math
 import re
 from typing import Callable, Dict
 
-from ..reference import MicroParams, lbm_james
+from ..reference import MicroParams, age_power, lbm_james
 
 # Covariate-function signature: dict(patient) -> MicroParams
 KernelFn = Callable[[dict], MicroParams]
@@ -218,9 +218,9 @@ def propofol_eleveld_2018(patient: dict) -> MicroParams:
     fq3_mat_ref = fsig(AGEref * 52.0 + 40.0, th[14], 1.0)
 
     if male:
-        ffm = (0.88 + (1 - 0.88) / (1 + (age / 13.4) ** (-12.7))) * (9270 * wgt) / (6680 + 216 * bmi)
+        ffm = (0.88 + (1 - 0.88) / (1 + age_power(age, 13.4, -12.7))) * (9270 * wgt) / (6680 + 216 * bmi)
     else:
-        ffm = (1.11 + (1 - 1.11) / (1 + (age / 7.1) ** (-1.1))) * (9270 * wgt) / (8780 + 244 * bmi)
+        ffm = (1.11 + (1 - 1.11) / (1 + age_power(age, 7.1, -1.1))) * (9270 * wgt) / (8780 + 244 * bmi)
     ffm = _maybe_override(patient, "ffm", ffm)
     ffm_ref = (0.88 + (1 - 0.88) / (1 + (AGEref / 13.4) ** (-12.7))) * (9270 * WGTref) / (6680 + 216 * bmiref)
 
@@ -266,9 +266,9 @@ def remifentanil_eleveld_2017(patient: dict) -> MicroParams:
     bmiref = 10000.0 * TBWref / (HGTref * HGTref)
 
     if male:
-        ffm = (0.88 + (1 - 0.88) / (1 + (age / 13.4) ** (-12.7))) * (9270 * wgt) / (6680 + 216 * bmi)
+        ffm = (0.88 + (1 - 0.88) / (1 + age_power(age, 13.4, -12.7))) * (9270 * wgt) / (6680 + 216 * bmi)
     else:
-        ffm = (1.11 + (1 - 1.11) / (1 + (age / 7.1) ** (-1.1))) * (9270 * wgt) / (8780 + 244 * bmi)
+        ffm = (1.11 + (1 - 1.11) / (1 + age_power(age, 7.1, -1.1))) * (9270 * wgt) / (8780 + 244 * bmi)
     ffm = _maybe_override(patient, "ffm", ffm)
     ffm_ref = (0.88 + (1 - 0.88) / (1 + (AGEref / 13.4) ** (-12.7))) * (9270 * TBWref) / (6680 + 216 * bmiref)
 

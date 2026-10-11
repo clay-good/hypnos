@@ -686,6 +686,142 @@ def subjects_from_vitaldb(
     return out
 
 
+@dataclass(frozen=True)
+class Reconciliation:
+    """One publisher-reported metric set beside Hypnos's recomputed value (v0.4 §7.2)."""
+
+    model_id: str
+    metric: str                        # MDPE | MDAPE
+    published: float
+    published_population: str
+    citation: Optional[str]
+    computed: Optional[float]
+    ci95: Optional[Tuple[float, float]]
+    delta: Optional[float]             # computed − published, percentage points
+    verdict: str                       # agrees | differs | not_comparable
+    note: str
+
+    def to_record(self) -> Dict[str, Any]:
+        return {"model_id": self.model_id, "metric": self.metric, "published": self.published,
+                "published_population": self.published_population, "citation": self.citation,
+                "computed": _round(self.computed), "ci95": _ci(self.ci95),
+                "delta": _round(self.delta), "verdict": self.verdict, "note": self.note}
+
+
+def reconcile_with_published(
+    ds: Dataset, cv: CohortValidation, *, tolerance: float = 10.0,
+) -> List[Reconciliation]:
+    """Published-vs-reproduced reconciliation (v0.4 §7.2): each in-envelope publisher-reported
+    MDPE/MDAPE beside the value Hypnos recomputed on ``cv``'s cohort.
+
+    ``agrees`` when the published value lies inside the computed bootstrap 95% CI, or within
+    ``tolerance`` percentage points (a screening threshold, not a field standard — two studies
+    of one model routinely differ by more than their CIs). ``differs`` is a *finding*, not an
+    error: the note lists what to rule out, cheapest first — the cohorts are different people,
+    then methodology, then a parameter transcription slip. ``not_comparable`` when the cohort
+    scored an effect (BIS/TOF) but the published metric is a concentration metric.
+
+    Nothing here moves a tier or edits a record (v0.4 §5): it puts two numbers side by side.
+    """
+    model = ds[cv.model_id]
+    out: List[Reconciliation] = []
+    for pp in model.predictive_performance:
+        name = pp.get("metric")
+        pop = pp.get("population") or ""
+        if name not in ("MDPE", "MDAPE") or "out of envelope" in pop.lower():
+            continue
+        published = float(pp["value"])
+        base = dict(model_id=cv.model_id, metric=name, published=published,
+                    published_population=pop, citation=pp.get("citation"))
+        if model.purpose == "pk" and cv.mode != "pk_concentration":
+            out.append(Reconciliation(
+                **base, computed=None, ci95=None, delta=None, verdict="not_comparable",
+                note=f"published {name} is a concentration metric; this cohort scored "
+                     f"{cv.target} through a PD link — different quantities"))
+            continue
+        computed = getattr(cv.population, name.lower())
+        ci = cv.population.ci95.get(name.lower())
+        if ci is not None and not all(np.isfinite(ci)):
+            ci = None
+        if not np.isfinite(computed):
+            out.append(Reconciliation(**base, computed=None, ci95=None, delta=None,
+                                      verdict="not_comparable",
+                                      note="no computed value (no scorable samples)"))
+            continue
+        delta = float(computed - published)
+        in_ci = ci is not None and ci[0] <= published <= ci[1]
+        if in_ci or abs(delta) <= tolerance:
+            verdict = "agrees"
+            note = ("published value inside the computed 95% CI" if in_ci
+                    else f"within the ±{tolerance:g}-point screening tolerance")
+        else:
+            verdict = "differs"
+            note = ("rule out in order: (1) a different cohort — the published population is "
+                    f"'{pop}'; (2) methodology (sampling site, PE definition); (3) a parameter "
+                    f"transcription slip — run `hypnos verify {cv.model_id}`")
+        out.append(Reconciliation(**base, computed=float(computed), ci95=ci, delta=delta,
+                                  verdict=verdict, note=note))
+    return out
+
+
+@dataclass(frozen=True)
+class FailureModeEvidence:
+    """A model's in- vs out-of-envelope accuracy on one cohort (v0.4 §7.3)."""
+
+    model_id: str
+    in_mdape: Optional[float]
+    in_ci95: Optional[Tuple[float, float]]
+    n_in: int
+    out_mdape: Optional[float]
+    out_ci95: Optional[Tuple[float, float]]
+    n_out: int
+    verdict: str                       # confirmed | not_confirmed | insufficient_data
+    known_conditions: Tuple[str, ...]  # the curated failure-mode conditions this speaks to
+
+    def to_record(self) -> Dict[str, Any]:
+        return {"model_id": self.model_id, "in_mdape": _round(self.in_mdape),
+                "in_ci95": _ci(self.in_ci95), "n_in": self.n_in,
+                "out_mdape": _round(self.out_mdape), "out_ci95": _ci(self.out_ci95),
+                "n_out": self.n_out, "verdict": self.verdict,
+                "known_conditions": list(self.known_conditions)}
+
+
+def failure_mode_evidence(ds: Dataset, lb: "Leaderboard", *, min_subjects: int = 3,
+                          ) -> List[FailureModeEvidence]:
+    """Turn asserted failure modes into measured rows (v0.4 §7.3): each model's in-envelope
+    vs out-of-envelope MDAPE on the leaderboard's cohort.
+
+    ``confirmed`` only when the out-of-envelope MDAPE's bootstrap 95% CI lies entirely above
+    the in-envelope one — a separation the data support, not an eyeballed gap. Overlapping
+    intervals are ``not_confirmed`` (which is NOT "refuted": absence of separation in one
+    cohort is weak evidence). Fewer than ``min_subjects`` in either stratum, or no usable CI,
+    is ``insufficient_data``. The stratification is at the whole-envelope level: a curated
+    failure mode's ``condition`` is prose, so its exact slice (e.g. BMI > 42) is listed for
+    the reader, not re-derived.
+    """
+    def ci_of(cv: Optional[CohortValidation]) -> Optional[Tuple[float, float]]:
+        ci = cv.population.ci95.get("mdape") if cv is not None else None
+        return ci if ci is not None and all(np.isfinite(ci)) else None
+
+    out: List[FailureModeEvidence] = []
+    for e in lb.entries:
+        i, o = e.in_envelope, e.out_envelope
+        ici, oci = ci_of(i), ci_of(o)
+        n_in = i.n_subjects if i is not None else 0
+        n_out = o.n_subjects if o is not None else 0
+        if min(n_in, n_out) < min_subjects or ici is None or oci is None:
+            verdict = "insufficient_data"
+        else:
+            verdict = "confirmed" if oci[0] > ici[1] else "not_confirmed"
+        out.append(FailureModeEvidence(
+            model_id=e.model_id,
+            in_mdape=i.population.mdape if i is not None else None, in_ci95=ici, n_in=n_in,
+            out_mdape=o.population.mdape if o is not None else None, out_ci95=oci, n_out=n_out,
+            verdict=verdict,
+            known_conditions=tuple(fm.condition for fm in ds[e.model_id].known_failure_modes)))
+    return out
+
+
 @dataclass
 class VpcResult:
     """Visual-predictive-check bins: observed vs model-predicted percentiles over time (v0.4 §7)."""

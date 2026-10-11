@@ -150,7 +150,7 @@ def cmd_validate_cohort(args) -> int:
     import csv as _csv
 
     from .analysis import subjects_from_cohort_self_consistency  # local helper, below
-    from .analysis import subjects_from_csv, validate_against_cohort
+    from .analysis import reconcile_with_published, subjects_from_csv, validate_against_cohort
 
     ds = load()
     if args.model not in ds:
@@ -184,8 +184,11 @@ def cmd_validate_cohort(args) -> int:
         return 2
     if args.vpc:
         return _print_vpc(ds, args, subjects, source)
+    recon = reconcile_with_published(ds, cv) if args.reconcile else []
     if args.json:
-        print(json.dumps(cv.to_record(), indent=2))
+        rec = cv.to_record()
+        print(json.dumps({"external_validation": rec, "reconciliation": [r.to_record() for r in recon]}
+                         if args.reconcile else rec, indent=2))
         return 0
     p = cv.population
     print(f"external validation — {cv.model_id} vs {source}")
@@ -198,6 +201,16 @@ def cmd_validate_cohort(args) -> int:
         print(f"  {name:10s} {val:>9.2f}{units:1s}  {ci}")
     print("  Hypnos-COMPUTED (reproducible), distinct from any publisher-reported predictive_performance. "
           "NOT a dosing tool.")
+    if args.reconcile:
+        print("published vs reproduced (v0.4 §7.2 — two numbers side by side; never moves a tier):")
+        if not recon:
+            print("  no in-envelope publisher-reported MDPE/MDAPE curated for this model")
+        for r in recon:
+            fmt = "+.1f" if r.metric == "MDPE" else ".1f"      # bias is signed; inaccuracy is not
+            got = "n/a" if r.computed is None else format(r.computed, fmt) + "%"
+            print(f"  {r.metric:6s} published {format(r.published, fmt)}%  computed {got:>8s}  "
+                  f"{r.verdict.upper():15s} [{r.citation or '?'}]")
+            print(f"         {r.note}")
     return 0
 
 
@@ -245,10 +258,12 @@ def _print_vpc(ds, args, subjects, source) -> int:
     return 0
 
 
-def _leaderboard_report(lb, args, source) -> str:
+def _leaderboard_report(ds, lb, args, source) -> str:
     """`leaderboard --report`: the standalone, citable markdown validation report (v0.4 §8)
     for ANY cohort — the leaderboard, the envelope stratification, and what reproduces it.
     Derived metrics only; never a raw observation."""
+    from .analysis import failure_mode_evidence, reconcile_with_published
+
     link = f" · shared PD link `{args.pd_model}`" if args.target in ("bis", "tof") else ""
     lines = [
         f"# Hypnos external validation — {args.drug} ({args.target})",
@@ -280,6 +295,45 @@ def _leaderboard_report(lb, args, source) -> str:
         "compares models, not cohorts. In-/out-of-envelope columns re-score each model on the "
         "subjects inside and outside its own applicability envelope; a `—` means no subject fell "
         "in that stratum. A computed metric never moves a tier — a human reading the evidence does.",
+        "",
+        "## Failure modes — asserted vs measured",
+        "",
+        "`confirmed` = the out-of-envelope MDAPE 95% CI lies entirely above the in-envelope one. "
+        "`not_confirmed` is not a refutation; `insufficient_data` means a stratum had too few subjects.",
+        "",
+        "| Model | in-env MDAPE % [95% CI] (n) | out-env MDAPE % [95% CI] (n) | Verdict | Curated failure-mode conditions |",
+        "| --- | ---: | ---: | --- | --- |",
+    ]
+
+    def stratum(v, ci, n):
+        if v is None:
+            return "—"
+        return f"{v:.1f} " + (f"[{ci[0]:.1f}, {ci[1]:.1f}] " if ci else "") + f"({n})"
+
+    for f in failure_mode_evidence(ds, lb):
+        lines.append(f"| `{f.model_id}` | {stratum(f.in_mdape, f.in_ci95, f.n_in)} | "
+                     f"{stratum(f.out_mdape, f.out_ci95, f.n_out)} | {f.verdict} | "
+                     f"{'; '.join(f.known_conditions) or '—'} |")
+    lines += [
+        "",
+        "## Published vs reproduced",
+        "",
+        "Each in-envelope publisher-reported metric beside the value recomputed on this cohort. "
+        "`differs` is a finding to explain (different cohort, then methodology, then "
+        "transcription), not an error.",
+        "",
+        "| Model | Metric | Published % | Computed % | Verdict | Source |",
+        "| --- | --- | ---: | ---: | --- | --- |",
+    ]
+    recon = [r for e in lb.entries for r in reconcile_with_published(ds, e.overall)]
+    for r in recon:
+        fmt = "+.1f" if r.metric == "MDPE" else ".1f"      # bias is signed; inaccuracy is not
+        got = "—" if r.computed is None else format(r.computed, fmt)
+        lines.append(f"| `{r.model_id}` | {r.metric} | {format(r.published, fmt)} | {got} | "
+                     f"{r.verdict} | {r.citation or '?'} |")
+    if not recon:
+        lines.append("| — | — | — | — | no publisher-reported metrics curated | — |")
+    lines += [
         "",
         "## Reproduce",
         "",
@@ -351,7 +405,7 @@ def cmd_leaderboard(args) -> int:
         print(json.dumps(lb.to_record(), indent=2))
         return 0
     if args.report:
-        print(_leaderboard_report(lb, args, source))
+        print(_leaderboard_report(ds, lb, args, source))
         return 0
     print(f"leaderboard — drug {args.drug} · target {target} · {lb.n_subjects} subject(s) · "
           f"seed {lb.seed}   (cohort: {source})")
@@ -1194,6 +1248,9 @@ def build_parser() -> argparse.ArgumentParser:
     vcp.add_argument("--pd-model", dest="pd_model", default=None, help="PD model id for an effect target")
     vcp.add_argument("--seed", type=int, default=0, help="bootstrap-CI seed (reproducible)")
     vcp.add_argument("--json", action="store_true", help="emit the external_validation[] record (JSON)")
+    vcp.add_argument("--reconcile", action="store_true",
+                     help="v0.4 §7.2: also set each publisher-reported MDPE/MDAPE beside the "
+                          "recomputed value (agrees / differs / not comparable)")
     vcp.add_argument("--vpc", action="store_true",
                      help="v0.4 §7: the visual predictive check instead of the Varvel metrics — "
                           "observed percentiles per time bin beside the model's seeded prediction "

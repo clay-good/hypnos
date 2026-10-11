@@ -8,6 +8,19 @@ version is pinned in `dataset/VERSION` and stamped into every export as
 
 ## [Unreleased]
 
+### v0.4 §7.2/§7.3 — published-vs-reproduced reconciliation; failure modes measured (2026-10-10)
+- **`reconcile_with_published` / `hypnos validate-cohort --reconcile`.** Each in-envelope publisher-reported
+  MDPE/MDAPE beside the value recomputed on the cohort: `agrees` (published inside the computed 95% CI, or
+  within a ±10-point screening tolerance), `differs` (a finding — the note lists what to rule out, cheapest
+  first: a different cohort, methodology, transcription), or `not_comparable` (a BIS-scored cohort vs a
+  concentration metric). It never moves a tier or edits a record.
+- **`failure_mode_evidence`.** Each model's in- vs out-of-envelope MDAPE: `confirmed` only when the
+  out-of-envelope 95% CI lies entirely above the in-envelope one; overlapping intervals are `not_confirmed`
+  (not a refutation); too few subjects is `insufficient_data`.
+- Both are sections of `hypnos leaderboard --report`, which now covers everything v0.4 §8 lists for the
+  standalone report except a rendered VPC figure.
+- 10 new tests.
+
 ### v0.4 §7/§8 finish — the VPC on the CLI; computed validation metrics in every export (2026-10-10)
 - **`hypnos validate-cohort --vpc [--bins N] [--json]`.** The visual predictive check was a Python-only
   function; it is now a CLI table: observed P10/P50/P90 per time bin beside the model's seeded prediction

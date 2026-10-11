@@ -706,3 +706,128 @@ def test_cli_leaderboard_report_names_the_pd_link_for_an_effect_target(capsys):
     out = capsys.readouterr().out
     assert "shared PD link `pd_effect.propofol.bis_sigmoid`" in out
     assert "--pd-model pd_effect.propofol.bis_sigmoid" in out
+
+
+# --------------------------------------------------------------------------- #
+# v0.4 §7.2 — published-vs-reproduced reconciliation; §7.3 — failure modes measured
+# --------------------------------------------------------------------------- #
+from hypnos.analysis import (  # noqa: E402
+    CohortValidation, Leaderboard, LeaderboardEntry, PopulationPerformance,
+    failure_mode_evidence, reconcile_with_published,
+)
+
+
+def _cv(mid, mdpe, mdape, ci_mdape, *, mode="pk_concentration", target="cp", n=10, ci_mdpe=None):
+    nan = float("nan")
+    pop = PopulationPerformance(mdpe=mdpe, mdape=mdape, wobble=5.0, divergence=0.0, n_subjects=n,
+                                ci95={"mdape": ci_mdape, "mdpe": ci_mdpe or (nan, nan)}, seed=7)
+    return CohortValidation(model_id=mid, dataset="synthetic", mode=mode, target=target,
+                            n_subjects=n, population=pop, seed=7)
+
+
+def test_reconcile_agrees_when_published_sits_inside_the_computed_ci():
+    ds = hypnos.load()
+    # Eleveld curates MDAPE 30 (own paper) and 22 (Hüppe 2020); a computed 26 [20, 31] covers both
+    rows = reconcile_with_published(ds, _cv(ELEVELD, -3.0, 26.0, (20.0, 31.0)), tolerance=0.0)
+    mdape = [r for r in rows if r.metric == "MDAPE"]
+    assert {r.published for r in mdape} == {30.0, 22.0}
+    assert all(r.verdict == "agrees" and "inside the computed 95% CI" in r.note for r in mdape)
+    assert all(r.delta == pytest.approx(26.0 - r.published) for r in mdape)
+
+
+def test_reconcile_differs_is_a_finding_with_ordered_explanations():
+    ds = hypnos.load()
+    rows = reconcile_with_published(ds, _cv(ELEVELD, -3.0, 60.0, (55.0, 65.0)))
+    bad = [r for r in rows if r.metric == "MDAPE"]
+    assert bad and all(r.verdict == "differs" for r in bad)
+    note = bad[0].note
+    # cheapest explanation first: a different cohort, then methodology, then transcription
+    assert note.index("different cohort") < note.index("methodology") < note.index("transcription")
+    assert f"hypnos verify {ELEVELD}" in note and bad[0].published_population in note
+
+
+def test_reconcile_tolerance_is_a_screening_threshold():
+    ds = hypnos.load()
+    cv = _cv(ELEVELD, -3.0, 38.0, (36.0, 37.0))          # CI excludes 30; |Δ| = 8
+    by = lambda rows: {r.published: r.verdict for r in rows if r.metric == "MDAPE"}  # noqa: E731
+    assert by(reconcile_with_published(ds, cv, tolerance=10.0))[30.0] == "agrees"
+    assert by(reconcile_with_published(ds, cv, tolerance=5.0))[30.0] == "differs"
+
+
+def test_reconcile_refuses_to_compare_a_bis_score_with_a_concentration_metric():
+    ds = hypnos.load()
+    rows = reconcile_with_published(ds, _cv(ELEVELD, -33.0, 34.0, (30.0, 38.0),
+                                            mode="pd_bis", target="bis"))
+    assert rows and all(r.verdict == "not_comparable" and r.computed is None for r in rows)
+    assert "different quantities" in rows[0].note
+
+
+def test_reconcile_skips_out_of_envelope_published_metrics_and_empty_models():
+    ds = hypnos.load()
+    minto = "opioids.remifentanil.minto_1997"
+    curated = [pp for pp in ds[minto].predictive_performance if pp["metric"] in ("MDPE", "MDAPE")]
+    kept = reconcile_with_published(ds, _cv(minto, 0.0, 20.0, (15.0, 25.0)))
+    n_out = sum("out of envelope" in (pp.get("population") or "").lower() for pp in curated)
+    assert n_out >= 1 and len(kept) == len(curated) - n_out
+    # a model with no published metrics yields nothing — never a fabricated comparison
+    assert reconcile_with_published(ds, _cv("volatiles.sevoflurane.mac", 0.0, 1.0, (0.0, 2.0))) == []
+
+
+def _lb(in_cv, out_cv, mid="hypnotics_iv.propofol.schnider_1998"):
+    return Leaderboard(dataset="synthetic", target="cp", n_subjects=20, seed=7, entries=[
+        LeaderboardEntry(model_id=mid, pd_model=None, declared_tier="B",
+                         overall=in_cv or out_cv, in_envelope=in_cv, out_envelope=out_cv)])
+
+
+def test_failure_mode_confirmed_only_when_the_cis_separate():
+    ds = hypnos.load()
+    sch = "hypnotics_iv.propofol.schnider_1998"
+    (f,) = failure_mode_evidence(ds, _lb(_cv(sch, 0, 24.0, (20.0, 28.0)),
+                                         _cv(sch, 0, 48.0, (40.0, 56.0))))
+    assert f.verdict == "confirmed" and (f.in_mdape, f.out_mdape) == (24.0, 48.0)
+    assert any("bmi" in c.lower() for c in f.known_conditions)     # the curated claim it speaks to
+    # a bigger point estimate with OVERLAPPING intervals is not a confirmation
+    (g,) = failure_mode_evidence(ds, _lb(_cv(sch, 0, 24.0, (15.0, 40.0)),
+                                         _cv(sch, 0, 35.0, (25.0, 50.0))))
+    assert g.verdict == "not_confirmed"
+
+
+def test_failure_mode_insufficient_data_is_never_a_verdict_on_the_model():
+    ds = hypnos.load()
+    sch = "hypnotics_iv.propofol.schnider_1998"
+    ok = _cv(sch, 0, 24.0, (20.0, 28.0))
+    (no_out,) = failure_mode_evidence(ds, _lb(ok, None))
+    (tiny,) = failure_mode_evidence(ds, _lb(ok, _cv(sch, 0, 90.0, (80.0, 99.0), n=2)))
+    nan = float("nan")
+    (no_ci,) = failure_mode_evidence(ds, _lb(ok, _cv(sch, 0, 90.0, (nan, nan))))
+    assert {no_out.verdict, tiny.verdict, no_ci.verdict} == {"insufficient_data"}
+    assert no_out.to_record()["out_mdape"] is None
+
+
+def test_cli_reconcile_text_and_json(capsys):
+    import json
+    from hypnos.cli import main
+    base = ["validate-cohort", "--model", ELEVELD, "--self-consistency", "--offset", "20",
+            "--reconcile"]
+    assert main(base) == 0
+    out = capsys.readouterr().out
+    assert "published vs reproduced" in out and "never moves a tier" in out
+    assert "AGREES" in out and "DIFFERS" in out
+    assert main(base + ["--json"]) == 0
+    doc = json.loads(capsys.readouterr().out)
+    assert doc["external_validation"]["target"] == "cp"
+    assert {r["verdict"] for r in doc["reconciliation"]} <= {"agrees", "differs", "not_comparable"}
+    # without the flag the JSON is still the bare schema record (backward compatible)
+    assert main(base[:-1] + ["--json"]) == 0
+    assert "reconciliation" not in json.loads(capsys.readouterr().out)
+
+
+def test_leaderboard_report_carries_failure_mode_and_reconciliation_sections(capsys):
+    from hypnos.cli import main
+    assert main(["leaderboard", "--drug", "propofol", "--target", "cp", "--self-consistency",
+                 "--report"]) == 0
+    out = capsys.readouterr().out
+    assert "## Failure modes — asserted vs measured" in out
+    assert "## Published vs reproduced" in out
+    assert "insufficient_data" in out            # a 3-subject fixture cannot confirm anything
+    assert "huppe-2020-propofol-comparison" in out

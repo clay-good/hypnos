@@ -16,6 +16,7 @@ from xml.sax.saxutils import escape, quoteattr
 from . import annotate
 from ._common import resolve_patient, safe_name
 from ._covariate import pharmml_covariate_xml
+from ._developmental import pharmml_xml as developmental_xml
 from ._estimation import (
     covariance_step_note, estimate_correlations, independence_caveat, theta_covariance,
     theta_estimates,
@@ -214,6 +215,22 @@ def build(model, ds=None, patient: Optional[Dict[str, Any]] = None) -> str:
             + (f' scaleFactor="{sf:.10g}"' if sf is not None else "")
             + f' evidenceTier="{dz.evidence_tier}" '
             f'appliedByDefault="{str(dz.applied_by_default).lower()}"/>\n')
+    # v0.9 §7: pharmacogenomic records — a modifier is opt-in Tier-D; a safety flag is never
+    # a parameter change (affectsKinetics is false by construction).
+    for mod in model.pharmacogenomic_modifiers:
+        sf = mod.scale_factor
+        la_xml += (
+            f'      <hypnos:pharmacogenomicModifier gene="{escape(mod.gene)}" '
+            f'phenotype="{escape(str(mod.phenotype_value))}" '
+            f'affectedParameter="{escape(mod.affected_parameter)}"'
+            + (f' scaleFactor="{sf:.10g}"' if sf is not None else "")
+            + f' substrateScope={quoteattr(" ".join(mod.substrate_scope))} '
+            f'evidenceTier="{mod.evidence_tier}" appliedByDefault="false"/>\n')
+    for flag in model.pharmacogenomic_safety_flags:
+        la_xml += (
+            f'      <hypnos:pharmacogenomicSafetyFlag gene="{escape(flag.gene)}" '
+            f'kind="{escape(flag.kind)}" triggers={quoteattr(" ".join(flag.trigger_agents))} '
+            f'affectsKinetics="false" evidenceTier="{flag.evidence_tier}"/>\n')
     prov_xml = (
         "    <Annotation>\n"
         f'      <hypnos:clinicalUse>{escape(prov["hypnos:clinicalUse"])}</hypnos:clinicalUse>\n'
@@ -246,6 +263,7 @@ def build(model, ds=None, patient: Optional[Dict[str, Any]] = None) -> str:
         + _variability_xml(model)
         + _estimation_xml(model)
         + _validation_xml(model)
+        + developmental_xml(model)
         + kernel_note + '\n'
         + prov_xml + '\n'
         '  </pharmml:ModelDefinition>\n'

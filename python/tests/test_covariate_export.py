@@ -175,9 +175,12 @@ def test_sbml_assignment_rule_leaves_the_dynamics_alone(ds):
     # the structural parameters and rate rules are unchanged — the covariate rule is additive
     dom = minidom.parseString(export_model("sbml", ds[SCHNIDER], ds)[1])
     assert len(dom.getElementsByTagName("rateRule")) == 4
-    assert [r.getAttribute("variable") for r in dom.getElementsByTagName("assignmentRule")] == ["LBM"]
-    marsh = minidom.parseString(export_model("sbml", ds[MARSH], ds)[1])
-    assert not marsh.getElementsByTagName("assignmentRule")
+    derived = {"LBM", "FFM"}
+    rules = [r.getAttribute("variable") for r in dom.getElementsByTagName("assignmentRule")]
+    assert [v for v in rules if v in derived] == ["LBM"]
+    marsh = minidom.parseString(export_model("sbml", ds[MARSH], ds)[1])   # no covariate_model
+    assert not derived & {r.getAttribute("variable")
+                          for r in marsh.getElementsByTagName("assignmentRule")}
 
 
 def test_covariate_band_tier_and_warning_follow_the_instantiated_patient(ds):
@@ -198,8 +201,8 @@ def test_covariate_band_tier_and_warning_follow_the_instantiated_patient(ds):
 @pytest.mark.parametrize("fmt", ["pharmml", "rxode2", "pumas", "sbml"])
 def test_no_covariate_model_emits_no_transform_anywhere(ds, fmt):
     text = export_model(fmt, ds[MARSH], ds)[1]
-    for marker in ("CovariateTransformation", "covariate equations (v0.7)", "assignmentRule",
-                   "covariateBandTier"):
+    for marker in ("CovariateTransformation", "covariate equations (v0.7)", 'variable="LBM"',
+                   'variable="FFM"', "covariateBandTier"):
         assert marker not in text
 
 

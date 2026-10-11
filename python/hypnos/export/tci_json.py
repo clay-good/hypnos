@@ -72,6 +72,15 @@ def build_dict(model, ds=None, patient: Optional[Dict[str, Any]] = None) -> Dict
     doc["validation_status"] = model.validation_status
     if model.has_external_validation:
         doc["external_validation"] = model.external_validation
+    # v0.8 §7 / v0.9 §7: the developmental block and the pharmacogenomic records pass through
+    # verbatim, with their opt-in / Tier-D flags — a consumer cannot apply a neonatal
+    # extrapolation or a genotype modifier without seeing it is unvalidated, nor read a
+    # safety flag as a kinetic effect.
+    for key in ("developmental_model", "pharmacogenomic_modifiers", "pharmacogenomic_safety_flags"):
+        if model.raw.get(key):
+            doc[key] = model.raw[key]
+    if model.raw.get("pharmacogenomic_safety_flags"):
+        doc["safety_critical"] = True
     # v0.5 §D: the reversal coupling and the opt-in Tier-D disease-state modifiers pass
     # through verbatim. The instantiated parameters below are NEVER pre-adjusted by a
     # modifier — a consumer sees the adjustment, its citation, and its opt-in flag.

@@ -121,6 +121,8 @@ The honest message the view delivers: *"the genetic facts that matter here are m
 
 Both record kinds flow through the existing exporters with the v0.5/v0.6 handling:
 
+> **Shipped for every row.** SBML carries RDF; PharmML carries the same two predicates in its annotation; NONMEM / nlmixr2 / Pumas carry them as comment lines (ahead of the kernel gate, so kernel-pending succinylcholine still states its flags); TCI-JSON passes both blocks verbatim and sets `safety_critical`. Tests assert a flag line never contains a scale factor and that removing the records changes no executable line.
+
 | Surface | v0.9 behavior |
 | --- | --- |
 | **TCI-sim JSON / dataset** | `pharmacogenomic_modifier` / `pharmacogenomic_safety_flag` blocks pass through verbatim (lossless), carrying the opt-in/Tier-D flags and the `safety_critical` marker, so a downstream consumer cannot apply a modifier without seeing it is unvalidated, or read a safety flag as a kinetic effect. |

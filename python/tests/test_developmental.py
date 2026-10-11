@@ -178,3 +178,176 @@ def test_validate_rejects_non_d_extrapolation_tier():
     bad = _dev_model({"extrapolation_basis": "allometry_only", "evidence_tier": "B",
                       "applied_by_default": False, "primary_citation": "anderson-holford-2008"})
     assert any("must be D" in p for p in _check_developmental(bad, {"anderson-holford-2008"}))
+
+
+# --------------------------------------------------------------------------- #
+# v0.8 §7 — the developmental block in every export (stated, never applied)
+# --------------------------------------------------------------------------- #
+import copy  # noqa: E402
+import json  # noqa: E402
+import re  # noqa: E402
+import xml.dom.minidom as minidom  # noqa: E402
+
+from hypnos.export import export_model  # noqa: E402
+from hypnos.export._developmental import developmental_terms  # noqa: E402
+
+_MARSH = "hypnotics_iv.propofol.marsh_1991"        # allometry_plus_maturation
+_SCHNIDER = "hypnotics_iv.propofol.schnider_1998"  # allometry_only
+_ELEVELD = "hypnotics_iv.propofol.eleveld_2018"    # fitted-pediatric evidence: no block
+_CHILDREN = [(3.5, 41.0), (7.5, 66.0), (18.0, 250.0)]   # (weight kg, PMA weeks)
+
+
+def _ev(expr, **env):
+    return float(eval(expr.replace("^", "**"), {"__builtins__": {}}, env))
+
+
+def _functions(text, lang):
+    pat = (r"^\w+?_(size_cl|size_v|maturation) <- function\(\w+\) (.+)$" if lang == "r"
+           else r"^\w+?_(size_cl|size_v|maturation)\(\w+\) = (.+)$")
+    return dict(re.findall(pat, text, re.M))
+
+
+def _check_against_kernels(dev, size_cl, size_v, maturation):
+    for wt, pma in _CHILDREN:
+        ref = allometric_scale({"Cl1": 1.0, "V1": 1.0}, wt, cl_exponent=dev.size.cl_exponent,
+                               v_exponent=dev.size.v_exponent,
+                               reference_weight_kg=dev.size.reference_weight_kg)
+        assert _ev(size_cl, WT=wt) == pytest.approx(ref["Cl1"], rel=1e-12)
+        assert _ev(size_v, WT=wt) == pytest.approx(ref["V1"], rel=1e-12)
+        if dev.maturation is not None:
+            assert _ev(maturation, PMA=pma) == pytest.approx(
+                maturation_factor(pma, dev.maturation.tm50_weeks, dev.maturation.hill), rel=1e-12)
+
+
+@pytest.mark.parametrize("mid", [_MARSH, _SCHNIDER])
+@pytest.mark.parametrize("fmt,lang", [("rxode2", "r"), ("pumas", "julia")])
+def test_r_and_julia_developmental_functions_match_the_kernels(fmt, lang, mid):
+    ds = hypnos.load()
+    dev = ds[mid].developmental_model
+    fns = _functions(export_model(fmt, ds[mid], ds)[1], lang)
+    assert ("maturation" in fns) == (dev.maturation is not None)
+    _check_against_kernels(dev, fns["size_cl"], fns["size_v"], fns.get("maturation"))
+
+
+@pytest.mark.parametrize("mid", [_MARSH, _SCHNIDER])
+def test_nonmem_template_matches_the_kernels_and_is_all_comments(mid):
+    ds = hypnos.load()
+    dev = ds[mid].developmental_model
+    text = export_model("nonmem", ds[mid], ds)[1]
+    got = dict(re.findall(r"^;\s+(FSIZECL|FSIZEV|FMAT)\s+= (.+?)\s+; ", text, re.M))
+    _check_against_kernels(dev, got["FSIZECL"], got["FSIZEV"], got.get("FMAT"))
+    # opt-in means INERT: no developmental token may appear on an executable line
+    live = [ln for ln in text.splitlines() if not ln.lstrip().startswith(";")]
+    assert not any(tok in ln for ln in live for tok in ("FSIZE", "FMAT", "PMA"))
+    assert "NOT applied" in text and "OPT-IN" in text
+
+
+def test_exported_factors_compose_to_apply_developmental():
+    # the template's last two lines (clearances x size x maturation, volumes x size) reproduce
+    # the reference composition exactly
+    ds = hypnos.load()
+    dev = ds[_MARSH].developmental_model
+    t = developmental_terms(ds[_MARSH])
+    adult = {"V1": 16.0, "V2": 32.0, "V3": 202.0, "Cl1": 1.9, "Cl2": 1.8, "Cl3": 0.67, "ke0": 0.26}
+    for wt, pma in _CHILDREN:
+        ref = apply_developmental(adult, dev, {"weight": wt, "pma_weeks": pma})
+        cl = _ev(t["size_cl"], WT=wt) * _ev(t["maturation"], PMA=pma)
+        v = _ev(t["size_v"], WT=wt)
+        for sym in ("Cl1", "Cl2", "Cl3"):
+            assert adult[sym] * cl == pytest.approx(ref[sym], rel=1e-12)
+        for sym in ("V1", "V2", "V3"):
+            assert adult[sym] * v == pytest.approx(ref[sym], rel=1e-12)
+        assert ref["ke0"] == adult["ke0"]
+
+
+def test_every_text_export_forbids_chronological_age_for_maturation():
+    ds = hypnos.load()
+    for fmt in ("nonmem", "rxode2", "pumas", "pharmml"):
+        text = export_model(fmt, ds[_MARSH], ds)[1]
+        assert "NEVER substitute chronological age" in text, fmt
+
+
+@pytest.mark.parametrize("fmt", ["nonmem", "rxode2", "pumas", "pharmml"])
+def test_allometry_only_carries_the_over_dose_caveat_and_no_maturation(fmt):
+    ds = hypnos.load()
+    text = export_model(fmt, ds[_SCHNIDER], ds)[1]
+    assert "maturation UN-modeled" in text and "OVER-stated" in text
+    assert "FMAT" not in text and "_maturation" not in text and "<MaturationFunction" not in text
+
+
+def test_pharmml_developmental_block_round_trips():
+    ds = hypnos.load()
+    dev = ds[_MARSH].developmental_model
+    dom = minidom.parseString(export_model("pharmml", ds[_MARSH], ds)[1])
+    (block,) = dom.getElementsByTagName("DevelopmentalModel")
+    assert block.getAttribute("evidenceTier") == "D"
+    assert block.getAttribute("appliedByDefault") == "false"
+    assert block.getAttribute("developmentalExtrapolation") == "true"
+    size = block.getElementsByTagName("AllometricSize")[0]
+    mat = block.getElementsByTagName("MaturationFunction")[0]
+    assert mat.getAttribute("driver") == "pma_weeks"
+    _check_against_kernels(dev, size.getAttribute("clearanceFactor"),
+                           size.getAttribute("volumeFactor"), mat.getAttribute("factor"))
+
+
+def test_sbml_developmental_rules_are_outputs_not_dynamics():
+    from test_covariate_export import _eval_mathml
+    ds = hypnos.load()
+    dev = ds[_MARSH].developmental_model
+    child = {"age": 0.5, "weight": 7.5, "height": 67, "sex": "M", "pma_weeks": 66.0}
+    dom = minidom.parseString(export_model("sbml", ds[_MARSH], ds, child)[1])
+    env = {p.getAttribute("id"): float(p.getAttribute("value"))
+           for p in dom.getElementsByTagName("parameter")}
+    rules = {r.getAttribute("variable"): r.getElementsByTagName("math")[0]
+             for r in dom.getElementsByTagName("assignmentRule")}
+    assert env["PMA"] == 66.0
+    assert _eval_mathml(rules["FSIZE_CL"], env) == pytest.approx((7.5 / 70) ** 0.75)
+    assert _eval_mathml(rules["FMAT"], env) == pytest.approx(
+        maturation_factor(66.0, dev.maturation.tm50_weeks, dev.maturation.hill))
+    assert env["FMAT"] == pytest.approx(_eval_mathml(rules["FMAT"], env))
+    # never wired in: no rate rule mentions a developmental factor
+    for rr in dom.getElementsByTagName("rateRule"):
+        assert not {"FSIZE_CL", "FSIZE_V", "FMAT"} & {
+            ci.firstChild.data.strip() for ci in rr.getElementsByTagName("ci")}
+
+
+def test_sbml_declares_each_input_once_when_covariate_and_developmental_rules_coexist():
+    ds = hypnos.load()          # Schnider binds James LBM (WT) AND carries a developmental block
+    dom = minidom.parseString(export_model("sbml", ds[_SCHNIDER], ds)[1])
+    ids = [p.getAttribute("id") for p in dom.getElementsByTagName("parameter")]
+    assert len(ids) == len(set(ids)) and "WT" in ids and "FSIZE_CL" in ids
+
+
+@pytest.mark.parametrize("fmt", ["nonmem", "rxode2", "pumas", "sbml", "tci_json"])
+def test_developmental_block_never_changes_the_exported_adult_model(fmt):
+    ds = hypnos.load()
+    raw = copy.deepcopy(ds[_MARSH].raw)
+    raw.pop("developmental_model")
+    full, bare = (export_model(fmt, m, ds)[1] for m in (ds[_MARSH], Model(raw=raw)))
+    if fmt == "tci_json":
+        a, b = json.loads(full), json.loads(bare)
+        assert a["instantiated_parameters"] == b["instantiated_parameters"]
+        assert a["developmental_model"] == ds[_MARSH].raw["developmental_model"]
+        assert "developmental_model" not in b
+    elif fmt == "sbml":
+        def core(text):
+            dom = minidom.parseString(text)
+            return {p.getAttribute("id"): p.getAttribute("value")
+                    for p in dom.getElementsByTagName("parameter")
+                    if p.getAttribute("id") not in ("WT", "PMA", "FSIZE_CL", "FSIZE_V", "FMAT")}
+        assert core(full) == core(bare)
+    else:
+        mark = ";" if fmt == "nonmem" else "#"
+        strip = lambda t: [ln for ln in t.splitlines()                      # noqa: E731
+                           if ln.strip() and not ln.lstrip().startswith(mark)
+                           and "_size_" not in ln and "_maturation" not in ln]
+        assert strip(full) == strip(bare)
+
+
+@pytest.mark.parametrize("fmt", ["nonmem", "rxode2", "pumas", "pharmml", "sbml", "tci_json"])
+def test_fitted_pediatric_model_exports_no_developmental_block(fmt):
+    # Eleveld is EVIDENCE in children, not an extrapolation — it must not be labeled as one
+    ds = hypnos.load()
+    text = export_model(fmt, ds[_ELEVELD], ds)[1]
+    for marker in ("developmental extrapolation", "DevelopmentalModel", "FSIZE", "developmental_model"):
+        assert marker not in text

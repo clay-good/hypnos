@@ -19,6 +19,7 @@ from typing import Any, Dict, Optional
 from . import annotate
 from ._common import resolve_patient, safe_name
 from ._covariate import nonmem_covariate_pk
+from ._developmental import nonmem_template
 from ._estimation import (
     covariance_step_note, estimate_correlations, independence_caveat, theta_covariance,
     theta_estimates,
@@ -111,6 +112,8 @@ def build(model, ds=None, patient: Optional[Dict[str, Any]] = None) -> str:
     for k, (nm, sym) in enumerate(_ETA_ORDER, start=1):
         eta = f"*EXP(ETA({k}))" if omegas else ""
         lines.append(f"  {nm} = THETA({theta_n[nm]}){eta}")
+    # v0.8 §7: the developmental extrapolation as a commented, opt-in $PK template.
+    lines.extend(f"; {ln}" for ln in nonmem_template(model))
     lines.append("  S1 = V1")
     lines.append("$ERROR")
     lines.append("  IPRED = A(1)/V1")

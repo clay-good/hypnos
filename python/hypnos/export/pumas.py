@@ -13,6 +13,7 @@ from typing import Any, Dict, Optional
 from . import annotate
 from ._common import resolve_patient, safe_name
 from ._covariate import function_covariate_block
+from ._developmental import function_block as developmental_functions
 from ._estimation import (
     covariance_step_note, independence_caveat, theta_covariance, theta_estimates,
 )
@@ -180,6 +181,7 @@ def build(model, ds=None, patient: Optional[Dict[str, Any]] = None) -> str:
         lines += _population_block(model, safe_name(model), p)
     lines += _estimation_block(model, safe_name(model))
     lines += function_covariate_block(model, ds, safe_name(model), "julia")
+    lines += developmental_functions(model, safe_name(model), "julia")
     return "\n".join(lines) + "\n"
 
 

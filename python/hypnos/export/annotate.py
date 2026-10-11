@@ -413,8 +413,8 @@ def external_validation_rdf(model: Model, indent: str = "  ") -> str:
 
 
 def breadth_comments(model: Model, ds=None) -> List[str]:
-    """The v0.5 reversal + disease-modifier blocks and the v0.4 computed-validation block
-    as plain comment lines (no prefix).
+    """The v0.5 reversal + disease-modifier blocks, the v0.9 pharmacogenomic records, and the
+    v0.4 computed-validation block as plain comment lines (no prefix).
 
     For the text formats (NONMEM / rxode2 / Pumas), whose core can express neither a
     cross-model binding reaction nor an opt-in adjustment: the same facts the RDF carries,
@@ -435,6 +435,22 @@ def breadth_comments(model: Model, ds=None) -> List[str]:
             + f" (evidenceTier {dz.evidence_tier}, appliedByDefault "
               f"{str(dz.applied_by_default).lower()}" + (f", {uri}" if uri else "") + ")")
         lines.append("  OPT-IN, UNVALIDATED EXTRAPOLATION — NOT applied to the parameters in this file")
+    # v0.9 §7: pharmacogenomic records. A modifier is opt-in Tier-D; a safety flag is an
+    # avoidance/awareness FACT and never a parameter change.
+    for mod in model.pharmacogenomic_modifiers:
+        sf = mod.scale_factor
+        lines.append(
+            f"hypnos:pharmacogenomicModifier = {mod.gene} ({mod.phenotype_value}): "
+            f"{mod.affected_parameter}" + (f" x {sf:g}" if sf is not None else "")
+            + f"; substrateScope {' '.join(mod.substrate_scope)} (evidenceTier {mod.evidence_tier}, "
+              "appliedByDefault false)")
+        lines.append("  OPT-IN, UNVALIDATED EXTRAPOLATION — NOT applied to the parameters in this file")
+    for flag in model.pharmacogenomic_safety_flags:
+        lines.append(
+            f"hypnos:pharmacogenomicSafetyFlag = {flag.gene} ({flag.kind}): {flag.action} "
+            f"(evidenceTier {flag.evidence_tier}, affectsKinetics false)")
+        lines.append("  hypnos:safetyCritical = true — a contraindication/awareness fact, NOT a "
+                     "kinetic number; nothing in this file is adjusted for it")
     # v0.4 §8: the Hypnos-computed external-validation metrics + their cohort.
     entries = _validation_entries(model)
     if entries:

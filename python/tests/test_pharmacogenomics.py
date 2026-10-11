@@ -150,3 +150,73 @@ def test_safety_critical_propagates_to_export(ds):
     # a model carrying a pgx safety flag is safety-critical (twice-warned in exports)
     assert ds[SEVO].is_safety_critical
     assert ds[SUX].is_safety_critical
+
+
+# --------------------------------------------------------------------------- #
+# v0.9 §7 — pharmacogenomic records in every export: a flag is never a number
+# --------------------------------------------------------------------------- #
+import copy  # noqa: E402
+import json  # noqa: E402
+import re  # noqa: E402
+import xml.dom.minidom as minidom  # noqa: E402
+
+from hypnos.export import export_model  # noqa: E402
+
+_SUX = "nmb_agents.succinylcholine.roy_2004"      # BCHE modifier + BCHE awareness + RYR1 avoidance
+_SEVO = "volatiles.sevoflurane.mac"               # RYR1 avoidance flag only
+_PGX_FORMATS = ["nonmem", "pharmml", "sbml", "tci_json", "rxode2", "pumas"]
+
+
+@pytest.mark.parametrize("fmt", _PGX_FORMATS)
+def test_every_export_carries_the_modifier_as_opt_in_tier_d(fmt):
+    ds = hypnos.load()
+    text = export_model(fmt, ds[_SUX], ds)[1]
+    if fmt == "tci_json":
+        doc = json.loads(text)
+        assert doc["pharmacogenomic_modifiers"] == ds[_SUX].raw["pharmacogenomic_modifiers"]
+        assert doc["pharmacogenomic_modifiers"][0]["applied_by_default"] is False
+        return
+    line = next(ln for ln in text.splitlines() if "harmacogenomicModifier" in ln)
+    assert "BCHE" in line and "0.2" in line and "succinylcholine" in line
+    assert re.search(r"appliedByDefault\W+false", line) and re.search(r"evidenceTier\W+D\b", line)
+    if fmt in ("pharmml", "sbml"):
+        minidom.parseString(text)
+    else:
+        assert "NOT applied to the parameters in this file" in text
+
+
+@pytest.mark.parametrize("mid", [_SUX, _SEVO])
+@pytest.mark.parametrize("fmt", _PGX_FORMATS)
+def test_every_export_carries_the_safety_flag_as_a_fact_not_a_number(fmt, mid):
+    ds = hypnos.load()
+    text = export_model(fmt, ds[mid], ds)[1]
+    if fmt == "tci_json":
+        doc = json.loads(text)
+        assert doc["pharmacogenomic_safety_flags"] == ds[mid].raw["pharmacogenomic_safety_flags"]
+        assert doc["safety_critical"] is True
+        return
+    flags = [ln for ln in text.splitlines() if "harmacogenomicSafetyFlag" in ln]
+    assert len(flags) == len(ds[mid].pharmacogenomic_safety_flags)
+    for ln in flags:
+        assert re.search(r"affectsKinetics\W+false", ln)
+        assert "scaleFactor" not in ln and not re.search(r" x \d", ln)     # never a kinetic number
+    assert re.search(r"safetyCritical\W+true", text) or "SAFETY-CRITICAL" in text
+
+
+@pytest.mark.parametrize("fmt", ["nonmem", "rxode2", "pumas"])
+def test_pgx_records_are_comments_only_in_text_exports(fmt):
+    # the null-effect guarantee: removing the records changes nothing executable
+    ds = hypnos.load()
+    raw = copy.deepcopy(ds[_SEVO].raw)
+    raw.pop("pharmacogenomic_safety_flags")
+    mark = ";" if fmt == "nonmem" else "#"
+    live = lambda t: [ln for ln in t.splitlines() if ln.strip() and not ln.lstrip().startswith(mark)]  # noqa: E731
+    from hypnos.models import Model
+    assert live(export_model(fmt, ds[_SEVO], ds)[1]) == live(export_model(fmt, Model(raw=raw), ds)[1])
+
+
+@pytest.mark.parametrize("fmt", _PGX_FORMATS)
+def test_model_without_pgx_records_exports_none(fmt):
+    ds = hypnos.load()
+    text = export_model(fmt, ds["hypnotics_iv.propofol.marsh_1991"], ds)[1]
+    assert "harmacogenomic" not in text and "pharmacogenomic" not in text

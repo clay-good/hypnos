@@ -8,6 +8,22 @@ version is pinned in `dataset/VERSION` and stamped into every export as
 
 ## [Unreleased]
 
+### v0.8 §7 + v0.9 §7 — developmental and pharmacogenomic blocks in every export (2026-10-10)
+Both layers were exported only as SBML RDF; their specs name every format.
+- **Developmental (v0.8).** New `hypnos.export._developmental`: a commented, opt-in `$PK` template in
+  NONMEM; named `size_cl` / `size_v` / `maturation` functions in nlmixr2/rxode2 and Pumas; a
+  `DevelopmentalModel` block in PharmML; `assignmentRule` outputs in SBML (no rate rule references them);
+  verbatim in TCI-JSON. The transform is stated and computed, never applied — the block is opt-in Tier-D.
+  Every carrier names PMA as the maturation clock and forbids substituting chronological age;
+  `allometry_only` models carry the over-dose caveat and no maturation term.
+- **Pharmacogenomic (v0.9).** Modifiers and safety flags as PharmML annotations, as comment lines in
+  NONMEM / R / Julia (ahead of the kernel gate), and verbatim in TCI-JSON with `safety_critical`.
+- **Guarantees under test:** each exported developmental expression equals `allometric_scale` /
+  `maturation_factor`, and composes to `apply_developmental`; stripping either block leaves every
+  executable line of the adult model unchanged; a safety-flag line never contains a scale factor; a
+  fitted-pediatric model (Eleveld) exports no extrapolation block.
+- 53 new tests.
+
 ### v0.7 C3 completion — the covariate equation in PharmML, R, Julia, and as an SBML rule (2026-10-10)
 "Covariate-aware exports" reached only NONMEM, SBML annotations, and TCI-JSON; the changelog and README
 had also claimed PharmML. Now every format in v0.7 §8 carries the transform:

@@ -38,6 +38,7 @@ def build(model, ds=None, patient: Optional[Dict[str, Any]] = None) -> str:
     # v0.7 C3: the named covariate equation(s) + their validity envelopes ride as RDF so a
     # deterministic consumer sees the right body-size transform (no silent LBM recompute).
     from ._covariate import covariate_rdf, sbml_covariate_rules
+    from ._developmental import sbml_rules as developmental_rules
     cov = covariate_rdf(model, ds, indent="  ", patient=pat)
     # v0.3 §8: the per-θ estimation SE/RSE + estimate correlations ride as their own RDF
     # predicates — reducible uncertainty, kept apart from the Ω/Σ above (Trap 1).
@@ -138,6 +139,12 @@ def build(model, ds=None, patient: Optional[Dict[str, Any]] = None) -> str:
     if cov_rules:
         states += "\n" + "\n".join(cov_params)
         rules += "\n" + "\n".join(cov_rules)
+    # v0.8 §7: the developmental size/maturation factors as assignmentRule OUTPUTS — computed,
+    # never wired into the rate constants (opt-in, Tier-D).
+    dev_params, dev_rules = developmental_rules(model, pat, taken=("WT",) if cov_rules else ())
+    if dev_rules:
+        states += "\n" + "\n".join(dev_params)
+        rules += "\n" + "\n".join(dev_rules)
 
     units = (
         '    <listOfUnitDefinitions>\n'

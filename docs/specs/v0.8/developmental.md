@@ -122,6 +122,8 @@ The honest message the view delivers: *"in this neonate, model X (fitted) has st
 
 Developmental records flow through the existing exporters with mechanism-appropriate handling, reusing v0.7's covariate-transform export path (the size descriptor *is* a covariate equation):
 
+> **Shipped for every row, with one deliberate reading of "explicit".** The block is opt-in and Tier-D (`applied_by_default` is always false) and exports are instantiated at an adult, so each carrier *states and computes* the transform without applying it: NONMEM as a **commented** `$PK` template (uncommenting it — and adding `WT`/`PMA` to `$INPUT` — is the opt-in), R/Julia as named functions, PharmML as a `DevelopmentalModel` block, SBML as `assignmentRule` outputs that no rate rule references. Each exported expression is tested against `allometric_scale` / `maturation_factor`, and stripping the block is tested to leave the adult model byte-equivalent.
+
 | Surface | v0.8 behavior |
 | --- | --- |
 | **NONMEM** | the allometric size scaling and the maturation `MF(PMA)` become explicit `$PK` computations with comments naming the source equations, so the control stream extrapolates the way the curated mechanism says — not however a template guesses. The maturation driver is emitted as PMA, with a comment forbidding its substitution by chronological age. |

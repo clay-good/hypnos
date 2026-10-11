@@ -160,7 +160,7 @@ These are not an appendix; they are the design. All of v0.1 §10 / v0.2 §10 / v
 
 ## 9. Export
 
-LA records flow through the existing exporters as standard PK models plus `hypnos:` RDF for the LA-specific blocks (`hypnos:siteAbsorption`, `hypnos:proteinBinding`, `hypnos:toxicityThresholdRange`, `hypnos:cardiotoxicityClass`), carrying the `hypnos:safetyCritical` flag and the universal `clinicalUse = "PROHIBITED"`. TCI-JSON passes the blocks verbatim (lossless). Threshold ranges export *as ranges* — there is no format projection that collapses them to a single value.
+LA records flow through the existing exporters as standard PK models plus `hypnos:` RDF for the LA-specific blocks (`hypnos:siteAbsorption`, `hypnos:proteinBinding`, `hypnos:toxicityThresholdRange`, `hypnos:cardiotoxicityClass`), carrying the `hypnos:safetyCritical` flag and the universal `clinicalUse = "PROHIBITED"`. TCI-JSON passes the blocks verbatim (lossless). Threshold ranges export *as ranges* — there is no format projection that collapses them to a single value. *(All four predicates ship; `hypnos:proteinBinding` — bound fraction + the `saturable` / `bindingSensitive` flags — is emitted for any drug that curates a binding block, not only LAs.)*
 
 ## 10. Phased roadmap
 

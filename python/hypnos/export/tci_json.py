@@ -83,6 +83,8 @@ def build_dict(model, ds=None, patient: Optional[Dict[str, Any]] = None) -> Dict
     # through verbatim (TCI-JSON is lossless; v0.6 §9). Threshold ranges export AS
     # ranges — there is no projection that collapses them to a single value. The
     # drug-level protein binding rides along so the total->free story is consumable.
+    if ds is not None and (ds.drug(model.drug_name) or {}).get("protein_binding") is not None:
+        doc["protein_binding"] = ds.drug(model.drug_name)["protein_binding"]   # v0.5 §B3 / v0.6 §9
     if model.absorption is not None:
         doc["absorption"] = model.raw.get("absorption")
     if model.has_toxicity_thresholds:
@@ -90,8 +92,6 @@ def build_dict(model, ds=None, patient: Optional[Dict[str, Any]] = None) -> Dict
         doc["safety_critical"] = True
         if ds is not None:
             drug = ds.drug(model.drug_name) or {}
-            if drug.get("protein_binding") is not None:
-                doc["protein_binding"] = drug["protein_binding"]
             if drug.get("cardiotoxicity_class") is not None:
                 doc["cardiotoxicity_class"] = drug["cardiotoxicity_class"]   # v0.6 LA2
     if model.kernel_implemented and model.kernel_function in KERNELS:

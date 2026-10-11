@@ -28,7 +28,8 @@ def build(model, ds=None, patient: Optional[Dict[str, Any]] = None) -> str:
     # ride beside the variability RDF (thresholds export AS ranges — never collapsed
     # to a single value; v0.6 §9).
     drug = ds.drug(model.drug_name) if ds is not None else None
-    la = annotate.la_rdf(model, drug=drug, indent="  ")
+    la = "\n".join(x for x in (annotate.la_rdf(model, drug=drug, indent="  "),
+                              annotate.protein_binding_rdf(drug, indent="  ")) if x)
     # v0.8/v0.9: the developmental size+maturation extrapolation and the pharmacogenomic
     # modifier/safety-flag blocks ride as hypnos: RDF too (extrapolation/avoidance facts
     # carried lossless; safety flags never as a parameter change — v0.8 §7 / v0.9 §7).
@@ -36,8 +37,8 @@ def build(model, ds=None, patient: Optional[Dict[str, Any]] = None) -> str:
     pgx = annotate.pharmacogenomics_rdf(model, indent="  ")
     # v0.7 C3: the named covariate equation(s) + their validity envelopes ride as RDF so a
     # deterministic consumer sees the right body-size transform (no silent LBM recompute).
-    from ._covariate import covariate_rdf
-    cov = covariate_rdf(model, ds, indent="  ")
+    from ._covariate import covariate_rdf, sbml_covariate_rules
+    cov = covariate_rdf(model, ds, indent="  ", patient=pat)
     # v0.3 §8: the per-θ estimation SE/RSE + estimate correlations ride as their own RDF
     # predicates — reducible uncertainty, kept apart from the Ω/Σ above (Trap 1).
     est_rdf = annotate.estimation_rdf(model, indent="  ")
@@ -132,6 +133,11 @@ def build(model, ds=None, patient: Optional[Dict[str, Any]] = None) -> str:
         "          </apply>"
     )
     rules = "\n".join([rate_rule("A1", a1), rate_rule("A2", a2), rate_rule("A3", a3), rate_rule("Ce", ce)])
+    # v0.7 §8: the derived covariate (LBM/FFM) as an assignmentRule over the input covariates.
+    cov_params, cov_rules = sbml_covariate_rules(model, ds, pat)
+    if cov_rules:
+        states += "\n" + "\n".join(cov_params)
+        rules += "\n" + "\n".join(cov_rules)
 
     units = (
         '    <listOfUnitDefinitions>\n'

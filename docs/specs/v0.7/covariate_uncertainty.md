@@ -223,6 +223,8 @@ The punchline a single curve can never give: **for this obese patient, 21% of th
 
 The covariate equations are *part of the model definition*, so unlike the post-hoc validation of v0.4 they belong inside every export, not as an annotation afterthought.
 
+> **Shipped for every row.** NONMEM, SBML RDF, and TCI-JSON landed with C3; the PharmML `CovariateTransformation` block, the named R / Julia functions, the SBML `assignmentRule`, and the patient-specific `covariateBandTier` + out-of-envelope warning followed. Each exported expression is round-trip-tested against `covariates.evaluate`. Two deliberate limits: exports stay instantiated at one patient (the transform is carried and computed, but the structural parameters are numbers, not functions of it), and no covariate-value distribution is exported because none is curated.
+
 | Format | v0.7 behavior |
 | --- | --- |
 | **NONMEM** | The derived-covariate equations become explicit `$PK` (or `$ABBR`/`$MIX`) computations with a comment naming the source equation id — so the control stream *computes LBM the way the model was derived*, not however the reader's template happens to. The most consequential export fix this layer makes. |

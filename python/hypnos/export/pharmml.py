@@ -15,6 +15,7 @@ from xml.sax.saxutils import escape, quoteattr
 
 from . import annotate
 from ._common import resolve_patient, safe_name
+from ._covariate import pharmml_covariate_xml
 from ._estimation import (
     covariance_step_note, estimate_correlations, independence_caveat, theta_covariance,
     theta_estimates,
@@ -179,8 +180,16 @@ def build(model, ds=None, patient: Optional[Dict[str, Any]] = None) -> str:
             f'stereochemistry="{escape(cc.get("stereochemistry", ""))}" '
             f'cnsToCvsMargin="{escape(cc.get("cns_to_cvs_margin", ""))}"/>\n'
         )
-    ffm = ((ds.drug(model.drug_name) or {}).get("protein_binding") or {}).get(
-        "free_fraction_model") if ds is not None else None
+    pb = (ds.drug(model.drug_name) or {}).get("protein_binding") if ds is not None else None
+    if pb and pb.get("fraction_bound") is not None:
+        la_xml += (
+            f'      <hypnos:proteinBinding fractionBound="{pb["fraction_bound"]:.10g}"'
+            + "".join(f' {name}="{str(bool(pb[key])).lower()}"'
+                      for key, name in (("saturable", "saturable"),
+                                        ("binding_sensitive", "bindingSensitive"))
+                      if pb.get(key) is not None)
+            + "/>\n")
+    ffm = (pb or {}).get("free_fraction_model")
     if ffm:
         la_xml += (
             f'      <hypnos:freeFractionModel type="{escape(ffm.get("type", ""))}" '
@@ -232,7 +241,8 @@ def build(model, ds=None, patient: Optional[Dict[str, Any]] = None) -> str:
         f'    <InstantiatedFor age="{pat.get("age")}" weight="{pat.get("weight")}" '
         f'height="{pat.get("height")}" sex="{pat.get("sex")}"/>\n'
         '    <PopulationParameters>\n' + param_lines + '\n    </PopulationParameters>\n'
-        '    <CovariateModel>\n' + cov_lines + '\n    </CovariateModel>'
+        '    <CovariateModel>\n' + cov_lines + pharmml_covariate_xml(model, ds, pat)
+        + '\n    </CovariateModel>'
         + _variability_xml(model)
         + _estimation_xml(model)
         + _validation_xml(model)

@@ -8,6 +8,23 @@ version is pinned in `dataset/VERSION` and stamped into every export as
 
 ## [Unreleased]
 
+### v0.7 C3 completion — the covariate equation in PharmML, R, Julia, and as an SBML rule (2026-10-10)
+"Covariate-aware exports" reached only NONMEM, SBML annotations, and TCI-JSON; the changelog and README
+had also claimed PharmML. Now every format in v0.7 §8 carries the transform:
+- **PharmML:** a `CovariateTransformation` block per derived covariate (equation id, both sex branches,
+  validity envelope, source DOI) plus `covariateSensitivityStatus` / `covariateBandTier`.
+- **nlmixr2/rxode2 and Pumas:** a named function (`<id>_lbm(WT, HT, SEX, AGE)`), so a script that
+  re-instantiates the model computes LBM/FFM the way the model was derived.
+- **SBML:** an `assignmentRule` (a sex `piecewise` over the library form) with the input covariates as
+  parameters — a deterministic consumer now sees the transform itself, not just its description.
+- **Patient-specific honesty:** an export instantiated outside the equation's envelope carries
+  `covariateBandTier D` and the equation's own warning (e.g. the James LBM inversion).
+- Every exported expression is round-trip-tested against `covariates.evaluate` for both sexes, across all
+  five covariate-bound models (the SBML rule by evaluating its MathML).
+- **v0.6 §9:** `hypnos:proteinBinding` (bound fraction + `saturable` / `bindingSensitive`) now rides in
+  SBML, PharmML, and TCI-JSON for every drug that curates a binding block.
+- 34 new tests.
+
 ### The three headline figures and dashboard views the specs promised (2026-10-10)
 The v0.3, v0.8, and v0.9 specs listed a headline figure and a dashboard view as shipped; neither existed.
 - **Figures** (regenerated from the live kernels by `scripts/regenerate.py`, like every other figure):
@@ -66,7 +83,7 @@ The v0.3, v0.8, and v0.9 specs listed a headline figure and a dashboard view as 
   Ki / ceiling by mechanism; the mechanism's failure mode quoted) and a `special_population` group
   (modifier direction + magnitude vs the source, Tier-D + opt-in, cited organ standing, binding flag).
 - **A gap the new checklist surfaced:** sugammadex curates no failure mode; it is flagged, not invented.
-- 41 new tests.
+- 34 new tests.
 - **Test hardening.** The two dashboard band smoke tests timed out (120 s AppTest limit) on a loaded
   machine; they now toggle bands at the slider's minimum sample count in a single rerun (46 s → 11 s and
   16 s → 4 s), with the same assertions. Band precision stays covered by the variability/covariate tests.

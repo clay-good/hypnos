@@ -196,6 +196,25 @@ def la_rdf(model: Model, drug: Optional[Dict[str, Any]] = None, indent: str = " 
     return "\n".join(lines)
 
 
+def protein_binding_rdf(drug: Optional[Dict[str, Any]], indent: str = "  ") -> str:
+    """``hypnos:proteinBinding`` for the drug-level binding block (v0.6 §9 / v0.5 §B3).
+
+    The bound fraction and the two flags that say when a TOTAL concentration under-states
+    free-drug exposure — ``saturable`` (the LA failure mode) and ``bindingSensitive`` (the
+    hypoalbuminemia one). Carried as stated; never folded into a parameter. ``""`` when the
+    drug curates no binding."""
+    pb = (drug or {}).get("protein_binding")
+    if not pb or pb.get("fraction_bound") is None:
+        return ""
+    attrs = f'hypnos:fractionBound="{pb["fraction_bound"]:.10g}"'
+    if pb.get("binding_protein"):
+        attrs += f' hypnos:bindingProtein="{pb["binding_protein"]}"'
+    for key, name in (("saturable", "saturable"), ("binding_sensitive", "bindingSensitive")):
+        if pb.get(key) is not None:
+            attrs += f' hypnos:{name}="{str(bool(pb[key])).lower()}"'
+    return f"{indent}    <hypnos:proteinBinding {attrs}/>"
+
+
 def developmental_rdf(model: Model, indent: str = "  ") -> str:
     """``hypnos:`` RDF predicates for the developmental extrapolation block (v0.8 §7).
 

@@ -19,6 +19,7 @@ DEFAULT_SCHEDULES = {
     "dexmedetomidine": [("infusion", 0.0, "6 mcg/kg/h"), ("infusion", 10.0, "0.5 mcg/kg/h")],
     "fentanyl": [("bolus", 0.0, "2 mcg/kg")],
     "sufentanil": [("bolus", 0.0, "0.2 mcg/kg")],
+    "alfentanil": [("bolus", 0.0, "10 mcg/kg"), ("infusion", 0.0, "1 mcg/kg/min")],
     "rocuronium": [("bolus", 0.0, "0.6 mg/kg")],
     "midazolam": [("bolus", 0.0, "0.05 mg/kg"), ("infusion", 0.0, "0.05 mg/kg/h")],
     "ketamine": [("bolus", 0.0, "0.5 mg/kg"), ("infusion", 0.0, "0.25 mg/kg/h")],

@@ -1,0 +1,220 @@
+{
+  "id": "opioids.alfentanil.maitre_1987",
+  "subsystem": "opioids",
+  "drug": {
+    "name": "alfentanil",
+    "unii": "1N74HM2BS7",
+    "atc": "N01AH02"
+  },
+  "purpose": "pk",
+  "label": "Alfentanil PK — Maitre (1987)",
+  "structure": {
+    "compartments": 3,
+    "parameterization": "micro_rate_constants",
+    "elimination": "linear",
+    "effect_compartment": true
+  },
+  "kernel": {
+    "implemented": true,
+    "function": "alfentanil_maitre_1987"
+  },
+  "parameters": [
+    {
+      "symbol": "V1",
+      "label": "central volume (70 kg man)",
+      "value": {
+        "central": 7.77,
+        "low": null,
+        "high": null,
+        "units": "L"
+      },
+      "covariate_model": "V1 = 0.111 * WGT (men); 0.111 * 1.15 * WGT (women)",
+      "tier": "C",
+      "extraction": {
+        "review_status": "pending_human_review",
+        "source_locator": "Raemer 1990 Table 1 (Maitre 1987 reprinted; page-image confirmed)"
+      },
+      "primary_citation": "maitre-1987-alfentanil"
+    },
+    {
+      "symbol": "Cl1",
+      "label": "elimination clearance (age <= 40)",
+      "value": {
+        "central": 0.356,
+        "low": null,
+        "high": null,
+        "units": "L/min"
+      },
+      "covariate_model": "CL = 0.356 L/min; above 40 y: 0.356 - 0.00269 * (AGE - 40)",
+      "tier": "C",
+      "extraction": {
+        "review_status": "pending_human_review",
+        "source_locator": "Raemer 1990 Table 1 (Maitre 1987 reprinted; page-image confirmed)"
+      },
+      "primary_citation": "maitre-1987-alfentanil",
+      "variability": {
+        "bsv": {
+          "omega2": 0.207339,
+          "cv_percent": 48.0,
+          "distribution": "exponential"
+        },
+        "tier": "C",
+        "primary_citation": "maitre-1987-alfentanil",
+        "extraction": {
+          "review_status": "pending_human_review",
+          "source_locator": "Maitre 1987 abstract ('48% for CL')",
+          "tier_rationale": "TRAP 1 (human item): the abstract states a coefficient of variation; curated as an exact log-normal CV, omega2 = ln(1+CV^2). The 33% CV on Vc is NOT curated: Hypnos samples BSV in volume/clearance space, but Maitre's eta on Vc keeps the micro-rate constants fixed, so sampling it here would wrongly move k12/k13. That band is therefore a lower bound."
+        }
+      }
+    },
+    {
+      "symbol": "k12",
+      "label": "rate constant 1->2",
+      "value": {
+        "central": 0.104,
+        "low": null,
+        "high": null,
+        "units": "1/min"
+      },
+      "covariate_model": "k12 = 0.104",
+      "tier": "C",
+      "extraction": {
+        "review_status": "pending_human_review",
+        "source_locator": "Raemer 1990 Table 1 (Maitre 1987 reprinted; page-image confirmed)"
+      },
+      "primary_citation": "maitre-1987-alfentanil"
+    },
+    {
+      "symbol": "k21",
+      "label": "rate constant 2->1",
+      "value": {
+        "central": 0.0673,
+        "low": null,
+        "high": null,
+        "units": "1/min"
+      },
+      "covariate_model": "k21 = 0.0673 (Raemer 1990 prints 0.673, a 10x misprint; every implementation and the usual quotation use 0.0673)",
+      "tier": "C",
+      "extraction": {
+        "review_status": "pending_human_review",
+        "source_locator": "Raemer 1990 Table 1 (Maitre 1987 reprinted; page-image confirmed)"
+      },
+      "primary_citation": "maitre-1987-alfentanil"
+    },
+    {
+      "symbol": "k13",
+      "label": "rate constant 1->3",
+      "value": {
+        "central": 0.017,
+        "low": null,
+        "high": null,
+        "units": "1/min"
+      },
+      "covariate_model": "k13 = 0.017",
+      "tier": "C",
+      "extraction": {
+        "review_status": "pending_human_review",
+        "source_locator": "Raemer 1990 Table 1 (Maitre 1987 reprinted; page-image confirmed)"
+      },
+      "primary_citation": "maitre-1987-alfentanil"
+    },
+    {
+      "symbol": "k31",
+      "label": "rate constant 3->1 (age <= 40)",
+      "value": {
+        "central": 0.0126,
+        "low": null,
+        "high": null,
+        "units": "1/min"
+      },
+      "covariate_model": "k31 = 0.0126; above 40 y: 0.0126 - 0.000113 * (AGE - 40)",
+      "tier": "C",
+      "extraction": {
+        "review_status": "pending_human_review",
+        "source_locator": "Raemer 1990 Table 1 (Maitre 1987 reprinted; page-image confirmed)"
+      },
+      "primary_citation": "maitre-1987-alfentanil"
+    },
+    {
+      "symbol": "ke0",
+      "label": "effect-site equilibration rate constant",
+      "value": {
+        "central": 0.77,
+        "low": null,
+        "high": null,
+        "units": "1/min"
+      },
+      "covariate_model": "ke0 = ln2 / 0.9 min = 0.77 (EEG t1/2 ke0, Scott & Stanski)",
+      "tier": "C",
+      "extraction": {
+        "review_status": "pending_human_review",
+        "source_locator": "simtiva: 'ke0 derived from Scott & Stanski'; opentiva: ke0 0.77"
+      },
+      "primary_citation": "scott-1985-alfentanil-eeg"
+    }
+  ],
+  "covariates": {
+    "required": [
+      "weight",
+      "age",
+      "sex"
+    ],
+    "optional": [],
+    "lbm_equation": null
+  },
+  "applicability_envelope": {
+    "age_years": {
+      "min": 25,
+      "max": 53
+    },
+    "weight_kg": {
+      "min": 41,
+      "max": 95
+    },
+    "populations": [
+      "adult",
+      "general_anesthesia"
+    ],
+    "derivation_n": 45
+  },
+  "known_failure_modes": [],
+  "predictive_performance": [
+    {
+      "metric": "MDPE",
+      "value": 53.0,
+      "units": "%",
+      "population": "prospective computer-controlled infusion, arterial, n=40 (Raemer 1990 groups 1+2A; measured exceeded target in 94% of samples)",
+      "citation": "raemer-1990-alfentanil-ccip"
+    },
+    {
+      "metric": "MDAPE",
+      "value": 53.0,
+      "units": "%",
+      "population": "prospective computer-controlled infusion, arterial, n=40 (Raemer 1990 groups 1+2A)",
+      "citation": "raemer-1990-alfentanil-ccip"
+    }
+  ],
+  "variability_status": "diagonal",
+  "tier": "C",
+  "extraction": {
+    "review_status": "pending_human_review",
+    "tier_rationale": "Population (NONMEM) model from 45 patients in four studies, with weight and sex on Vc and age on CL and k31. Prospectively it under-predicted badly (MDPE +53%, Raemer 1990), which is why it is Tier C despite its population pedigree. The envelope (age 25-53, weight 41-95 kg) is taken from the opentiva implementation, not the paper (a human item).",
+    "source_locator": "Raemer 1990 Table 1 (Maitre 1987 reprinted; page-image confirmed)",
+    "source_review": {
+      "reviewed_by": "automated source cross-check (Claude Opus 5.5 via Hypnos)",
+      "reviewed_date": "2026-11-16",
+      "method": "compared against the primary abstract, a page-image transcription of the reprinted parameter table (Raemer 1990 Table 1), and three open implementations",
+      "sources": [
+        "https://pubmed.ncbi.nlm.nih.gov/3099604/ (abstract: CL 0.356 L/min and Vc 7.77 L for a 70-kg male < 40 y; CV 48% CL, 33% Vc)",
+        "https://github.com/StevenLShafer/stanpumpR (papers/digests/PMID_2360742.md: Raemer 1990 Tables 1-3 transcribed from rendered page images)",
+        "https://github.com/luktinghin/simtiva (pharmacology.js, Maitre: vc 0.111*mass, x1.15 female; k21 0.0673; ke0 ln2/0.9)",
+        "https://github.com/opentiva/opentiva (opentiva/alfentanil.py, Maitre: v1 0.11*weight, ke0 0.77)"
+      ],
+      "outcome": "match",
+      "notes": "All structural values agree across the abstract, Raemer's reprint and simtiva. Two discrepancies, both resolved by the sources, never silently: (1) opentiva codes V1 = 0.11*WGT (7.70 L), but the abstract's 7.77 L at 70 kg and Raemer's page image both give 0.111; 0.111 is curated. (2) Raemer prints k21 0.673, ten times the 0.0673 every implementation uses (a misprint; Maitre 1987 itself not read). ke0 0.77 = ln2/0.9 min is attributed to Scott & Stanski by simtiva and to Shafer & Varvel 1991 by opentiva. HUMAN ITEMS: read Maitre 1987 Table for k21 and the envelope; pin the ke0 source.",
+      "human_verified": false
+    }
+  },
+  "primary_citation": "maitre-1987-alfentanil",
+  "notes": "Half of the alfentanil divergence pair. A population model from 1987 that prospectively under-predicted measured concentrations by about half (MDPE +53%), while the older two-stage Scott set was nearly unbiased (+1%) in the same pump study. Pedigree is not performance."
+}

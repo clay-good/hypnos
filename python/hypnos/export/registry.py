@@ -419,7 +419,42 @@ def sufentanil_gepts_1995(patient: dict) -> MicroParams:
     )
 
 
+# --------------------------------------------------------------------------- #
+# Alfentanil — the divergence pair Raemer 1990 tested prospectively in one pump study.
+# Maitre (1987): population model, Vc = 0.111*WGT (x1.15 women), CL and k31 fall with
+# age above 40, ke0 = ln2/0.9 min. Scott (1985): absolute two-stage micro-constant set,
+# PK-only. Both pending_human_review (sourced from a page-image transcription).
+# --------------------------------------------------------------------------- #
+def alfentanil_maitre_1987(patient: dict) -> MicroParams:
+    wgt = _req(patient, "weight")
+    age = _req(patient, "age")
+    sex = str(patient.get("sex") or "").upper()
+    if sex not in ("M", "F"):
+        raise ValueError("model requires patient covariate 'sex' ('M' or 'F')")
+    V1 = 0.111 * wgt * (1.15 if sex == "F" else 1.0)
+    over = max(0.0, age - 40.0)
+    cl = 0.356 - 0.00269 * over
+    k31 = 0.0126 - 0.000113 * over
+    return MicroParams(
+        V1=V1, k10=cl / V1, k12=0.104, k13=0.017, k21=0.0673, k31=k31, ke0=0.77,
+        n_compartments=3,
+        derived={"V2": V1 * 0.104 / 0.0673, "V3": V1 * 0.017 / k31},
+    )
+
+
+def alfentanil_scott_1985(patient: dict) -> MicroParams:
+    _req(patient, "weight")
+    V1 = 2.185
+    return MicroParams(
+        V1=V1, k10=0.199 / V1, k12=0.656, k13=0.113, k21=0.214, k31=0.017, ke0=0.0,
+        n_compartments=3,
+        derived={"V2": V1 * 0.656 / 0.214, "V3": V1 * 0.113 / 0.017},
+    )
+
+
 KERNELS: Dict[str, KernelFn] = {
+    "alfentanil_maitre_1987": alfentanil_maitre_1987,
+    "alfentanil_scott_1985": alfentanil_scott_1985,
     "sufentanil_gepts_1995": sufentanil_gepts_1995,
     "ketamine_kamp_2020": ketamine_kamp_2020,
     "midazolam_buhrer_1990": midazolam_buhrer_1990,

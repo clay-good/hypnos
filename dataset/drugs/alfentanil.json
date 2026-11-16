@@ -1,0 +1,14 @@
+{
+  "name": "alfentanil",
+  "synonyms": [
+    "Alfenta",
+    "Rapifen"
+  ],
+  "unii": "1N74HM2BS7",
+  "atc": "N01AH02",
+  "cas": "71195-58-9",
+  "drug_class": "synthetic opioid (mu agonist; fentanyl family)",
+  "subsystem": "opioids",
+  "notes": "Small volume and fast effect-site equilibration; concentrations conventionally in ng/mL (therapeutic range in the hundreds).",
+  "concentration_unit": "ng/mL"
+}

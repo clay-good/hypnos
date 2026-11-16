@@ -8,6 +8,24 @@ version is pinned in `dataset/VERSION` and stamped into every export as
 
 ## [Unreleased]
 
+### Alfentanil: Maitre 1987 vs Scott 1985 — pedigree is not performance (2026-11-16)
+- **Two executable alfentanil models**, sourced from Raemer 1990's reprinted tables (page-image
+  transcription), the Maitre abstract, simtiva and opentiva. **Maitre 1987**: Vc 0.111 L/kg (×1.15
+  women), age terms on CL and k31, ke0 = ln2/0.9 min, CL BSV 48%. **Scott 1985**: absolute
+  micro-constants, PK-only.
+- **Prospective performance from the same pump study** (Raemer 1990): Maitre MDPE +53% / MDAPE 53%
+  (n=40), Scott MDPE +1% / MDAPE 17% (n=11). A test checks that the divergence has the same sign
+  (Maitre predicts lower).
+- **Discrepancies surfaced, not smoothed:** opentiva codes Vc 0.11 L/kg, but the abstract's 7.77 L
+  and Raemer's page image give 0.111, which is curated. Raemer prints k21 0.673, a 10× misprint of the
+  0.0673 every implementation uses. The ke0 attribution splits between Scott & Stanski and Shafer &
+  Varvel. All are logged as human items.
+- **A parameterization trap, named:** Maitre's 33% CV on Vc is *not* curated. Its η acts with the
+  micro-rate constants held fixed, while Hypnos samples BSV in volume/clearance space, so sampling it
+  would wrongly move k12/k13. The CL Ω is exact in either space, so the band is an honest lower bound.
+- These are the first `micro_rate_constants` records; every text exporter is tested on them.
+  Alfentanil has a default schedule. 33 models, 21 drugs, 48 citations, 29 executable kernels.
+
 ### Sufentanil Gepts 1995: the fentanyl family's second member (2026-11-16)
 - **`opioids.sufentanil.gepts_1995`** is executable. V1 14.3 / V2 63.1 / V3 261.6 L and CL 0.92 / 1.55 /
   0.33 L/min are quoted verbatim, with 95% CIs, in the primary abstract (outcome `match`; stanpumpR

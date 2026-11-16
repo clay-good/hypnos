@@ -1,0 +1,179 @@
+{
+  "id": "opioids.alfentanil.scott_1985",
+  "subsystem": "opioids",
+  "drug": {
+    "name": "alfentanil",
+    "unii": "1N74HM2BS7",
+    "atc": "N01AH02"
+  },
+  "purpose": "pk",
+  "label": "Alfentanil PK — Scott (1985)",
+  "structure": {
+    "compartments": 3,
+    "parameterization": "micro_rate_constants",
+    "elimination": "linear",
+    "effect_compartment": false
+  },
+  "kernel": {
+    "implemented": true,
+    "function": "alfentanil_scott_1985"
+  },
+  "parameters": [
+    {
+      "symbol": "V1",
+      "label": "central volume",
+      "value": {
+        "central": 2.185,
+        "low": null,
+        "high": null,
+        "units": "L"
+      },
+      "covariate_model": "V1 = 2.185 L (absolute)",
+      "tier": "C",
+      "extraction": {
+        "review_status": "pending_human_review",
+        "source_locator": "Raemer 1990 Table 2 (Scott, Ponganis & Stanski 1985 reprinted; page-image confirmed)"
+      },
+      "primary_citation": "scott-1985-alfentanil-eeg"
+    },
+    {
+      "symbol": "Cl1",
+      "label": "elimination clearance",
+      "value": {
+        "central": 0.199,
+        "low": null,
+        "high": null,
+        "units": "L/min"
+      },
+      "covariate_model": "CL = 0.199 L/min (absolute)",
+      "tier": "C",
+      "extraction": {
+        "review_status": "pending_human_review",
+        "source_locator": "Raemer 1990 Table 2 (Scott, Ponganis & Stanski 1985 reprinted; page-image confirmed)"
+      },
+      "primary_citation": "scott-1985-alfentanil-eeg"
+    },
+    {
+      "symbol": "k12",
+      "label": "rate constant 1->2",
+      "value": {
+        "central": 0.656,
+        "low": null,
+        "high": null,
+        "units": "1/min"
+      },
+      "covariate_model": "k12 = 0.656",
+      "tier": "C",
+      "extraction": {
+        "review_status": "pending_human_review",
+        "source_locator": "Raemer 1990 Table 2 (Scott, Ponganis & Stanski 1985 reprinted; page-image confirmed)"
+      },
+      "primary_citation": "scott-1985-alfentanil-eeg"
+    },
+    {
+      "symbol": "k21",
+      "label": "rate constant 2->1",
+      "value": {
+        "central": 0.214,
+        "low": null,
+        "high": null,
+        "units": "1/min"
+      },
+      "covariate_model": "k21 = 0.214",
+      "tier": "C",
+      "extraction": {
+        "review_status": "pending_human_review",
+        "source_locator": "Raemer 1990 Table 2 (Scott, Ponganis & Stanski 1985 reprinted; page-image confirmed)"
+      },
+      "primary_citation": "scott-1985-alfentanil-eeg"
+    },
+    {
+      "symbol": "k13",
+      "label": "rate constant 1->3",
+      "value": {
+        "central": 0.113,
+        "low": null,
+        "high": null,
+        "units": "1/min"
+      },
+      "covariate_model": "k13 = 0.113",
+      "tier": "C",
+      "extraction": {
+        "review_status": "pending_human_review",
+        "source_locator": "Raemer 1990 Table 2 (Scott, Ponganis & Stanski 1985 reprinted; page-image confirmed)"
+      },
+      "primary_citation": "scott-1985-alfentanil-eeg"
+    },
+    {
+      "symbol": "k31",
+      "label": "rate constant 3->1",
+      "value": {
+        "central": 0.017,
+        "low": null,
+        "high": null,
+        "units": "1/min"
+      },
+      "covariate_model": "k31 = 0.017",
+      "tier": "C",
+      "extraction": {
+        "review_status": "pending_human_review",
+        "source_locator": "Raemer 1990 Table 2 (Scott, Ponganis & Stanski 1985 reprinted; page-image confirmed)"
+      },
+      "primary_citation": "scott-1985-alfentanil-eeg"
+    }
+  ],
+  "covariates": {
+    "required": [
+      "weight"
+    ],
+    "optional": [],
+    "lbm_equation": null
+  },
+  "applicability_envelope": {
+    "age_years": {
+      "min": 18,
+      "max": null
+    },
+    "populations": [
+      "adult"
+    ],
+    "derivation_n": null
+  },
+  "known_failure_modes": [],
+  "predictive_performance": [
+    {
+      "metric": "MDPE",
+      "value": 1.0,
+      "units": "%",
+      "population": "prospective computer-controlled infusion, arterial, n=11 men (Raemer 1990 group 2B)",
+      "citation": "raemer-1990-alfentanil-ccip"
+    },
+    {
+      "metric": "MDAPE",
+      "value": 17.0,
+      "units": "%",
+      "population": "prospective computer-controlled infusion, arterial, n=11 men (Raemer 1990 group 2B)",
+      "citation": "raemer-1990-alfentanil-ccip"
+    }
+  ],
+  "tier": "C",
+  "extraction": {
+    "review_status": "pending_human_review",
+    "tier_rationale": "Small two-stage set with no covariates, so it is absolute; weight is required only for per-kg dosing. Prospectively nearly unbiased (MDPE +1%, MDAPE 17%, n=11), but the external evidence is a single small group, so Tier C. PK-only: the effect-site value used by STANPUMP ('see t_peaks.xls') is unsourced and not curated. The derivation population and age range are not in the reprint (a human item).",
+    "source_locator": "Raemer 1990 Table 2 (Scott, Ponganis & Stanski 1985 reprinted; page-image confirmed)",
+    "source_review": {
+      "reviewed_by": "automated source cross-check (Claude Opus 5.5 via Hypnos)",
+      "reviewed_date": "2026-11-16",
+      "method": "compared against a page-image transcription of the reprinted table (Raemer 1990 Table 2) and the STANPUMP code",
+      "sources": [
+        "https://github.com/StevenLShafer/stanpumpR (papers/digests/PMID_2360742.md: Raemer 1990 Tables 1-3 transcribed from rendered page images)",
+        "https://github.com/StevenLShafer/stanpumpR (R/drugs_alfentanil.R: V1 2.1853, V2 6.6989, V3 14.5258 L; CL 0.19886, 0.14336 x10, 0.24694 L/min — the same set in volume/clearance form)"
+      ],
+      "outcome": "match",
+      "notes": "CL 0.199 L/min, V1 2.185 L, k12 0.656, k21 0.214, k13 0.113, k31 0.017 /min match Raemer Table 2. stanpumpR's volumes/clearances reduce to the same micro-constants (V2 = k12*V1/k21 = 6.70 L, V3 = 14.5 L). Attribution split: Raemer reprints it as Scott, Ponganis & Stanski 1985; stanpumpR cites Scott & Stanski 1987 (J Pharmacol Exp Ther 240:159). HUMAN ITEM: confirm which paper first printed this set.",
+      "human_verified": false
+    }
+  },
+  "primary_citation": "scott-1985-alfentanil-eeg",
+  "notes": "The other half of the alfentanil divergence pair; prospectively the better-calibrated set. Its 2.2 L central volume against Maitre's 7.8 L is the structural driver of the difference."
+}

@@ -8,6 +8,48 @@ version is pinned in `dataset/VERSION` and stamped into every export as
 
 ## [Unreleased]
 
+### Midazolam: the healthy-volunteer vs post-CABG ICU divergence pair (2026-11-16)
+- **Two executable midazolam models**, both printed in Zomorodi 1998 Table 3 and source-checked
+  against a page-image transcription (Shafer's stanpumpR paper digest): **Bührer 1990** (healthy men,
+  V1 3.3 L, Vss 118 L, ke0 = ln2/5.6 min from Bührer part II) and **Zomorodi 1998** (63 post-CABG ICU
+  patients, Vss 330 L, PK-only, with a Ω diagonal from the published CVs). Both are
+  `pending_human_review`, never promoted. Tests pin each kernel to its record, to the Table 3 exponents,
+  and to the Table 3 Vss.
+- Bührer's external MDPE/MDAPE in the ICU cohort (−0.39% / 25.8%) and Zomorodi's *internal* fit
+  (labeled as such) are curated. The ICU model carries the first `ejection_fraction_pct` envelope (LVEF > 25%).
+- **TRAP 1 flagged, not guessed:** the table prints CV%. It is curated as an exact log-normal CV,
+  ω² = ln(1 + CV²), the conservative reading, and the human checklist asks whether √ω² was meant.
+- Midazolam gets its own default schedule (0.05 mg/kg + 0.05 mg/kg/h), never the propofol fallback.
+- **Fixed: `hypnos compare` crashed (`KeyError: 'max_abs'`)** when only one model was in envelope and
+  bands were on. The band readout created a divergence entry with no cross-model spread. CLI and
+  dashboard now say "only one model in envelope: model-selection risk unquantified here, not zero."
+- **Fixed: `pk_drugs` listed the four local anesthetics**, which `compare` then showed only as
+  "unavailable (not an IV-disposition model)", so the dashboard offered an empty view. It now uses
+  compare's own rule (IV-disposition kernels only). A test asserts every simulatable drug has an
+  explicit default schedule.
+- 3 citations (CrossRef-verified), 1 drug, 2 models. 29 models, 18 drugs, 42 citations, 25 executable kernels.
+
+### Fentanyl Shafer 1990 executable + naloxone renarcotization from agonist kinetics (2026-11-16)
+- **The fentanyl kernel is wired.** `fentanyl_shafer_1990` computes exactly the source-filled STANPUMP
+  constants (V1 6.09 / V2 28.1 / V3 228 L, Cl 0.504 / 2.87 / 1.37 L/min, ke0 0.147/min). The same
+  precedent as rocuronium Wierda: the record stays `pending_human_review`, and simulation is enabled.
+  A test pins the kernel to the record's own values and to the opentiva micro-rate constants.
+  A third source (Shafer's own stanpumpR) confirms V1/CL. Its 3.6-min tpeak needs ke0 ≈ 0.117 on these
+  kinetics, against 3.17 min from the curated 0.147. That is recorded as evidence for the open ke0 split,
+  favoring opentiva's 0.12. Not silently changed.
+  Bolus time to peak effect is ~3.2 min. The 50% decrement grows ~13 → ~158 min from a 1 h to an 8 h
+  infusion, while remifentanil's stays flat.
+- **A cited obesity failure mode.** Shibutani 2004 (Anesthesiology 101:603, CrossRef-verified) found
+  the Shafer model systematically overestimates plasma fentanyl as total body weight rises. At
+  `weight >= 85` that tiers the run to D and names the "pharmacokinetic mass" finding.
+- **Renarcotization computed, not just inferred.** When the reversal target has an executable PK
+  kernel, `simulate_reversal` (competitive) now also returns the agonist's own Ce and its
+  antagonist-adjusted equivalent Ce/(1 + C/Ki) (`agonist_ce`, `agonist_ce_effective`). It flags
+  renarcotization when the adjusted curve rises after its post-reversal nadir. For naloxone 0.4 mg
+  on fentanyl 2 mcg/kg, that is a nadir near 105 min and +21% by 4 h. `hypnos reverse` prints the
+  table. Forward-only; no re-dosing schedule.
+- Tests that used fentanyl as the "kernel-pending" example now use succinylcholine, which is still
+  pending. New `test_fentanyl.py` (10 tests).
 ### Fix — two exports that the target tool would have rejected (2026-10-10)
 - **NONMEM:** the sex-conditional covariate block in `$PK` reads `SEX`, but `SEX` was never added to
   `$INPUT`, so every covariate-bound control stream (Schnider, Eleveld ×2, Minto, Kim) referenced an

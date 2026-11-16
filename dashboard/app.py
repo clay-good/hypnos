@@ -202,7 +202,11 @@ with col2:
         st.info(f"… {u['model_id']} — {u['reason']}")
 
     d = cmp.divergence.get("ce") or cmp.divergence.get("cp") or {}
-    if d:
+    if d and "max_abs" not in d:
+        # one in-envelope model can carry a band readout but has nothing to diverge from
+        st.caption("Only one model is in envelope: no cross-model divergence "
+                   "(model-selection risk unquantified here, not zero).")
+    elif d:
         st.metric("Peak divergence across models", f"{d['max_abs'] * f:.2f} {unit}",
                   f"{100 * d['max_rel']:.0f}% peak relative spread")
         drv = d.get("driver")

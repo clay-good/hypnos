@@ -353,7 +353,46 @@ def rocuronium_wierda_1991(patient: dict) -> MicroParams:
     )
 
 
+# --------------------------------------------------------------------------- #
+# Fentanyl — Shafer (1990), the STANPUMP adult set. Absolute (not weight-scaled)
+# volumes/clearances for the standard 40-90 kg adult, source-filled from two open
+# reproductions that agree to displayed precision (opentiva micro-rate constants ==
+# the OpenTCI/Mandel arrays); ke0 0.147/min is the OpenTCI value (opentiva codes 0.12
+# — an implementation split the record flags). The record is pending_human_review;
+# the kernel computes exactly those sourced constants. Weight is required only so the
+# envelope (and the Shafer "pharmacokinetic mass" caveat above ~80 kg) can be checked.
+# --------------------------------------------------------------------------- #
+def fentanyl_shafer_1990(patient: dict) -> MicroParams:
+    _req(patient, "weight")
+    return MicroParams.from_volumes_clearances(
+        V1=6.09, Cl1=0.504, V2=28.1, Cl2=2.87, V3=228.0, Cl3=1.37, ke0=0.147
+    )
+
+
+# --------------------------------------------------------------------------- #
+# Midazolam — two absolute (70 kg adult) three-compartment sets printed side by side
+# in Zomorodi 1998 Table 3: Bührer 1990 (healthy men; the set STANPUMP drove TCI with;
+# ke0 = ln2/5.6 min from Bührer part II) and Zomorodi's own post-CABG ICU population
+# (PK-only). Weight is required only for per-kg dosing. Both pending_human_review.
+# --------------------------------------------------------------------------- #
+def midazolam_buhrer_1990(patient: dict) -> MicroParams:
+    _req(patient, "weight")
+    return MicroParams.from_volumes_clearances(
+        V1=3.3, Cl1=0.54, V2=17.56, Cl2=2.01, V3=96.76, Cl3=0.83, ke0=0.1238
+    )
+
+
+def midazolam_zomorodi_1998(patient: dict) -> MicroParams:
+    _req(patient, "weight")
+    return MicroParams.from_volumes_clearances(
+        V1=32.2, Cl1=0.43, V2=53.0, Cl2=0.56, V3=245.0, Cl3=0.39, ke0=0.0
+    )
+
+
 KERNELS: Dict[str, KernelFn] = {
+    "midazolam_buhrer_1990": midazolam_buhrer_1990,
+    "midazolam_zomorodi_1998": midazolam_zomorodi_1998,
+    "fentanyl_shafer_1990": fentanyl_shafer_1990,
     "rocuronium_wierda_1991": rocuronium_wierda_1991,
     "propofol_marsh_1991": propofol_marsh_1991,
     "propofol_schnider_1998": propofol_schnider_1998,

@@ -30,8 +30,11 @@ def test_pk_drugs_lists_simulatable_only(ds):
     drugs = pk_drugs(ds)
     # drugs with >=1 executable PK kernel
     assert "propofol" in drugs and "remifentanil" in drugs and "dexmedetomidine" in drugs
-    # fentanyl PK kernel is pending -> not simulatable; volatiles aren't PK
-    assert "fentanyl" not in drugs and "sevoflurane" not in drugs
+    # fentanyl (Shafer) is now executable; succinylcholine is kernel-pending; volatiles aren't PK
+    assert "fentanyl" in drugs
+    assert "succinylcholine" not in drugs and "sevoflurane" not in drugs
+    # local anesthetics run on the site-absorption kernel, not an IV-disposition one
+    assert "lidocaine" not in drugs
     assert drugs == sorted(drugs)
 
 

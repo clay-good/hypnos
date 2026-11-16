@@ -10,7 +10,7 @@
     "elimination": "linear",
     "effect_compartment": true
   },
-  "kernel": { "implemented": false, "function": null },
+  "kernel": { "implemented": true, "function": "fentanyl_shafer_1990" },
   "parameters": [
     {
       "symbol": "V1", "label": "central volume",
@@ -76,12 +76,20 @@
     "populations": ["adult"],
     "derivation_n": null
   },
-  "known_failure_modes": [],
+  "known_failure_modes": [
+    {
+      "condition": "total body weight >= 85 kg (Shibutani 2004 obese group: TBW >= 85 kg, BMI > 30)",
+      "predicate": "weight >= 85",
+      "behavior": "The Shafer volumes/clearances are absolute (not scaled to body weight), but doses are given per kg of total body weight; Shibutani 2004 found the Shafer model systematically OVERESTIMATES measured plasma fentanyl as weight rises (performance error vs TBW R^2 = 0.689). Clearance tracks a nonlinear 'pharmacokinetic mass' (near-linear, slope ~0.65, below 100 kg; plateau ~100-108 kg above 140 kg), not TBW.",
+      "action": "tier_down_to_D",
+      "citation": "shibutani-2004-fentanyl-obese"
+    }
+  ],
   "predictive_performance": [],
   "tier": "C",
   "extraction": {
     "review_status": "pending_human_review",
-    "tier_rationale": "Parameters SOURCE-FILLED (V1 6.09, V2 28.1, V3 228 L; Cl1 0.504, Cl2 2.87, Cl3 1.37 L/min; ke0 0.147) from two independent open reproductions of the Shafer 1990 STANPUMP fentanyl set (opentiva micro-rate constants and the OpenTCI/Mandel MATLAB arrays, which agree to displayed precision). KERNEL STILL PENDING: simulate() continues to refuse this model until a human confirms the values against the primary PDF and a verified kernel is wired. Absolute (not weight-scaled) for the standard 40-90 kg adult; the Shafer 'pharmacokinetic mass' adjustment applies above ~80 kg.",
+    "tier_rationale": "Parameters SOURCE-FILLED (V1 6.09, V2 28.1, V3 228 L; Cl1 0.504, Cl2 2.87, Cl3 1.37 L/min; ke0 0.147) from two independent open reproductions of the Shafer 1990 STANPUMP fentanyl set (opentiva micro-rate constants and the OpenTCI/Mandel MATLAB arrays, which agree to displayed precision). KERNEL WIRED (fentanyl_shafer_1990) computing exactly these sourced constants, as rocuronium Wierda was: simulation is enabled while review_status stays pending_human_review — a human still confirms the primary table and resolves the ke0 split before promotion. Absolute (not weight-scaled) for the standard 40-90 kg adult; the Shafer 'pharmacokinetic mass' adjustment applies above ~80 kg.",
     "source_locator": "Shafer & Varvel 1990, Anesthesiology 73:1091-1102",
     "source_review": {
       "reviewed_by": "automated source cross-check (Claude Opus 4.8 via Hypnos research agents)",
@@ -89,13 +97,14 @@
       "method": "fetched two open implementations of the Shafer 1990 fentanyl model and reconciled their micro-rate constants / volume-clearance arrays to the displayed precision",
       "sources": [
         "https://github.com/opentiva/opentiva (opentiva/fentanyl.py, Shafer class; cites PMID 2248388)",
-        "http://opentci.org/code/matlab/mandel-fentanyl-shafer-1990 (Mandel MATLAB volume/clearance arrays + ke0 0.147)"
+        "http://opentci.org/code/matlab/mandel-fentanyl-shafer-1990 (Mandel MATLAB volume/clearance arrays + ke0 0.147)",
+        "https://github.com/StevenLShafer/stanpumpR (R/drugs_fentanyl.R: notes Shafer 1990's own pooled model is V1 6.09 L, CL 0.504 L/min; tPeak 3.6 min from Shafer & Varvel 1991, Fig 2)"
       ],
       "outcome": "match",
-      "notes": "V1 6.09, V2 28.1, V3 228 L and Cl1 0.504, Cl2 2.87, Cl3 1.37 L/min agree across both sources (opentiva micro-rate constants k10 0.0827/k12 0.471/k13 0.225/k21 0.102/k31 0.006 reduce exactly to the OpenTCI volume/clearance arrays). ke0: 0.147 (OpenTCI/Mandel, the curated value) vs 0.12 (opentiva) — a real implementation split, flagged. Specifically the SHAFER set, distinct from the Scott/McClain fentanyl models. Primary Anesthesiology PDF paywalled (not directly read). HUMAN ITEMS: confirm against the primary table, resolve the ke0 0.147-vs-0.12 split, and wire/verify the kernel before simulation is enabled.",
+      "notes": "V1 6.09, V2 28.1, V3 228 L and Cl1 0.504, Cl2 2.87, Cl3 1.37 L/min agree across both sources (opentiva micro-rate constants k10 0.0827/k12 0.471/k13 0.225/k21 0.102/k31 0.006 reduce exactly to the OpenTCI volume/clearance arrays). ke0: 0.147 (OpenTCI/Mandel, the curated value) vs 0.12 (opentiva) — a real implementation split, flagged. Specifically the SHAFER set, distinct from the Scott/McClain fentanyl models. Primary Anesthesiology PDF paywalled (not directly read). HUMAN ITEMS: confirm against the primary table, and resolve the ke0 0.147-vs-0.12 split. EVIDENCE FOR THE SPLIT (2026-11-16): stanpumpR independently confirms V1 6.09 L / CL 0.504 L/min and uses a 3.6-min time to peak effect (Shafer & Varvel 1991). On THESE kinetics that tpeak needs ke0 ~0.117/min; opentiva's 0.12 gives 3.55 min, while the curated 0.147 gives 3.17 min. That points to 0.147 belonging to a different kinetic set. Value left unchanged; a human decides. (Kernel since wired to these sourced constants, pending_human_review — the rocuronium precedent.)",
       "human_verified": false
     }
   },
   "primary_citation": "shafer-1990-fentanyl",
-  "notes": "Parameters source-filled from open Shafer-1990 reproductions (pending_human_review); KERNEL STILL PENDING until human verification + a wired kernel. The volumes/clearances are absolute (standard adult). sufentanil (Gepts) and alfentanil (Maitre) are future siblings."
+  "notes": "Parameters source-filled from open Shafer-1990 reproductions (pending_human_review); the kernel (fentanyl_shafer_1990) computes exactly those sourced constants with ke0 0.147/min (OpenTCI; opentiva codes 0.12). Obesity overprediction (Shibutani 2004) is an encoded failure mode. The volumes/clearances are absolute (standard adult). sufentanil (Gepts) and alfentanil (Maitre) are future siblings."
 }

@@ -1,0 +1,270 @@
+{
+  "id": "hypnotics_iv.midazolam.zomorodi_1998",
+  "subsystem": "hypnotics_iv",
+  "drug": {
+    "name": "midazolam",
+    "unii": "R60L0SM5BC",
+    "atc": "N05CD08"
+  },
+  "purpose": "pk",
+  "label": "Midazolam PK — Zomorodi (1998), post-CABG ICU",
+  "structure": {
+    "compartments": 3,
+    "parameterization": "volumes_clearances",
+    "elimination": "linear",
+    "effect_compartment": false
+  },
+  "kernel": {
+    "implemented": true,
+    "function": "midazolam_zomorodi_1998"
+  },
+  "parameters": [
+    {
+      "symbol": "V1",
+      "label": "central volume",
+      "value": {
+        "central": 32.2,
+        "low": null,
+        "high": null,
+        "units": "L"
+      },
+      "covariate_model": "V1 = 32.2 L (absolute; simple model)",
+      "tier": "C",
+      "extraction": {
+        "review_status": "pending_human_review",
+        "source_locator": "Zomorodi 1998, Table 3 (Present study)"
+      },
+      "primary_citation": "zomorodi-1998-midazolam",
+      "variability": {
+        "bsv": {
+          "omega2": 0.289979,
+          "cv_percent": 58.0,
+          "distribution": "exponential"
+        },
+        "tier": "C",
+        "primary_citation": "zomorodi-1998-midazolam",
+        "extraction": {
+          "review_status": "pending_human_review",
+          "source_locator": "Zomorodi 1998, Table 3 ('Present study' CV% in parentheses)",
+          "tier_rationale": "TRAP 1 (human item): the table prints CV%. Curated as an EXACT log-normal CV, omega2 = ln(1 + CV^2) (the conservative reading). If the authors meant the NONMEM approximation CV = sqrt(omega2), omega2 is larger (e.g. 0.504 instead of 0.405 for V3's 71%)."
+        }
+      }
+    },
+    {
+      "symbol": "V2",
+      "label": "rapid-peripheral volume",
+      "value": {
+        "central": 53.0,
+        "low": null,
+        "high": null,
+        "units": "L"
+      },
+      "covariate_model": "V2 = 53 L (absolute)",
+      "tier": "C",
+      "extraction": {
+        "review_status": "pending_human_review",
+        "source_locator": "Zomorodi 1998, Table 3 (Present study)"
+      },
+      "primary_citation": "zomorodi-1998-midazolam",
+      "variability": {
+        "bsv": {
+          "omega2": 0.025278,
+          "cv_percent": 16.0,
+          "distribution": "exponential"
+        },
+        "tier": "C",
+        "primary_citation": "zomorodi-1998-midazolam",
+        "extraction": {
+          "review_status": "pending_human_review",
+          "source_locator": "Zomorodi 1998, Table 3 ('Present study' CV% in parentheses)",
+          "tier_rationale": "TRAP 1 (human item): the table prints CV%. Curated as an EXACT log-normal CV, omega2 = ln(1 + CV^2) (the conservative reading). If the authors meant the NONMEM approximation CV = sqrt(omega2), omega2 is larger (e.g. 0.504 instead of 0.405 for V3's 71%)."
+        }
+      }
+    },
+    {
+      "symbol": "V3",
+      "label": "slow-peripheral volume",
+      "value": {
+        "central": 245.0,
+        "low": null,
+        "high": null,
+        "units": "L"
+      },
+      "covariate_model": "V3 = 245 L (absolute)",
+      "tier": "C",
+      "extraction": {
+        "review_status": "pending_human_review",
+        "source_locator": "Zomorodi 1998, Table 3 (Present study)"
+      },
+      "primary_citation": "zomorodi-1998-midazolam",
+      "variability": {
+        "bsv": {
+          "omega2": 0.408195,
+          "cv_percent": 71.0,
+          "distribution": "exponential"
+        },
+        "tier": "C",
+        "primary_citation": "zomorodi-1998-midazolam",
+        "extraction": {
+          "review_status": "pending_human_review",
+          "source_locator": "Zomorodi 1998, Table 3 ('Present study' CV% in parentheses)",
+          "tier_rationale": "TRAP 1 (human item): the table prints CV%. Curated as an EXACT log-normal CV, omega2 = ln(1 + CV^2) (the conservative reading). If the authors meant the NONMEM approximation CV = sqrt(omega2), omega2 is larger (e.g. 0.504 instead of 0.405 for V3's 71%)."
+        }
+      }
+    },
+    {
+      "symbol": "Cl1",
+      "label": "elimination clearance",
+      "value": {
+        "central": 0.43,
+        "low": null,
+        "high": null,
+        "units": "L/min"
+      },
+      "covariate_model": "Cl1 = 0.43 L/min (absolute)",
+      "tier": "C",
+      "extraction": {
+        "review_status": "pending_human_review",
+        "source_locator": "Zomorodi 1998, Table 3 (Present study)"
+      },
+      "primary_citation": "zomorodi-1998-midazolam",
+      "variability": {
+        "bsv": {
+          "omega2": 0.14842,
+          "cv_percent": 40.0,
+          "distribution": "exponential"
+        },
+        "tier": "C",
+        "primary_citation": "zomorodi-1998-midazolam",
+        "extraction": {
+          "review_status": "pending_human_review",
+          "source_locator": "Zomorodi 1998, Table 3 ('Present study' CV% in parentheses)",
+          "tier_rationale": "TRAP 1 (human item): the table prints CV%. Curated as an EXACT log-normal CV, omega2 = ln(1 + CV^2) (the conservative reading). If the authors meant the NONMEM approximation CV = sqrt(omega2), omega2 is larger (e.g. 0.504 instead of 0.405 for V3's 71%)."
+        }
+      }
+    },
+    {
+      "symbol": "Cl2",
+      "label": "rapid intercompartmental clearance",
+      "value": {
+        "central": 0.56,
+        "low": null,
+        "high": null,
+        "units": "L/min"
+      },
+      "covariate_model": "Cl2 = 0.56 L/min (absolute)",
+      "tier": "C",
+      "extraction": {
+        "review_status": "pending_human_review",
+        "source_locator": "Zomorodi 1998, Table 3 (Present study)"
+      },
+      "primary_citation": "zomorodi-1998-midazolam",
+      "variability": {
+        "bsv": {
+          "omega2": 0.272771,
+          "cv_percent": 56.0,
+          "distribution": "exponential"
+        },
+        "tier": "C",
+        "primary_citation": "zomorodi-1998-midazolam",
+        "extraction": {
+          "review_status": "pending_human_review",
+          "source_locator": "Zomorodi 1998, Table 3 ('Present study' CV% in parentheses)",
+          "tier_rationale": "TRAP 1 (human item): the table prints CV%. Curated as an EXACT log-normal CV, omega2 = ln(1 + CV^2) (the conservative reading). If the authors meant the NONMEM approximation CV = sqrt(omega2), omega2 is larger (e.g. 0.504 instead of 0.405 for V3's 71%)."
+        }
+      }
+    },
+    {
+      "symbol": "Cl3",
+      "label": "slow intercompartmental clearance",
+      "value": {
+        "central": 0.39,
+        "low": null,
+        "high": null,
+        "units": "L/min"
+      },
+      "covariate_model": "Cl3 = 0.39 L/min (absolute)",
+      "tier": "C",
+      "extraction": {
+        "review_status": "pending_human_review",
+        "source_locator": "Zomorodi 1998, Table 3 (Present study)"
+      },
+      "primary_citation": "zomorodi-1998-midazolam",
+      "variability": {
+        "bsv": {
+          "omega2": 0.380079,
+          "cv_percent": 68.0,
+          "distribution": "exponential"
+        },
+        "tier": "C",
+        "primary_citation": "zomorodi-1998-midazolam",
+        "extraction": {
+          "review_status": "pending_human_review",
+          "source_locator": "Zomorodi 1998, Table 3 ('Present study' CV% in parentheses)",
+          "tier_rationale": "TRAP 1 (human item): the table prints CV%. Curated as an EXACT log-normal CV, omega2 = ln(1 + CV^2) (the conservative reading). If the authors meant the NONMEM approximation CV = sqrt(omega2), omega2 is larger (e.g. 0.504 instead of 0.405 for V3's 71%)."
+        }
+      }
+    }
+  ],
+  "covariates": {
+    "required": [
+      "weight"
+    ],
+    "optional": [],
+    "lbm_equation": null
+  },
+  "applicability_envelope": {
+    "age_years": {
+      "min": 35,
+      "max": null
+    },
+    "ejection_fraction_pct": {
+      "min": 25,
+      "max": null
+    },
+    "populations": [
+      "post_cardiac_surgery_icu",
+      "adult"
+    ],
+    "derivation_n": 63
+  },
+  "known_failure_modes": [],
+  "predictive_performance": [
+    {
+      "metric": "MDPE",
+      "value": 1.39,
+      "units": "%",
+      "population": "INTERNAL (the derivation data, post-CABG ICU, n=63; reported as MDWR) — not an external validation",
+      "citation": "zomorodi-1998-midazolam"
+    },
+    {
+      "metric": "MDAPE",
+      "value": 25.33,
+      "units": "%",
+      "population": "INTERNAL (the derivation data, post-CABG ICU, n=63; reported as MDAWR) — not an external validation",
+      "citation": "zomorodi-1998-midazolam"
+    }
+  ],
+  "variability_status": "diagonal",
+  "tier": "C",
+  "extraction": {
+    "review_status": "pending_human_review",
+    "tier_rationale": "Population (NONMEM, mixed-effects) model from 63 post-CABG patients sedated by TCI for >= 6 h, 1,681 arterial samples, LVEF > 25%. The authors preferred this simple model over the BSA-covariate one, which cross-validation did not confirm. PK-only: no effect-site link was estimated. Absolute volumes/clearances; weight is required only for per-kg dosing. Its Vss (330 L) is ~2.8x the healthy-volunteer Buhrer set's (118 L).",
+    "source_locator": "Zomorodi 1998, Table 3 (Present study)",
+    "source_review": {
+      "reviewed_by": "automated source cross-check (Claude Opus 5.5 via Hypnos)",
+      "reviewed_date": "2026-11-16",
+      "method": "read a page-image transcription of the primary table (stanpumpR paper digest, checked against the STANPUMP code) and compared each curated value; DOIs CrossRef-verified",
+      "sources": [
+        "https://github.com/StevenLShafer/stanpumpR (papers/digests/PMID_9856717.md: Zomorodi 1998 Table 3 transcribed from the page images, verification 'matches')",
+        "https://github.com/StevenLShafer/stanpumpR (R/drugs_midazolam.R: the Buhrer set as entered in STANPUMP; t1/2 ke0 5.6 min from Buhrer part II)",
+        "https://pubmed.ncbi.nlm.nih.gov/9856717/ (Zomorodi 1998 record; DOI CrossRef-verified)"
+      ],
+      "outcome": "match",
+      "notes": "V1 32.2, V2 53, V3 245 L; Cl1 0.43, Cl2 0.56, Cl3 0.39 L/min and the CVs (58, 16, 71, 40, 56, 68%) match the digest's Table 3 'Present study' column. HUMAN ITEMS: confirm against the primary PDF, and resolve whether the printed CV% is exact (curated) or sqrt(omega2) (TRAP 1).",
+      "human_verified": false
+    }
+  },
+  "primary_citation": "zomorodi-1998-midazolam",
+  "notes": "The critically-ill half of the midazolam divergence pair: the same drug, a 2.8x larger steady-state volume and a smaller clearance after cardiac surgery. It is the first Hypnos model with ejection-fraction standing (LVEF > 25% was an inclusion criterion). Its BSV band is the first one on a non-propofol/remifentanil drug."
+}

@@ -554,12 +554,18 @@ def cmd_compare(args) -> int:
         d = cmp.divergence.get(key) or {}
         if not d:
             continue
-        line = (f"{label} divergence across included models: "
-                f"peak abs {d['max_abs'] * cf:.3f} {cu}, peak rel {100*d['max_rel']:.0f}%")
-        drv = d.get("driver")
-        if drv:
-            line += (f"  (driver: {drv['high'].split('.')[-1]} vs {drv['low'].split('.')[-1]})")
-        print(line)
+        if "max_abs" in d:
+            line = (f"{label} divergence across included models: "
+                    f"peak abs {d['max_abs'] * cf:.3f} {cu}, peak rel {100*d['max_rel']:.0f}%")
+            drv = d.get("driver")
+            if drv:
+                line += (f"  (driver: {drv['high'].split('.')[-1]} vs {drv['low'].split('.')[-1]})")
+            print(line)
+        else:
+            # a single in-envelope model can still carry a band readout, but there is no
+            # second model to diverge from: model-selection risk is unquantified, not zero.
+            print(f"{label} divergence: only one model in envelope — no cross-model spread "
+                  "(model-selection risk unquantified here, not zero)")
         sep = d.get("separation")
         if sep is not None:
             disj = "DISJOINT" if sep["bands_disjoint_at_tstar"] else "overlapping"
@@ -733,6 +739,15 @@ def cmd_reverse(args) -> int:
         m = r.ce50_multiplier
         ip = int(np.argmax(m))
         print(f"  apparent-Ce50 multiplier: peak {m.max():.2f} at t={t[ip]:.0f} min -> end {m[-1]:.2f}")
+        if r.agonist_ce_effective is not None:
+            from .models import concentration_factor
+            f = concentration_factor(r.agonist_unit)
+            print(f"  {r.agonist_id} Ce (no reversal) vs antagonist-adjusted Ce/(1+C/Ki), {r.agonist_unit}:")
+            for tt in sorted({args.at, args.at + 10, 60.0, 120.0, args.tmax}):
+                if 0 <= tt <= args.tmax:
+                    i = int(np.argmin(np.abs(t - tt)))
+                    print(f"    t={t[i]:>5.0f} min   {r.agonist_ce[i] * f:8.3f}  ->  "
+                          f"{r.agonist_ce_effective[i] * f:8.3f}")
         print(f"  renarcotization (effect relapses as the antagonist clears): {r.renarcotization}")
     elif r.mechanism == "enzyme_inhibition":
         print(f"  ceiling: deep block (1.0) -> residual {r.effect[0]:.2f} (unreversed); "

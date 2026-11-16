@@ -11,7 +11,6 @@ from hypnos.verification import (
 
 SCHNIDER = "hypnotics_iv.propofol.schnider_1998"
 ELEVELD = "hypnotics_iv.propofol.eleveld_2018"
-FENTANYL = "opioids.fentanyl.shafer_1990"  # still kernel-pending
 
 
 @pytest.fixture(scope="module")

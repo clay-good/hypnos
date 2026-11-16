@@ -144,7 +144,7 @@ _BAD_INPUT = [
     (["simulate", "hypnotics_iv.propofol.schnider_1998", "--sex", "X"], "sex must be 'M' or 'F'"),
     (["simulate", _MARSH, "--n", "0"], "--n must be at least 2"),
     (["simulate", _MARSH, "--tmax", "0"], "--tmax must be > 0"),
-    (["simulate", "opioids.fentanyl.shafer_1990"], "kernel is not implemented"),
+    (["simulate", "nmb_agents.succinylcholine.roy_2004"], "kernel is not implemented"),
     (["simulate", "volatiles.sevoflurane.mac"], "expects a PK model"),
     (["simulate", _ELEVELD, "--bands", "--samples", "0"], "samples >= 1"),
     (["simulate", _ELEVELD, "--bands", "--percentile", "150"], "--percentile expects 'lo,hi'"),

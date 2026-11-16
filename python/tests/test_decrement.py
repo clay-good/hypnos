@@ -9,7 +9,6 @@ from hypnos.reference import Dosing, simulate
 
 SCHNIDER = "hypnotics_iv.propofol.schnider_1998"
 MINTO = "opioids.remifentanil.minto_1997"
-FENTANYL = "opioids.fentanyl.shafer_1990"
 ADULT = dict(age=50, weight=77, height=177, sex="M")
 
 
@@ -45,8 +44,9 @@ def test_remifentanil_decrement_is_near_flat(ds):
 def test_decrement_validation_and_kernel_pending(ds):
     with pytest.raises(ValueError):
         hypnos.decrement_time(ds, SCHNIDER, patient=ADULT, infusion="10 mg/kg/h", duration=60, fraction=1.0)
-    with pytest.raises(NotImplementedError):  # fentanyl kernel pending
-        hypnos.decrement_time(ds, FENTANYL, patient=ADULT, infusion="2 mcg/kg/min", duration=60)
+    with pytest.raises(NotImplementedError):  # succinylcholine kernel pending
+        hypnos.decrement_time(ds, "nmb_agents.succinylcholine.roy_2004", patient=ADULT,
+                              infusion="1 mg/kg/h", duration=60)
 
 
 def test_conc_at_stop_positive(ds):

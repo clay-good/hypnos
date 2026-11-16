@@ -1,0 +1,15 @@
+{
+  "name": "midazolam",
+  "synonyms": [
+    "Versed",
+    "Hypnovel",
+    "Dormicum"
+  ],
+  "unii": "R60L0SM5BC",
+  "atc": "N05CD08",
+  "cas": "59467-70-8",
+  "drug_class": "benzodiazepine (GABA-A positive allosteric modulator; sedative-hypnotic)",
+  "subsystem": "hypnotics_iv",
+  "notes": "Concentrations conventionally in ng/mL. CYP3A4/5-metabolized (active 1-hydroxymidazolam accumulates in renal failure; a caveat, not modeled).",
+  "concentration_unit": "ng/mL"
+}

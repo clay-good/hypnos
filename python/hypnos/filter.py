@@ -38,10 +38,18 @@ def select(
 
 
 def pk_drugs(ds: Dataset) -> List[str]:
-    """Drugs with at least one executable PK kernel (i.e. simulatable / comparable)."""
+    """Drugs with at least one executable IV-disposition PK kernel (simulatable / comparable).
+
+    Uses the same rule as ``compare``: the kernel must be registered in the IV-disposition
+    registry. Local anesthetics run on the site-absorption kernel (``hypnos.la``) and would
+    show only as "unavailable" in a compare, so they are not listed here.
+    """
+    from .export.registry import KERNELS
+
     out: List[str] = []
     for m in ds:
-        if m.purpose == "pk" and m.kernel_implemented and m.drug_name not in out:
+        if (m.purpose == "pk" and m.kernel_implemented and m.kernel_function in KERNELS
+                and m.drug_name not in out):
             out.append(m.drug_name)
     return sorted(out)
 

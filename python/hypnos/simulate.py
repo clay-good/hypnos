@@ -1549,6 +1549,12 @@ class ReversalResult:
     complex_umol: Optional[np.ndarray] = None    # encapsulation: inert bound complex
     ce50_multiplier: Optional[np.ndarray] = None  # competitive: apparent-Ce50 shift over time
     renarcotization: bool = False                # competitive: did the effect relapse?
+    # competitive, when the agonist has an executable PK kernel: the agonist's own Ce (the
+    # no-reversal contrast) and its antagonist-adjusted equivalent Ce / (1 + C/Ki) — the
+    # agonist concentration that would produce the same receptor effect with no antagonist.
+    agonist_ce: Optional[np.ndarray] = None
+    agonist_ce_effective: Optional[np.ndarray] = None
+    agonist_unit: str = "ug/mL"
 
 
 def _antagonist_micro(model: Model) -> MicroParams:
@@ -1637,10 +1643,35 @@ def simulate_reversal(
             warns.append("RENARCOTIZATION: the apparent-Ce50 shift peaks then RELAPSES toward 1 as "
                          f"{rev.drug_name} clears — the antagonist is outlasted by the agonist; the "
                          "reversed effect returns (rendered forward, never a re-dosing schedule; §A5)")
-        return ReversalResult(
+        res = ReversalResult(
             reversal_id=reversal_id, agonist_id=agonist_id, mechanism=mech, t=t,
             free_ce=atraj.ce, ce50_multiplier=mult, renarcotization=relapsed,
             tier=worst_tier([rev.tier, agonist.tier]), warnings=warns)
+        if agonist.kernel_implemented and agonist.kernel_function in KERNELS:
+            # the agonist's own trajectory (given at t=0) and its antagonist-adjusted equivalent.
+            # A rise of the adjusted curve after its post-reversal nadir is renarcotization
+            # computed from BOTH drugs' kinetics, not inferred from the antagonist alone.
+            gtraj = _simulate_ref(KERNELS[agonist.kernel_function](point),
+                                  build_dosing([("bolus", 0.0, agonist_dose)], weight), t)
+            eff = gtraj.ce / mult
+            res.agonist_ce, res.agonist_ce_effective = gtraj.ce, eff
+            res.free_ce_no_reversal = gtraj.ce
+            res.agonist_unit = (ds.drug(agonist.drug_name) or {}).get("concentration_unit", "ug/mL")
+            after = t >= reversal_time_min
+            if after.any():
+                idx = np.flatnonzero(after)
+                i_nadir = int(idx[np.argmin(eff[idx])])
+                if eff[i_nadir] > 0 and i_nadir < len(t) - 1 and eff[-1] > 1.05 * eff[i_nadir]:
+                    res.renarcotization = True
+                    f = concentration_factor(res.agonist_unit)
+                    warns.append(
+                        f"RENARCOTIZATION (agonist kinetics): the antagonist-adjusted {agonist.drug_name} Ce "
+                        f"falls to a nadir {eff[i_nadir] * f:.3g} {res.agonist_unit} at "
+                        f"t={t[i_nadir]:.0f} min, then RISES to {eff[-1] * f:.3g} by t={t[-1]:.0f} min "
+                        f"(+{100 * (eff[-1] / eff[i_nadir] - 1):.0f}%) as {rev.drug_name} clears faster "
+                        f"than {agonist.drug_name} (Ki illustrative, Tier-C; forward-only, never a "
+                        "re-dosing schedule)")
+        return res
 
     if mech == "enzyme_inhibition":
         ind = rm.get("indirect") or {}

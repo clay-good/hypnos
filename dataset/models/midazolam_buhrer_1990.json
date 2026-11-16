@@ -1,0 +1,198 @@
+{
+  "id": "hypnotics_iv.midazolam.buhrer_1990",
+  "subsystem": "hypnotics_iv",
+  "drug": {
+    "name": "midazolam",
+    "unii": "R60L0SM5BC",
+    "atc": "N05CD08"
+  },
+  "purpose": "pk",
+  "label": "Midazolam PK — Bührer (1990)",
+  "structure": {
+    "compartments": 3,
+    "parameterization": "volumes_clearances",
+    "elimination": "linear",
+    "effect_compartment": true
+  },
+  "kernel": {
+    "implemented": true,
+    "function": "midazolam_buhrer_1990"
+  },
+  "parameters": [
+    {
+      "symbol": "V1",
+      "label": "central volume",
+      "value": {
+        "central": 3.3,
+        "low": null,
+        "high": null,
+        "units": "L"
+      },
+      "covariate_model": "V1 = 3.3 L (absolute; healthy adult men)",
+      "tier": "C",
+      "extraction": {
+        "review_status": "pending_human_review",
+        "source_locator": "Zomorodi 1998, Table 3 (Buhrer column)"
+      },
+      "primary_citation": "zomorodi-1998-midazolam"
+    },
+    {
+      "symbol": "V2",
+      "label": "rapid-peripheral volume",
+      "value": {
+        "central": 17.56,
+        "low": null,
+        "high": null,
+        "units": "L"
+      },
+      "covariate_model": "V2 = 17.56 L (absolute)",
+      "tier": "C",
+      "extraction": {
+        "review_status": "pending_human_review",
+        "source_locator": "Zomorodi 1998, Table 3 (Buhrer column)"
+      },
+      "primary_citation": "zomorodi-1998-midazolam"
+    },
+    {
+      "symbol": "V3",
+      "label": "slow-peripheral volume",
+      "value": {
+        "central": 96.76,
+        "low": null,
+        "high": null,
+        "units": "L"
+      },
+      "covariate_model": "V3 = 96.76 L (absolute)",
+      "tier": "C",
+      "extraction": {
+        "review_status": "pending_human_review",
+        "source_locator": "Zomorodi 1998, Table 3 (Buhrer column)"
+      },
+      "primary_citation": "zomorodi-1998-midazolam"
+    },
+    {
+      "symbol": "Cl1",
+      "label": "elimination clearance",
+      "value": {
+        "central": 0.54,
+        "low": null,
+        "high": null,
+        "units": "L/min"
+      },
+      "covariate_model": "Cl1 = 0.54 L/min (absolute)",
+      "tier": "C",
+      "extraction": {
+        "review_status": "pending_human_review",
+        "source_locator": "Zomorodi 1998, Table 3 (Buhrer column)"
+      },
+      "primary_citation": "zomorodi-1998-midazolam"
+    },
+    {
+      "symbol": "Cl2",
+      "label": "rapid intercompartmental clearance",
+      "value": {
+        "central": 2.01,
+        "low": null,
+        "high": null,
+        "units": "L/min"
+      },
+      "covariate_model": "Cl2 = 2.01 L/min (absolute)",
+      "tier": "C",
+      "extraction": {
+        "review_status": "pending_human_review",
+        "source_locator": "Zomorodi 1998, Table 3 (Buhrer column)"
+      },
+      "primary_citation": "zomorodi-1998-midazolam"
+    },
+    {
+      "symbol": "Cl3",
+      "label": "slow intercompartmental clearance",
+      "value": {
+        "central": 0.83,
+        "low": null,
+        "high": null,
+        "units": "L/min"
+      },
+      "covariate_model": "Cl3 = 0.83 L/min (absolute)",
+      "tier": "C",
+      "extraction": {
+        "review_status": "pending_human_review",
+        "source_locator": "Zomorodi 1998, Table 3 (Buhrer column)"
+      },
+      "primary_citation": "zomorodi-1998-midazolam"
+    },
+    {
+      "symbol": "ke0",
+      "label": "effect-site equilibration rate constant",
+      "value": {
+        "central": 0.1238,
+        "low": null,
+        "high": null,
+        "units": "1/min"
+      },
+      "covariate_model": "ke0 = ln2 / 5.6 min = 0.1238 (Buhrer part II parametric t1/2 ke0, EEG)",
+      "tier": "C",
+      "extraction": {
+        "review_status": "pending_human_review",
+        "source_locator": "Buhrer 1990 part II, text (parametric t1/2 ke0 5.6 min; nonparametric 4.8 min, Table III)"
+      },
+      "primary_citation": "buhrer-1990-midazolam-eeg-ii"
+    }
+  ],
+  "covariates": {
+    "required": [
+      "weight"
+    ],
+    "optional": [],
+    "lbm_equation": null
+  },
+  "applicability_envelope": {
+    "age_years": {
+      "min": 33,
+      "max": 43
+    },
+    "populations": [
+      "healthy_adult",
+      "male"
+    ],
+    "derivation_n": null
+  },
+  "known_failure_modes": [],
+  "predictive_performance": [
+    {
+      "metric": "MDPE",
+      "value": -0.39,
+      "units": "%",
+      "population": "external: post-CABG ICU sedation by TCI, arterial samples, n=63 (reported as MDWR)",
+      "citation": "zomorodi-1998-midazolam"
+    },
+    {
+      "metric": "MDAPE",
+      "value": 25.8,
+      "units": "%",
+      "population": "external: post-CABG ICU sedation by TCI, arterial samples, n=63 (reported as MDAWR)",
+      "citation": "zomorodi-1998-midazolam"
+    }
+  ],
+  "tier": "C",
+  "extraction": {
+    "review_status": "pending_human_review",
+    "tier_rationale": "Small healthy-volunteer study (men aged 33-43). Neither Buhrer paper prints the compartmental parameters; they are printed in Zomorodi 1998 Table 3, and this is the set STANPUMP/CACI used to drive midazolam TCI. Absolute volumes/clearances (no covariates). Weight is required only for per-kg dosing.",
+    "source_locator": "Zomorodi 1998, Table 3 (Buhrer column)",
+    "source_review": {
+      "reviewed_by": "automated source cross-check (Claude Opus 5.5 via Hypnos)",
+      "reviewed_date": "2026-11-16",
+      "method": "read a page-image transcription of the primary table (stanpumpR paper digest, checked against the STANPUMP code) and compared each curated value; DOIs CrossRef-verified",
+      "sources": [
+        "https://github.com/StevenLShafer/stanpumpR (papers/digests/PMID_9856717.md: Zomorodi 1998 Table 3 transcribed from the page images, verification 'matches')",
+        "https://github.com/StevenLShafer/stanpumpR (R/drugs_midazolam.R: the Buhrer set as entered in STANPUMP; t1/2 ke0 5.6 min from Buhrer part II)",
+        "https://pubmed.ncbi.nlm.nih.gov/9856717/ (Zomorodi 1998 record; DOI CrossRef-verified)"
+      ],
+      "outcome": "match",
+      "notes": "V1 3.3, V2 17.56, V3 96.76 L and Cl1 0.54, Cl2 2.01, Cl3 0.83 L/min match the digest's Table 3 Buhrer column exactly. The STANPUMP code's unrounded set (0.5352, 2.0145, 0.8321 L/min) rounds to the table. ke0 0.1238/min comes from Buhrer part II's parametric t1/2 ke0 of 5.6 min, as quoted by stanpumpR (part II itself not read here). With these kinetics it peaks at ~3.0 min, against observed EEG peaks of 2.2-2.9 min. HUMAN ITEMS: confirm Table 3 against the primary PDF, and confirm the 5.6 min t1/2 ke0 in Buhrer part II.",
+      "human_verified": false
+    }
+  },
+  "primary_citation": "buhrer-1990-midazolam-eeg-i",
+  "notes": "The healthy-volunteer half of the midazolam divergence pair. Zomorodi 1998 tested it externally in post-CABG ICU patients and found it nearly unbiased (MDPE -0.39%) while two other published sets (Greenblatt, Maitre) over-predicted the measured concentrations (MDPE -37% and -48%). Its envelope is narrow, so most patients run as a named extrapolation."
+}

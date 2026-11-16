@@ -109,9 +109,10 @@ def test_pediatric_compare_greys_adult_models(ds):
     assert SCHNIDER in excluded and MARSH in excluded
 
 
-def test_fentanyl_kernel_pending_refuses(ds):
-    with pytest.raises(NotImplementedError):
-        hypnos.simulate(ds, FENTANYL, patient=ADULT, schedule=PED_SCHED, t=T)
+def test_fentanyl_kernel_now_simulates(ds):
+    # Shafer 1990 was kernel-pending until its sourced constants were wired (pending_human_review)
+    r = hypnos.simulate(ds, FENTANYL, patient=ADULT, schedule=[("bolus", 0.0, "2 mcg/kg")], t=T)
+    assert r.ce_peak > 0 and r.concentration_unit == "ng/mL"
 
 
 def test_new_subsystems_present(ds):

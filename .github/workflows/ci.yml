@@ -9,7 +9,9 @@ on:
 jobs:
   test:
     name: test (py${{ matrix.python-version }})
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest moved to 26.04, which setup-python has no 3.9 build for, and the
+    # package still supports 3.9 (requires-python >= 3.9). Other jobs use 3.12 and stay on latest.
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:

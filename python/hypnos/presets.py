@@ -20,6 +20,7 @@ DEFAULT_SCHEDULES = {
     "fentanyl": [("bolus", 0.0, "2 mcg/kg")],
     "rocuronium": [("bolus", 0.0, "0.6 mg/kg")],
     "midazolam": [("bolus", 0.0, "0.05 mg/kg"), ("infusion", 0.0, "0.05 mg/kg/h")],
+    "ketamine": [("bolus", 0.0, "0.5 mg/kg"), ("infusion", 0.0, "0.25 mg/kg/h")],
 }
 
 

@@ -389,7 +389,25 @@ def midazolam_zomorodi_1998(patient: dict) -> MicroParams:
     )
 
 
+# --------------------------------------------------------------------------- #
+# Ketamine — Kamp (2020) pooled raw-data population model, arterial central
+# compartment (the venous delay compartments of the paper's model only shape venous
+# predictions and are omitted). Volumes and clearances scale linearly with weight/70
+# as in the one open reproduction (opentiva); linear vs allometric scaling is a
+# human-verification item. PK-only: no published ke0 (opentiva's tpeak-derived 2.791
+# is an assumption and is not used). pending_human_review.
+# --------------------------------------------------------------------------- #
+def ketamine_kamp_2020(patient: dict) -> MicroParams:
+    wr = _req(patient, "weight") / 70.0
+    return MicroParams.from_volumes_clearances(
+        V1=25.0 * wr, Cl1=84.0 / 60.0 * wr,
+        V2=56.0 * wr, Cl2=161.0 / 60.0 * wr,
+        V3=157.0 * wr, Cl3=79.0 / 60.0 * wr, ke0=0.0,
+    )
+
+
 KERNELS: Dict[str, KernelFn] = {
+    "ketamine_kamp_2020": ketamine_kamp_2020,
     "midazolam_buhrer_1990": midazolam_buhrer_1990,
     "midazolam_zomorodi_1998": midazolam_zomorodi_1998,
     "fentanyl_shafer_1990": fentanyl_shafer_1990,

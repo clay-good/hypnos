@@ -1,0 +1,13 @@
+{
+  "name": "ketamine",
+  "synonyms": [
+    "Ketalar"
+  ],
+  "unii": "690G0D6V8H",
+  "atc": "N01AX03",
+  "cas": "6740-88-1",
+  "drug_class": "dissociative anesthetic (NMDA-receptor antagonist; racemic)",
+  "subsystem": "dissociatives",
+  "notes": "Racemic ketamine; esketamine (S-ketamine) is a separate entity with different potency and is not represented. The active metabolite norketamine accumulates (a caveat, not modeled). Concentrations conventionally in ng/mL.",
+  "concentration_unit": "ng/mL"
+}

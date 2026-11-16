@@ -1,0 +1,173 @@
+{
+  "id": "dissociatives.ketamine.kamp_2020",
+  "subsystem": "dissociatives",
+  "drug": {
+    "name": "ketamine",
+    "unii": "690G0D6V8H",
+    "atc": "N01AX03"
+  },
+  "purpose": "pk",
+  "label": "Ketamine PK — Kamp (2020), pooled",
+  "structure": {
+    "compartments": 3,
+    "parameterization": "volumes_clearances",
+    "elimination": "linear",
+    "effect_compartment": false
+  },
+  "kernel": {
+    "implemented": true,
+    "function": "ketamine_kamp_2020"
+  },
+  "parameters": [
+    {
+      "symbol": "V1",
+      "label": "central (arterial) volume",
+      "value": {
+        "central": 25.0,
+        "low": null,
+        "high": null,
+        "units": "L"
+      },
+      "covariate_model": "V1 = 25 * (WGT/70) L",
+      "tier": "C",
+      "extraction": {
+        "review_status": "pending_human_review",
+        "source_locator": "Kamp 2020 (pooled raw-data population model, arterial central compartment)"
+      },
+      "primary_citation": "kamp-2020-ketamine"
+    },
+    {
+      "symbol": "V2",
+      "label": "rapid-peripheral volume",
+      "value": {
+        "central": 56.0,
+        "low": null,
+        "high": null,
+        "units": "L"
+      },
+      "covariate_model": "V2 = 56 * (WGT/70) L",
+      "tier": "C",
+      "extraction": {
+        "review_status": "pending_human_review",
+        "source_locator": "Kamp 2020 (pooled raw-data population model, arterial central compartment)"
+      },
+      "primary_citation": "kamp-2020-ketamine"
+    },
+    {
+      "symbol": "V3",
+      "label": "slow-peripheral volume",
+      "value": {
+        "central": 157.0,
+        "low": null,
+        "high": null,
+        "units": "L"
+      },
+      "covariate_model": "V3 = 157 * (WGT/70) L",
+      "tier": "C",
+      "extraction": {
+        "review_status": "pending_human_review",
+        "source_locator": "Kamp 2020 (pooled raw-data population model, arterial central compartment)"
+      },
+      "primary_citation": "kamp-2020-ketamine"
+    },
+    {
+      "symbol": "Cl1",
+      "label": "elimination clearance",
+      "value": {
+        "central": 1.4,
+        "low": null,
+        "high": null,
+        "units": "L/min"
+      },
+      "covariate_model": "Cl1 = 84 L/h * (WGT/70) = 1.4 L/min at 70 kg",
+      "tier": "C",
+      "extraction": {
+        "review_status": "pending_human_review",
+        "source_locator": "Kamp 2020 (pooled raw-data population model, arterial central compartment)"
+      },
+      "primary_citation": "kamp-2020-ketamine"
+    },
+    {
+      "symbol": "Cl2",
+      "label": "rapid intercompartmental clearance",
+      "value": {
+        "central": 2.6833,
+        "low": null,
+        "high": null,
+        "units": "L/min"
+      },
+      "covariate_model": "Cl2 = 161 L/h * (WGT/70)",
+      "tier": "C",
+      "extraction": {
+        "review_status": "pending_human_review",
+        "source_locator": "Kamp 2020 (pooled raw-data population model, arterial central compartment)"
+      },
+      "primary_citation": "kamp-2020-ketamine"
+    },
+    {
+      "symbol": "Cl3",
+      "label": "slow intercompartmental clearance",
+      "value": {
+        "central": 1.3167,
+        "low": null,
+        "high": null,
+        "units": "L/min"
+      },
+      "covariate_model": "Cl3 = 79 L/h * (WGT/70)",
+      "tier": "C",
+      "extraction": {
+        "review_status": "pending_human_review",
+        "source_locator": "Kamp 2020 (pooled raw-data population model, arterial central compartment)"
+      },
+      "primary_citation": "kamp-2020-ketamine"
+    }
+  ],
+  "covariates": {
+    "required": [
+      "weight"
+    ],
+    "optional": [],
+    "lbm_equation": null
+  },
+  "applicability_envelope": {
+    "age_years": {
+      "min": 18,
+      "max": null
+    },
+    "populations": [
+      "healthy_adult",
+      "adult"
+    ],
+    "derivation_n": null
+  },
+  "known_failure_modes": [
+    {
+      "condition": "comparing against venous concentrations (prose; not a covariate predicate)",
+      "predicate": null,
+      "behavior": "This kernel predicts ARTERIAL concentrations. Kamp 2020 found that models fit to venous samples give substantially longer context-sensitive half-times than arterial ones; the raw-data model links the peripheral compartments to two venous delay compartments, which this 3-compartment kernel omits. Do not score it against venous samples.",
+      "action": "warn",
+      "citation": "kamp-2020-ketamine"
+    }
+  ],
+  "predictive_performance": [],
+  "tier": "C",
+  "extraction": {
+    "review_status": "pending_human_review",
+    "tier_rationale": "A pooled population model built from 14 raw data sets (Kamp 2020, alongside an 18-study meta-analysis). Volumes and clearances scale linearly with weight in the open implementation; whether the paper used linear or allometric scaling is a human item. PK-only (no effect-site link was published with it). The open reproduction drops the venous delay compartments, which leaves arterial predictions intact.",
+    "source_locator": "Kamp 2020 (pooled raw-data population model, arterial central compartment)",
+    "source_review": {
+      "reviewed_by": "automated source cross-check (Claude Opus 5.5 via Hypnos)",
+      "reviewed_date": "2026-11-16",
+      "method": "compared the curated values against one open implementation and the primary abstract's meta-analytic values (the full text is paywalled and was not read)",
+      "sources": [
+        "https://github.com/opentiva/opentiva (opentiva/ketamine.py, class 'Klamp' [sic], cites PMID 32997732 / DOI 10.1097/ALN.0000000000003577)",
+        "https://pubmed.ncbi.nlm.nih.gov/32997732/ (abstract: weighted mean Vd 252 L/70 kg, 95% CI 200-304; CL 79 L/h at 70 kg, 95% CI 69-90)"
+      ],
+      "outcome": "partial_match",
+      "notes": "V1 25, V2 56, V3 157 L and CL 84, Q2 161, Q3 79 L/h are as coded in opentiva. The abstract confirms only the meta-analytic totals: Vss 238 L lies inside the 200-304 L CI and CL 84 L/h inside the 69-90 L/h CI. Those are a different analysis from the raw-data model, and the abstract says the two were comparable. Only ONE open implementation was found. Opentiva also codes a ke0 of 2.791/min 'from tpeak 1 min'. That is an assumption, not a published value, so it is NOT curated. HUMAN ITEMS: read the population-model table, confirm the scaling (linear vs allometric), and confirm the arterial structure.",
+      "human_verified": false
+    }
+  },
+  "primary_citation": "kamp-2020-ketamine",
+  "notes": "The first dissociative in Hypnos. Classic STANPUMP Domino 1984 rate constants (still in opentiva) imply a clearance about twice Domino's own Table IV value, per stanpumpR's audit. That is why the pooled Kamp model is curated instead."
+}

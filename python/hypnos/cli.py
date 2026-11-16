@@ -454,12 +454,16 @@ def cmd_simulate(args) -> int:
     print(f"tier (propagated): {res.tier}")
     u = res.concentration_unit
     cf = res.conc_factor
-    print(f"Cp peak: {res.cp_peak_display:.3f} {u}   Ce peak: {res.ce_peak_display:.3f} {u}")
+    pk_only = not res.ce_peak > 0   # no published ke0: there is no effect site to report
+    ce_txt = ("n/a (PK-only model: no published ke0, so no effect-site curve)" if pk_only
+              else f"{res.ce_peak_display:.3f} {u}")
+    print(f"Cp peak: {res.cp_peak_display:.3f} {u}   Ce peak: {ce_txt}")
+    kind = "Cp" if pk_only else "Ce"
     if res.ce_quantiles is not None:
         lo, hi = res.band_percentile
         q = res.ce_quantiles if res.ce_peak > 0 else res.cp_quantiles
         i = int(np.argmax(q[50]))
-        print(f"  band-tier {res.band_tier}  Ce peak {q[50][i] * cf:.3f} "
+        print(f"  band-tier {res.band_tier}  {kind} peak {q[50][i] * cf:.3f} "
               f"[{q[lo][i] * cf:.3f}, {q[hi][i] * cf:.3f}] {u}  ({lo}-{hi}%, seeded)")
     if res.ce_confidence_quantiles is not None:
         lo, hi = res.band_percentile
@@ -472,7 +476,7 @@ def cmd_simulate(args) -> int:
         lo, hi = res.band_percentile
         q = res.ce_covariate_band if res.ce_peak > 0 else res.cp_covariate_band
         i = int(np.argmax(q[50]))
-        print(f"  covariate band (value uncertainty)  Ce peak {q[50][i] * cf:.3f} "
+        print(f"  covariate band (value uncertainty)  {kind} peak {q[50][i] * cf:.3f} "
               f"[{q[lo][i] * cf:.3f}, {q[hi][i] * cf:.3f}] {u}  "
               f"(band-tier {res.covariate_band_tier}, {lo}-{hi}%, seeded)")
     if res.effect is not None:

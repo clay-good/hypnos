@@ -8,6 +8,23 @@ version is pinned in `dataset/VERSION` and stamped into every export as
 
 ## [Unreleased]
 
+### Ketamine Kamp 2020: the first dissociative (2026-11-16)
+- **`dissociatives.ketamine.kamp_2020`** is executable: the pooled raw-data population model (Kamp 2020,
+  Anesthesiology 133:1192). V1 25 / V2 56 / V3 157 L and CL 84 / Q2 161 / Q3 79 L/h per 70 kg, arterial,
+  linear in weight. PK-only: opentiva's ke0 comes from an assumed 1-min tpeak, so it is not curated.
+- **Honest provenance:** `partial_match`. Only one open implementation exists, and the paywalled
+  table was not read. The abstract's meta-analytic CIs (Vd 200–304 L, CL 69–90 L/h) contain the
+  model's Vss 238 L and CL 84 L/h; tests assert that. Human items: the scaling (linear vs allometric)
+  and the structure. A cited prose failure mode says the kernel predicts arterial, not venous,
+  concentrations.
+- **Why not Domino:** the classic STANPUMP Domino rate constants imply about twice Domino's own Table IV
+  clearance (per stanpumpR's audit), so the pooled model is curated instead.
+- **Fixed:** `hypnos simulate` printed "Ce peak: 0.000" for PK-only models (Kim, Zomorodi, Kamp), as if
+  the effect site were empty. It now prints "n/a (PK-only model: no published ke0)", and the band
+  lines label the curve they actually report (Cp).
+- Ketamine default schedule (0.5 mg/kg + 0.25 mg/kg/h). 30 models, 19 drugs, 10 subsystems, 43
+  citations, 26 executable kernels. New `test_ketamine.py`.
+
 ### Midazolam: the healthy-volunteer vs post-CABG ICU divergence pair (2026-11-16)
 - **Two executable midazolam models**, both printed in Zomorodi 1998 Table 3 and source-checked
   against a page-image transcription (Shafer's stanpumpR paper digest): **Bührer 1990** (healthy men,

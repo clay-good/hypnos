@@ -406,7 +406,21 @@ def ketamine_kamp_2020(patient: dict) -> MicroParams:
     )
 
 
+# --------------------------------------------------------------------------- #
+# Sufentanil — Gepts (1995): absolute three-compartment set ("no relation to age,
+# weight, or lean body mass"), the printed volumes/clearances (quoted verbatim in the
+# abstract) rather than volumes back-calculated from rounded rate constants. ke0 is
+# solved for the 5.6-min time to peak effect (Shafer & Varvel 1991). pending_human_review.
+# --------------------------------------------------------------------------- #
+def sufentanil_gepts_1995(patient: dict) -> MicroParams:
+    _req(patient, "weight")
+    return MicroParams.from_volumes_clearances(
+        V1=14.3, Cl1=0.92, V2=63.1, Cl2=1.55, V3=261.6, Cl3=0.33, ke0=0.1756
+    )
+
+
 KERNELS: Dict[str, KernelFn] = {
+    "sufentanil_gepts_1995": sufentanil_gepts_1995,
     "ketamine_kamp_2020": ketamine_kamp_2020,
     "midazolam_buhrer_1990": midazolam_buhrer_1990,
     "midazolam_zomorodi_1998": midazolam_zomorodi_1998,

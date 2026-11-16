@@ -1,0 +1,14 @@
+{
+  "name": "sufentanil",
+  "synonyms": [
+    "Sufenta",
+    "Dsuvia"
+  ],
+  "unii": "AFE2YW0IIZ",
+  "atc": "N01AH03",
+  "cas": "56030-54-7",
+  "drug_class": "synthetic opioid (mu agonist; fentanyl family)",
+  "subsystem": "opioids",
+  "notes": "The most potent clinically used fentanyl congener. Concentrations conventionally in ng/mL.",
+  "concentration_unit": "ng/mL"
+}

@@ -106,5 +106,5 @@
     }
   },
   "primary_citation": "shafer-1990-fentanyl",
-  "notes": "Parameters source-filled from open Shafer-1990 reproductions (pending_human_review); the kernel (fentanyl_shafer_1990) computes exactly those sourced constants with ke0 0.147/min (OpenTCI; opentiva codes 0.12). Obesity overprediction (Shibutani 2004) is an encoded failure mode. The volumes/clearances are absolute (standard adult). sufentanil (Gepts) and alfentanil (Maitre) are future siblings."
+  "notes": "Parameters source-filled from open Shafer-1990 reproductions (pending_human_review); the kernel (fentanyl_shafer_1990) computes exactly those sourced constants with ke0 0.147/min (OpenTCI; opentiva codes 0.12). Obesity overprediction (Shibutani 2004) is an encoded failure mode. The volumes/clearances are absolute (standard adult). sufentanil (Gepts 1995) is now a sibling record; alfentanil (Maitre) is a future one."
 }

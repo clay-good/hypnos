@@ -8,6 +8,18 @@ version is pinned in `dataset/VERSION` and stamped into every export as
 
 ## [Unreleased]
 
+### Sufentanil Gepts 1995: the fentanyl family's second member (2026-11-16)
+- **`opioids.sufentanil.gepts_1995`** is executable. V1 14.3 / V2 63.1 / V3 261.6 L and CL 0.92 / 1.55 /
+  0.33 L/min are quoted verbatim, with 95% CIs, in the primary abstract (outcome `match`; stanpumpR
+  and opentiva agree). The *printed* volumes are curated, not ones back-calculated from rounded
+  rate constants. That shortcut gives V3 251.9 L, outside the paper's CI, and a test pins it.
+- **ke0 0.1756/min is solved, not fitted.** It reproduces the published 5.6-min time to peak effect
+  (Shafer & Varvel 1991, new citation), matching opentiva's independent 0.17559. It is Tier C, so the
+  record is Tier C by the worst-input rule. The validator enforced this when a draft said B.
+- **Rational opioid selection, forward:** after a 10 h fixed-rate infusion, sufentanil's 50% plasma
+  decrement is ~35 min against fentanyl's ~192 min (tested). 31 models, 20 drugs, 45 citations,
+  27 executable kernels.
+
 ### Ketamine Kamp 2020: the first dissociative (2026-11-16)
 - **`dissociatives.ketamine.kamp_2020`** is executable: the pooled raw-data population model (Kamp 2020,
   Anesthesiology 133:1192). V1 25 / V2 56 / V3 157 L and CL 84 / Q2 161 / Q3 79 L/h per 70 kg, arterial,

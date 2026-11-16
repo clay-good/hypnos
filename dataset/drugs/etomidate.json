@@ -1,0 +1,14 @@
+{
+  "name": "etomidate",
+  "synonyms": [
+    "Amidate",
+    "Hypnomidate"
+  ],
+  "unii": "Z22628B598",
+  "atc": "N01AX07",
+  "cas": "33125-97-2",
+  "drug_class": "imidazole IV hypnotic (GABA-A positive allosteric modulator)",
+  "subsystem": "hypnotics_iv",
+  "notes": "Hemodynamically stable induction agent; a single dose suppresses adrenal 11-beta-hydroxylase (a safety caveat, not modeled). Concentrations conventionally in ug/mL.",
+  "concentration_unit": "ug/mL"
+}

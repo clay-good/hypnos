@@ -889,6 +889,33 @@ def _fig_pharmacogenomics(ds, plt) -> None:
     plt.close(fig)
 
 
+def _fig_opioid_offset(ds, plt) -> None:
+    """Rational opioid selection, forward: 50% plasma decrement vs fixed-rate infusion duration."""
+    patient = dict(age=40, weight=70, height=175, sex="M")
+    durations = np.array([10, 30, 60, 120, 180, 240, 360, 480, 600])
+    models = [("opioids.fentanyl.shafer_1990", "#c0392b"), ("opioids.alfentanil.maitre_1987", "#8e44ad"),
+              ("opioids.alfentanil.scott_1985", "#d35400"), ("opioids.sufentanil.gepts_1995", "#2471a3"),
+              ("opioids.remifentanil.minto_1997", "#1e8449")]
+    fig, ax = plt.subplots(figsize=(11, 5.4))
+    for mid, color in models:
+        if mid not in ds:
+            continue
+        dec = [hypnos.decrement_time(ds, mid, patient=patient, infusion="1 mcg/kg/h",
+                                     duration=float(d)).decrement_min for d in durations]
+        m = ds[mid]
+        ax.plot(durations, dec, color=color, lw=2.4, marker="o", ms=4,
+                label=f"{m.drug_name} — {mid.split('.')[-1]}  (tier {m.tier})")
+    ax.set_title("Hypnos Phase C — the fentanyl family's offset, rendered forward\n"
+                 "50% plasma decrement after a fixed-rate infusion (not classic CSHT, which needs "
+                 "inverse control)", fontsize=11)
+    ax.set_xlabel("infusion duration (min)"); ax.set_ylabel("time to 50% plasma decrement (min)")
+    ax.legend(fontsize=9); ax.grid(alpha=0.25)
+    fig.text(0.5, -0.02, f"{_DISCLAIMER} — research / education / simulation only",
+             ha="center", color="#c0392b", fontsize=9)
+    fig.tight_layout(); fig.savefig(IMAGES / "opioid_offset.png", dpi=130, bbox_inches="tight")
+    plt.close(fig)
+
+
 def regenerate_figures(ds) -> bool:
     try:
         import matplotlib
@@ -915,10 +942,11 @@ def regenerate_figures(ds) -> bool:
     _fig_reducibility(ds, plt)
     _fig_developmental(ds, plt)
     _fig_pharmacogenomics(ds, plt)
+    _fig_opioid_offset(ds, plt)
     print(f"figures: regenerated divergence, synergy, pediatric, mac_age, washin, washout, "
           f"variability, effect_band, la_double_uncertainty, la_cardiotoxicity, la_saturation, "
           f"covariate_equations, covariate_divergence, covariate_band, reducibility, "
-          f"developmental, pharmacogenomics -> {IMAGES}/")
+          f"developmental, pharmacogenomics, opioid_offset -> {IMAGES}/")
     return True
 
 

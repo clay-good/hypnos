@@ -452,7 +452,18 @@ def alfentanil_scott_1985(patient: dict) -> MicroParams:
     )
 
 
+# --------------------------------------------------------------------------- #
+# Etomidate — Kaneda (2011): absolute 2-compartment NONMEM model from brief infusions
+# in healthy volunteers (values quoted verbatim in the abstract); ke0 = ln2/1.55 min.
+# pending_human_review.
+# --------------------------------------------------------------------------- #
+def etomidate_kaneda_2011(patient: dict) -> MicroParams:
+    _req(patient, "weight")
+    return MicroParams.from_volumes_clearances(V1=4.45, Cl1=0.63, V2=74.9, Cl2=3.16, ke0=0.4472)
+
+
 KERNELS: Dict[str, KernelFn] = {
+    "etomidate_kaneda_2011": etomidate_kaneda_2011,
     "alfentanil_maitre_1987": alfentanil_maitre_1987,
     "alfentanil_scott_1985": alfentanil_scott_1985,
     "sufentanil_gepts_1995": sufentanil_gepts_1995,

@@ -66,6 +66,8 @@ pytest                   # analytic-vs-numeric, round-trip, envelope, tier propa
 ruff check python dashboard scripts   # lint (CI runs the same command)
 ```
 
+On a heavily loaded machine the Streamlit dashboard tests can exceed AppTest's 120 s script timeout. Raise it locally with `HYPNOS_APPTEST_TIMEOUT=900 pytest`; CI keeps the default.
+
 ## What is out of scope (hard lines, not roadmap)
 
 * Any per-patient dosing recommendation, bedside calculator, or pump-driver logic.

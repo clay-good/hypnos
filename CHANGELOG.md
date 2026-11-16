@@ -8,6 +8,19 @@ version is pinned in `dataset/VERSION` and stamped into every export as
 
 ## [Unreleased]
 
+### Etomidate Kaneda 2011: the v0.1 IV-hypnotic list is complete (2026-11-16)
+- **`hypnotics_iv.etomidate.kaneda_2011`** is executable: an absolute 2-compartment NONMEM model
+  (18 healthy volunteers). V1 4.45 / V2 74.9 L, CL 0.63 / Q 3.16 L/min and t½ke0 1.55 min are quoted
+  verbatim in the abstract (`match`; opentiva agrees). A bolus peaks at the effect site in ~1.65 min.
+- The authors' own scope limit, "infusion of less than 10 minutes", is a cited prose failure mode.
+  The BIS EC50 (0.526 µg/mL) is published, but E0/Emax are not in the abstract, so no PD record is
+  invented. Arden 1986, the classic STANPUMP etomidate set, is not curated: its abstract prints no
+  parameters and only one implementation carries them.
+- **New figure `docs/images/opioid_offset.png`** (`scripts/regenerate.py`, smoke-tested): the 50%
+  plasma decrement vs infusion duration for fentanyl, both alfentanil sets, sufentanil and remifentanil.
+  It reproduces the classic ordering forward from the kernels.
+- 34 models, 22 drugs, 49 citations, 30 executable kernels.
+
 ### Alfentanil: Maitre 1987 vs Scott 1985 — pedigree is not performance (2026-11-16)
 - **Two executable alfentanil models**, sourced from Raemer 1990's reprinted tables (page-image
   transcription), the Maitre abstract, simtiva and opentiva. **Maitre 1987**: Vc 0.111 L/kg (×1.15

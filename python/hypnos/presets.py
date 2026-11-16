@@ -22,6 +22,7 @@ DEFAULT_SCHEDULES = {
     "alfentanil": [("bolus", 0.0, "10 mcg/kg"), ("infusion", 0.0, "1 mcg/kg/min")],
     "rocuronium": [("bolus", 0.0, "0.6 mg/kg")],
     "midazolam": [("bolus", 0.0, "0.05 mg/kg"), ("infusion", 0.0, "0.05 mg/kg/h")],
+    "etomidate": [("bolus", 0.0, "0.3 mg/kg")],
     "ketamine": [("bolus", 0.0, "0.5 mg/kg"), ("infusion", 0.0, "0.25 mg/kg/h")],
 }
 

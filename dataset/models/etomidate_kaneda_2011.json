@@ -1,0 +1,159 @@
+{
+  "id": "hypnotics_iv.etomidate.kaneda_2011",
+  "subsystem": "hypnotics_iv",
+  "drug": {
+    "name": "etomidate",
+    "unii": "Z22628B598",
+    "atc": "N01AX07"
+  },
+  "purpose": "pk",
+  "label": "Etomidate PK — Kaneda (2011)",
+  "structure": {
+    "compartments": 2,
+    "parameterization": "volumes_clearances",
+    "elimination": "linear",
+    "effect_compartment": true
+  },
+  "kernel": {
+    "implemented": true,
+    "function": "etomidate_kaneda_2011"
+  },
+  "parameters": [
+    {
+      "symbol": "V1",
+      "label": "central volume",
+      "value": {
+        "central": 4.45,
+        "low": null,
+        "high": null,
+        "units": "L"
+      },
+      "covariate_model": "V1 = 4.45 L (absolute)",
+      "tier": "C",
+      "extraction": {
+        "review_status": "pending_human_review",
+        "source_locator": "Kaneda 2011 abstract (NONMEM 2-compartment estimates quoted verbatim)"
+      },
+      "primary_citation": "kaneda-2011-etomidate"
+    },
+    {
+      "symbol": "V2",
+      "label": "peripheral volume",
+      "value": {
+        "central": 74.9,
+        "low": null,
+        "high": null,
+        "units": "L"
+      },
+      "covariate_model": "V2 = 74.9 L (absolute)",
+      "tier": "C",
+      "extraction": {
+        "review_status": "pending_human_review",
+        "source_locator": "Kaneda 2011 abstract (NONMEM 2-compartment estimates quoted verbatim)"
+      },
+      "primary_citation": "kaneda-2011-etomidate"
+    },
+    {
+      "symbol": "Cl1",
+      "label": "systemic clearance",
+      "value": {
+        "central": 0.63,
+        "low": null,
+        "high": null,
+        "units": "L/min"
+      },
+      "covariate_model": "Cl1 = 0.63 L/min (absolute)",
+      "tier": "C",
+      "extraction": {
+        "review_status": "pending_human_review",
+        "source_locator": "Kaneda 2011 abstract (NONMEM 2-compartment estimates quoted verbatim)"
+      },
+      "primary_citation": "kaneda-2011-etomidate"
+    },
+    {
+      "symbol": "Cl2",
+      "label": "intercompartmental clearance",
+      "value": {
+        "central": 3.16,
+        "low": null,
+        "high": null,
+        "units": "L/min"
+      },
+      "covariate_model": "Cl2 = 3.16 L/min (absolute)",
+      "tier": "C",
+      "extraction": {
+        "review_status": "pending_human_review",
+        "source_locator": "Kaneda 2011 abstract (NONMEM 2-compartment estimates quoted verbatim)"
+      },
+      "primary_citation": "kaneda-2011-etomidate"
+    },
+    {
+      "symbol": "ke0",
+      "label": "effect-site equilibration rate constant (BIS)",
+      "value": {
+        "central": 0.4472,
+        "low": null,
+        "high": null,
+        "units": "1/min"
+      },
+      "covariate_model": "ke0 = ln2 / 1.550 min = 0.4472 (t1/2 ke0 for BIS)",
+      "tier": "C",
+      "extraction": {
+        "review_status": "pending_human_review",
+        "source_locator": "Kaneda 2011 abstract (NONMEM 2-compartment estimates quoted verbatim)"
+      },
+      "primary_citation": "kaneda-2011-etomidate"
+    }
+  ],
+  "covariates": {
+    "required": [
+      "weight"
+    ],
+    "optional": [],
+    "lbm_equation": null
+  },
+  "applicability_envelope": {
+    "age_years": {
+      "min": 18,
+      "max": 55
+    },
+    "weight_kg": {
+      "min": 50,
+      "max": 80
+    },
+    "populations": [
+      "healthy_adult"
+    ],
+    "derivation_n": 18
+  },
+  "known_failure_modes": [
+    {
+      "condition": "infusion longer than ~10 min (prose; not a covariate predicate)",
+      "predicate": null,
+      "behavior": "Fitted to brief infusions (5 mg/min to loss of eyelash reflex). The authors state the results apply only to short-term infusion of less than 10 minutes; a 2-compartment fit to minutes of data cannot describe the slow redistribution that long infusions expose.",
+      "action": "warn",
+      "citation": "kaneda-2011-etomidate"
+    }
+  ],
+  "predictive_performance": [],
+  "tier": "C",
+  "extraction": {
+    "review_status": "pending_human_review",
+    "tier_rationale": "Small (n=18) healthy-volunteer NONMEM study of brief infusions; 2-compartment, absolute. The envelope (18-55 y, 50-80 kg) is from the opentiva implementation, not the abstract (a human item). The BIS PD (EC50 0.526 ug/mL, gamma 2.25) is published, but E0/Emax are not in the abstract, so no PD record is curated (never-invent).",
+    "source_locator": "Kaneda 2011 abstract (NONMEM 2-compartment estimates quoted verbatim)",
+    "source_review": {
+      "reviewed_by": "automated source cross-check (Claude Opus 5.5 via Hypnos)",
+      "reviewed_date": "2026-11-16",
+      "method": "compared against the primary-paper PubMed abstract (verbatim values) and one open implementation",
+      "sources": [
+        "https://pubmed.ncbi.nlm.nih.gov/20498288/ (abstract: V1 4.45, V2 74.90 L; CL 0.63, Q 3.16 L/min; t1/2 ke0 1.550 min)",
+        "https://github.com/opentiva/opentiva (opentiva/etomidate.py, Kaneda: same values, ke0 0.447)"
+      ],
+      "outcome": "match",
+      "notes": "All four PK values and the t1/2 ke0 are quoted verbatim in the abstract; opentiva agrees (ke0 0.447 = ln2/1.55). Etomidate's classic Arden 1986 set (STANPUMP) is not curated: its abstract prints no parameters and only one implementation carries them. HUMAN ITEMS: confirm the envelope and whether the ke0 is BIS- or OAA/S-linked.",
+      "human_verified": false
+    }
+  },
+  "primary_citation": "kaneda-2011-etomidate",
+  "notes": "The last IV hypnotic on the v0.1 hypnotics_iv list. Arden 1986 found that etomidate's dose requirement falls with age because the initial distribution volume contracts, not because the brain becomes more sensitive."
+}

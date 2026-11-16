@@ -10,6 +10,7 @@ It is skipped wherever the dashboard extra (streamlit/altair/pandas) is not
 installed — notably the CI ``test`` job, which installs only ``.[dev]``. Run it
 locally with ``pip install -e '.[dashboard,dev]'``.
 """
+import os
 from pathlib import Path
 
 import pytest
@@ -21,6 +22,9 @@ pytest.importorskip("pandas")
 from streamlit.testing.v1 import AppTest  # noqa: E402
 
 APP = str(Path(__file__).resolve().parents[2] / "dashboard" / "app.py")
+# Streamlit AppTest aborts a script run after this many seconds. 120 s is ample on CI; on a heavily
+# loaded dev machine the band views can need longer, so HYPNOS_APPTEST_TIMEOUT raises it locally.
+_TIMEOUT = float(os.environ.get("HYPNOS_APPTEST_TIMEOUT", "120"))
 
 
 def _enable_bands(at):
@@ -45,7 +49,7 @@ def test_dashboard_organ_failure_overlay():
     # set Child-Pugh = C on the default drug (propofol); every propofol model lacks
     # hepatic standing, so the view greys them all with a named hepatic extrapolation
     # — and must not crash on the now-empty included set (v0.5 §B6).
-    at = AppTest.from_file(APP, default_timeout=120).run()
+    at = AppTest.from_file(APP, default_timeout=_TIMEOUT).run()
     cp = next(s for s in at.selectbox if "Child-Pugh" in s.label)
     cp.set_value("C").run()
     assert not at.exception
@@ -57,7 +61,7 @@ def test_dashboard_local_anesthetic_section():
     # the v0.6 LA subsystem reaches the dashboard (it sits outside the IV-divergence
     # view): the self-contained section must render the site-dominance, the
     # double-uncertainty view, and the agent-choice cardiotoxicity comparison.
-    at = AppTest.from_file(APP, default_timeout=120).run()
+    at = AppTest.from_file(APP, default_timeout=_TIMEOUT).run()
     assert not at.exception
     subheaders = " ".join(s.value for s in at.subheader)
     assert "Local anesthetics" in subheaders
@@ -71,7 +75,7 @@ def test_dashboard_local_anesthetic_section():
 
 
 def test_dashboard_renders_with_prediction_bands():
-    at = AppTest.from_file(APP, default_timeout=120).run()
+    at = AppTest.from_file(APP, default_timeout=_TIMEOUT).run()
     assert not at.exception
     _enable_bands(at)
     at.run()
@@ -93,7 +97,7 @@ def test_dashboard_renders_with_prediction_bands():
 def test_dashboard_covariate_band():
     # v0.7 C2: a non-zero weight-uncertainty SD adds the covariate band + the fifth
     # variance component (equation-choice vs value-uncertainty) without crashing.
-    at = AppTest.from_file(APP, default_timeout=120).run()
+    at = AppTest.from_file(APP, default_timeout=_TIMEOUT).run()
     _enable_bands(at)
     wsd = next(s for s in at.slider if "Weight uncertainty" in s.label)
     wsd.set_value(12.0)
@@ -105,7 +109,7 @@ def test_dashboard_covariate_band():
 
 def test_dashboard_reducibility_readout():
     # v0.3 §7: with bands on, the divergence view names the reducible vs irreducible share
-    at = AppTest.from_file(APP, default_timeout=120).run()
+    at = AppTest.from_file(APP, default_timeout=_TIMEOUT).run()
     _enable_bands(at)
     at.run()
     assert not at.exception
@@ -117,7 +121,7 @@ def test_dashboard_developmental_overlay():
     # v0.8 §6: the default child (PMA 41 wk, 3.5 kg) has no fitted standing, so the view
     # must say everything is extrapolation, carry the allometry-only caveat, and not crash
     # when the PMA / weight move.
-    at = AppTest.from_file(APP, default_timeout=120).run()
+    at = AppTest.from_file(APP, default_timeout=_TIMEOUT).run()
     assert not at.exception
     assert any("Developmental extrapolation" in s.value for s in at.subheader)
     warnings = " ".join(w.value for w in at.warning)
@@ -131,7 +135,7 @@ def test_dashboard_developmental_overlay():
 
 
 def test_dashboard_pharmacogenomics_never_infers_and_leads_with_avoidance():
-    at = AppTest.from_file(APP, default_timeout=120).run()
+    at = AppTest.from_file(APP, default_timeout=_TIMEOUT).run()
     assert not at.exception
     # nothing declared -> no genetic effect shown, and it says so (never "wild-type assumed")
     assert any("Genotype not declared" in i.value for i in at.info)
@@ -149,7 +153,7 @@ def test_dashboard_pharmacogenomics_never_infers_and_leads_with_avoidance():
 
 def test_dashboard_reversal_panel_covers_the_three_mechanisms():
     # v0.5 Part A reaches the dashboard: each mechanism renders with its own failure mode
-    at = AppTest.from_file(APP, default_timeout=120).run()
+    at = AppTest.from_file(APP, default_timeout=_TIMEOUT).run()
     assert not at.exception
     assert any("Reversal — a GIVEN antagonist dose" in s.value for s in at.subheader)
     warnings = " ".join(w.value for w in at.warning)
@@ -166,7 +170,7 @@ def test_dashboard_reversal_panel_covers_the_three_mechanisms():
 
 
 def test_dashboard_reversal_panel_survives_an_unparseable_dose():
-    at = AppTest.from_file(APP, default_timeout=120).run()
+    at = AppTest.from_file(APP, default_timeout=_TIMEOUT).run()
     next(t for t in at.text_input if t.label == "Reversal dose given").set_value("banana").run()
     assert not at.exception
     assert "Cannot simulate this reversal" in " ".join(w.value for w in at.warning)

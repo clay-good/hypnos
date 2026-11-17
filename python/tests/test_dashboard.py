@@ -167,6 +167,13 @@ def test_dashboard_reversal_panel_covers_the_three_mechanisms():
     agent.set_value("neostigmine").run()
     assert not at.exception
     assert "CEILING" in " ".join(w.value for w in at.warning)
+    # flumazenil -> midazolam (competitive, now with a benzodiazepine kernel to target): the
+    # agonist's own curve and its antagonist-adjusted equivalent are charted
+    agent = next(s for s in at.selectbox if s.label == "Reversal agent")
+    agent.set_value("flumazenil").run()
+    assert not at.exception
+    captions = " ".join(c.value for c in at.caption)
+    assert "midazolam" in captions and "computed from both drugs' kinetics" in captions
 
 
 def test_dashboard_reversal_panel_survives_an_unparseable_dose():

@@ -1383,7 +1383,9 @@ def build_parser() -> argparse.ArgumentParser:
                     help="reversal model id (sugammadex/naloxone/neostigmine)")
     rp.add_argument("--dose", default="4 mg/kg", help="the GIVEN reversal dose (e.g. '4 mg/kg', '0.4 mg')")
     rp.add_argument("--agonist-dose", dest="agonist_dose", default="0.6 mg/kg",
-                    help="the agonist dose already given (e.g. rocuronium '0.6 mg/kg')")
+                    help="the agonist already given: a bolus (e.g. rocuronium '0.6 mg/kg') or, "
+                         "for competitive reversal, an infusion running from t=0 "
+                         "(e.g. midazolam '0.05 mg/kg/h')")
     rp.add_argument("--at", type=float, default=10.0, help="time the reversal is given (min)")
     rp.add_argument("--pd", default=None, help="optional PD model (e.g. pd_effect.rocuronium.tof_sigmoid)")
     _add_patient_args(rp)

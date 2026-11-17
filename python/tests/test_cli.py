@@ -161,7 +161,7 @@ _BAD_INPUT = [
     (["mac", "--agent", "sevoflurane", "--age", "-3"], "--age must be >= 0"),
     (["la", "--drug", "bupivacaine", "--dose", "0"], "--dose must be > 0"),
     (["la", "--drug", "bupivacaine", "--tmax", "0"], "--tmax must be > 0"),
-    (["reverse", "--agent", "nope"], "unknown reversal agent 'nope' (known: naloxone, neostigmine, sugammadex)"),
+    (["reverse", "--agent", "nope"], "unknown reversal agent 'nope' (known: flumazenil, naloxone, neostigmine, sugammadex)"),
     (["interact", "--propofol", "banana"], "unknown model id 'banana'"),
     (["interact", "--surface", "nope"], "unknown model id 'nope'"),
     (["covariates", "--equation", "james_1976", "--height", "0"], "patient height"),

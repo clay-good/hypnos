@@ -1,0 +1,210 @@
+{
+  "id": "reversal.flumazenil.competitive",
+  "subsystem": "reversal",
+  "drug": {
+    "name": "flumazenil",
+    "unii": "40P7XK9392",
+    "atc": "V03AB25"
+  },
+  "purpose": "reversal",
+  "label": "Flumazenil — competitive benzodiazepine antagonism",
+  "structure": {
+    "compartments": 3,
+    "parameterization": "volumes_clearances",
+    "effect_compartment": true
+  },
+  "kernel": {
+    "implemented": false,
+    "function": null
+  },
+  "parameters": [
+    {
+      "symbol": "V1",
+      "label": "central volume",
+      "value": {
+        "central": 5.6,
+        "low": null,
+        "high": null,
+        "units": "L"
+      },
+      "covariate_model": "V1 = 5.6 L (absolute; men 21-47 y, 73-88 kg)",
+      "tier": "C",
+      "extraction": {
+        "review_status": "pending_human_review",
+        "source_locator": "Fiset 1995 Table IV (two-stage means; page-image transcription)"
+      },
+      "primary_citation": "fiset-1995-flumazenil"
+    },
+    {
+      "symbol": "V2",
+      "label": "rapid-peripheral volume",
+      "value": {
+        "central": 15.93,
+        "low": null,
+        "high": null,
+        "units": "L"
+      },
+      "covariate_model": "V2 = 15.93 L",
+      "tier": "C",
+      "extraction": {
+        "review_status": "pending_human_review",
+        "source_locator": "Fiset 1995 Table IV (two-stage means; page-image transcription)"
+      },
+      "primary_citation": "fiset-1995-flumazenil"
+    },
+    {
+      "symbol": "V3",
+      "label": "slow-peripheral volume",
+      "value": {
+        "central": 39.44,
+        "low": null,
+        "high": null,
+        "units": "L"
+      },
+      "covariate_model": "V3 = 39.44 L",
+      "tier": "C",
+      "extraction": {
+        "review_status": "pending_human_review",
+        "source_locator": "Fiset 1995 Table IV (two-stage means; page-image transcription)"
+      },
+      "primary_citation": "fiset-1995-flumazenil"
+    },
+    {
+      "symbol": "Cl1",
+      "label": "elimination clearance",
+      "value": {
+        "central": 1.12,
+        "low": null,
+        "high": null,
+        "units": "L/min"
+      },
+      "covariate_model": "Cl1 = 1.12 L/min",
+      "tier": "C",
+      "extraction": {
+        "review_status": "pending_human_review",
+        "source_locator": "Fiset 1995 Table IV (two-stage means; page-image transcription)"
+      },
+      "primary_citation": "fiset-1995-flumazenil"
+    },
+    {
+      "symbol": "Cl2",
+      "label": "rapid intercompartmental clearance",
+      "value": {
+        "central": 1.79,
+        "low": null,
+        "high": null,
+        "units": "L/min"
+      },
+      "covariate_model": "Cl2 = 1.79 L/min",
+      "tier": "C",
+      "extraction": {
+        "review_status": "pending_human_review",
+        "source_locator": "Fiset 1995 Table IV (two-stage means; page-image transcription)"
+      },
+      "primary_citation": "fiset-1995-flumazenil"
+    },
+    {
+      "symbol": "Cl3",
+      "label": "slow intercompartmental clearance",
+      "value": {
+        "central": 0.86,
+        "low": null,
+        "high": null,
+        "units": "L/min"
+      },
+      "covariate_model": "Cl3 = 0.86 L/min",
+      "tier": "C",
+      "extraction": {
+        "review_status": "pending_human_review",
+        "source_locator": "Fiset 1995 Table IV (two-stage means; page-image transcription)"
+      },
+      "primary_citation": "fiset-1995-flumazenil"
+    },
+    {
+      "symbol": "ke0",
+      "label": "effect-site equilibration (EEG reversal of midazolam)",
+      "value": {
+        "central": 0.1554,
+        "low": null,
+        "high": null,
+        "units": "1/min"
+      },
+      "covariate_model": "ke0 = ln2 / 4.46 min = 0.1554 (mean of the light 5.0 and deep 3.9 min t1/2 ke0)",
+      "tier": "C",
+      "extraction": {
+        "review_status": "pending_human_review",
+        "source_locator": "Fiset 1995 abstract + Table III (t1/2 ke0 5.0 light, 3.9 deep sedation)"
+      },
+      "primary_citation": "fiset-1995-flumazenil"
+    }
+  ],
+  "covariates": {
+    "required": [],
+    "optional": [
+      "weight"
+    ],
+    "lbm_equation": null
+  },
+  "applicability_envelope": {
+    "age_years": {
+      "min": 21,
+      "max": 47
+    },
+    "weight_kg": {
+      "min": 73,
+      "max": 88
+    },
+    "populations": [
+      "healthy_adult",
+      "male"
+    ],
+    "derivation_n": 7
+  },
+  "reversal_mechanism": {
+    "type": "competitive_receptor",
+    "targets": [
+      "hypnotics_iv.midazolam.buhrer_1990"
+    ],
+    "antagonism": {
+      "ki": 13.7,
+      "ki_units": "ng/mL",
+      "ce50_shift_model": "Ce50_apparent = Ce50 * (1 + C_flumazenil/Ki)"
+    },
+    "tier": "C",
+    "primary_citation": "fiset-1995-flumazenil",
+    "extraction": {
+      "review_status": "pending_human_review",
+      "source_locator": "Fiset 1995 abstract (reversal EC50 13.7 ng/mL at light, 20.6 ng/mL at deep sedation)",
+      "tier_rationale": "NOT a binding constant. Fiset published the flumazenil effect-site concentration giving 50% reversal: 13.7 ng/mL at a midazolam plasma level of 160 ng/mL, rising to 20.6 ng/mL at 551 ng/mL. That rise is the surmountable signature of competitive antagonism. The light-sedation EC50 is used as the Ki SCALE (an approximation, Tier C), which is better grounded than an arbitrary constant. A human could fit a true Ki from Fiset's individual data."
+    }
+  },
+  "known_failure_modes": [
+    {
+      "condition": "reversing a longer-acting benzodiazepine (antagonist clears first)",
+      "predicate": null,
+      "behavior": "flumazenil's terminal half-life (~1 h on these kinetics) is SHORTER than midazolam's; as flumazenil clears, the receptor block wanes and sedation RELAPSES (resedation, the benzodiazepine form of renarcotization). Fiset 1995 let volunteers resedate deliberately after stopping the infusion.",
+      "action": "warn",
+      "citation": "fiset-1995-flumazenil"
+    }
+  ],
+  "tier": "C",
+  "extraction": {
+    "review_status": "pending_human_review",
+    "tier_rationale": "Flumazenil PK from 7 healthy men in 13 sessions, arterial sampling, two-stage 3-compartment means (no covariates tested), so it is absolute. ke0 from the EEG reversal of midazolam. The Ki is a reversal-EC50 scale, not a binding constant. The load-bearing behavior is resedation.",
+    "source_locator": "Fiset 1995 Table IV (two-stage means; page-image transcription)",
+    "source_review": {
+      "reviewed_by": "automated source cross-check (Claude Opus 5.5 via Hypnos)",
+      "reviewed_date": "2026-11-16",
+      "method": "compared against a page-image transcription of Fiset 1995 Tables I/III/IV and the primary abstract; DOI CrossRef-verified",
+      "sources": [
+        "https://github.com/StevenLShafer/stanpumpR (R/drugs_flumazenil.R: Fiset 1995 Tables I, III and IV read from page images, cross-checked against the Romazicon label)",
+        "https://pubmed.ncbi.nlm.nih.gov/7586951/ (abstract: t1/2 ke0 5.0 +/- 2.5 and 3.9 +/- 1.5 min; reversal EC50 13.7 and 20.6 ng/mL)"
+      ],
+      "outcome": "match",
+      "notes": "V1 5.6, V2 15.93, V3 39.44 L and CL 1.12, 1.79, 0.86 L/min reproduce the table's half-lives (0.9, 11.4, 63.2 min) and Vss 61 L. The abstract's t1/2 ke0 values agree with the transcription. Against the label: clearance agrees (~0.85 vs ~1 L/h/kg), but the arterial small-V1 model gives a Cmax 2.4x the label's venous value; only clearance is comparable across sampling sites. HUMAN ITEMS: confirm Table IV, and fit a true Ki from the individual reversal data.",
+      "human_verified": false
+    }
+  },
+  "primary_citation": "fiset-1995-flumazenil",
+  "notes": "Competitive reversal of midazolam: the apparent-Ce50 multiplier (1 + C_flumazenil/Ki) rises then falls as flumazenil clears. Now that midazolam has an executable kernel, the midazolam effect-site curve and its antagonist-adjusted equivalent are computed too, so resedation comes from both drugs' kinetics. Forward-only: never a re-dosing schedule."
+}

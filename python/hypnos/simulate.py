@@ -1598,7 +1598,17 @@ def simulate_reversal(
     t = np.asarray(t, dtype=float)
     weight = float(point.get("weight", 70.0))
     rev_mg = parse_amount(reversal_dose, weight)
-    ago_mg = parse_amount(agonist_dose, weight)
+    # the agonist already in the patient: a bolus ('0.1 mg/kg') or, for competitive reversal, a
+    # running infusion from t=0 ('0.05 mg/kg/h'), the design in which resedation is unambiguous.
+    try:
+        parse_rate(agonist_dose, weight)
+        agonist_is_rate = True
+    except ValueError:
+        agonist_is_rate = False
+    ago_mg = None if agonist_is_rate else parse_amount(agonist_dose, weight)
+    if agonist_is_rate and rm["type"] != "competitive_receptor":
+        raise ValueError(f"agonist infusion ({agonist_dose!r}) is supported only for competitive "
+                         "reversal; give the agonist as a bolus amount (e.g. '0.6 mg/kg')")
     warns = [f"REVERSAL ({rm['type']}): simulating a GIVEN dose ({reversal_dose}) of {rev.drug_name} "
              f"on {agonist.drug_name} — forward-only; Hypnos never computes a reversal dose (§A6)"]
     mech = rm["type"]
@@ -1651,8 +1661,9 @@ def simulate_reversal(
             # the agonist's own trajectory (given at t=0) and its antagonist-adjusted equivalent.
             # A rise of the adjusted curve after its post-reversal nadir is renarcotization
             # computed from BOTH drugs' kinetics, not inferred from the antagonist alone.
+            kind = "infusion" if agonist_is_rate else "bolus"
             gtraj = _simulate_ref(KERNELS[agonist.kernel_function](point),
-                                  build_dosing([("bolus", 0.0, agonist_dose)], weight), t)
+                                  build_dosing([(kind, 0.0, agonist_dose)], weight), t)
             eff = gtraj.ce / mult
             res.agonist_ce, res.agonist_ce_effective = gtraj.ce, eff
             res.free_ce_no_reversal = gtraj.ce
@@ -1661,16 +1672,21 @@ def simulate_reversal(
             if after.any():
                 idx = np.flatnonzero(after)
                 i_nadir = int(idx[np.argmin(eff[idx])])
-                if eff[i_nadir] > 0 and i_nadir < len(t) - 1 and eff[-1] > 1.05 * eff[i_nadir]:
+                # a relapse is a rise of the adjusted curve WHILE the antagonist's shift wanes (on an
+                # agonist infusion the agonist's own accumulation alone must not count as one)
+                if (eff[i_nadir] > 0 and i_nadir < len(t) - 1 and eff[-1] > 1.05 * eff[i_nadir]
+                        and mult[-1] < mult[i_nadir]):
                     res.renarcotization = True
                     f = concentration_factor(res.agonist_unit)
+                    share_nadir = 100.0 * eff[i_nadir] / gtraj.ce[i_nadir]
+                    share_end = 100.0 * eff[-1] / gtraj.ce[-1]
                     warns.append(
                         f"RENARCOTIZATION (agonist kinetics): the antagonist-adjusted {agonist.drug_name} Ce "
                         f"falls to a nadir {eff[i_nadir] * f:.3g} {res.agonist_unit} at "
                         f"t={t[i_nadir]:.0f} min, then RISES to {eff[-1] * f:.3g} by t={t[-1]:.0f} min "
-                        f"(+{100 * (eff[-1] / eff[i_nadir] - 1):.0f}%) as {rev.drug_name} clears faster "
-                        f"than {agonist.drug_name} (Ki illustrative, Tier-C; forward-only, never a "
-                        "re-dosing schedule)")
+                        f"(from {share_nadir:.0f}% to {share_end:.0f}% of the un-reversed Ce) as "
+                        f"{rev.drug_name} clears faster than {agonist.drug_name} (Ki Tier-C; "
+                        "forward-only, never a re-dosing schedule)")
         return res
 
     if mech == "enzyme_inhibition":

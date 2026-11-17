@@ -31,6 +31,7 @@ except ImportError:  # pragma: no cover
 
 import hypnos
 from hypnos.filter import pk_drugs
+from hypnos.models import concentration_factor
 from hypnos.presets import default_schedule_for
 from hypnos.reference import alveolar_washin, alveolar_washout, mac_age_corrected
 
@@ -505,8 +506,18 @@ if reversal_agents:
         elif mech == "competitive_receptor":
             st.line_chart(pd.DataFrame({"t (min)": tr, "apparent-Ce50 multiplier": rr.ce50_multiplier}),
                           x="t (min)")
-            st.caption("How far the antagonist shifts the opioid's apparent Ce50. A multiplier that "
-                       "peaks and falls back toward 1 means the opioid effect returns.")
+            st.caption(f"How far the antagonist shifts {agonist.drug_name}'s apparent Ce50. A multiplier "
+                       f"that peaks and falls back toward 1 means the {agonist.drug_name} effect returns.")
+            if rr.agonist_ce_effective is not None:
+                fa = concentration_factor(rr.agonist_unit)
+                st.line_chart(pd.DataFrame({
+                    "t (min)": tr,
+                    f"{agonist.drug_name} Ce, no reversal ({rr.agonist_unit})": rr.agonist_ce * fa,
+                    f"antagonist-adjusted Ce/(1+C/Ki) ({rr.agonist_unit})": rr.agonist_ce_effective * fa,
+                }), x="t (min)")
+                st.caption("The agonist's own effect-site curve and its antagonist-adjusted equivalent: "
+                           "a gap that closes again as the antagonist clears is the relapse, computed "
+                           "from both drugs' kinetics.")
         elif mech == "enzyme_inhibition":
             st.line_chart(pd.DataFrame({"block depth before reversal (1 = complete)": rr.free_ce,
                                         "residual block after neostigmine": rr.effect}),

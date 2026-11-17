@@ -1,0 +1,13 @@
+{
+  "name": "flumazenil",
+  "synonyms": [
+    "Romazicon",
+    "Anexate"
+  ],
+  "unii": "40P7XK9392",
+  "atc": "V03AB25",
+  "drug_class": "competitive benzodiazepine-site (GABA-A) antagonist",
+  "subsystem": "reversal",
+  "notes": "Competitive benzodiazepine antagonist; SHORT terminal half-life (~1 h) -> resedation when reversing a longer-acting benzodiazepine.",
+  "concentration_unit": "ng/mL"
+}

@@ -8,6 +8,27 @@ version is pinned in `dataset/VERSION` and stamped into every export as
 
 ## [Unreleased]
 
+### Flumazenil → midazolam: the last v0.5 reversal agent, with resedation computed (2026-11-16)
+- **`reversal.flumazenil.competitive`** targets `hypnotics_iv.midazolam.buhrer_1990`. The v0.5 spec had
+  marked it "not curated — no benzodiazepine model exists to target"; the midazolam kernels unblocked it.
+  PK is Fiset 1995 Table IV (V1 5.6 / V2 15.93 / V3 39.44 L; CL 1.12 / 1.79 / 0.86 L/min; a page-image
+  transcription that reproduces the table's half-lives and Vss 61 L, tested), with ke0 = ln2/4.46 min
+  from the EEG reversal.
+- **The Ki is a published scale, not an invented constant:** it is the flumazenil reversal EC50 at light
+  sedation (13.7 ng/mL). It is labeled as not a binding constant. The abstract's rise to 20.6 ng/mL at
+  a higher midazolam level is the competitive signature, recorded in the rationale. The resedation
+  failure mode is cited to Fiset, who let volunteers resedate on purpose.
+- **Competitive reversal accepts an agonist infusion** (`agonist_dose="0.1 mg/kg/h"`, CLI
+  `--agonist-dose`), the design in which resedation is unambiguous. A rate is rejected for the other
+  mechanisms with a clear error. A relapse now has to coincide with the antagonist's shift waning, so
+  agonist accumulation alone is not called one. The warning reports the reversed curve as a share of
+  the un-reversed one (49% → 98% for 0.5 mg on a midazolam infusion).
+- The dashboard's competitive panel charts the agonist's own Ce against its antagonist-adjusted
+  equivalent, with captions naming the agonist (it said "opioid"). 35 models, 23 drugs, 50 citations.
+- **New CI-executed notebook `notebooks/05_iv_breadth.ipynb`** (built by `scripts/build_breadth_notebook.py`).
+  It asserts the Phase C claims from the live kernels: midazolam healthy vs ICU, alfentanil
+  pedigree vs performance, the opioid offset ordering, and flumazenil resedation.
+
 ### Etomidate Kaneda 2011: the v0.1 IV-hypnotic list is complete (2026-11-16)
 - **`hypnotics_iv.etomidate.kaneda_2011`** is executable: an absolute 2-compartment NONMEM model
   (18 healthy volunteers). V1 4.45 / V2 74.9 L, CL 0.63 / Q 3.16 L/min and t½ke0 1.55 min are quoted
